@@ -144,6 +144,52 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     known.set(path, rel);
   }
 
+  // Grafo local de navegação: encontrar páginas sem entrada e URLs não
+  // alcançáveis desde a homepage, mesmo quando estão no sitemap.
+  const graphEdges = new Map(pages.map(page => [page.path, new Set(
+    page.links.filter(url => known.has(url))
+  )]));
+  const inbound = new Map(pages.map(page => [page.path, new Set()]));
+  for (const [source, targets] of graphEdges) {
+    for (const target of targets) {
+      if (source !== target) inbound.get(target).add(source);
+    }
+  }
+  const distances = new Map();
+  if (known.has('/')) {
+    const pending = ['/'];
+    distances.set('/', 0);
+    for (let i = 0; i < pending.length; i++) {
+      const from = pending[i], depth = distances.get(from);
+      for (const next of graphEdges.get(from) ?? []) {
+        if (!distances.has(next)) {
+          distances.set(next, depth + 1);
+          pending.push(next);
+        }
+      }
+    }
+  } else {
+    errors.push({type:'missing_homepage',file:'index.html',message:'Public homepage missing'});
+  }
+  for (const page of pages) {
+    if (page.path === '/') continue;
+    if (inbound.get(page.path).size === 0) {
+      warnings.push({type:'orphan_page',file:page.file,message:'No inbound internal navigation link'});
+    }
+    if (!distances.has(page.path)) {
+      warnings.push({type:'unreachable_page',file:page.file,message:'Not reachable from the homepage'});
+    } else if (distances.get(page.path) > 3) {
+      warnings.push({type:'deep_page',file:page.file,
+        message:'Page needs '+distances.get(page.path)+' clicks from homepage'});
+    }
+  }
+  const graph = {
+    reachable: distances.size,
+    unreachable: pages.length - distances.size,
+    maxClicks: Math.max(0,...distances.values()),
+    orphanPages: pages.filter(p => p.path !== '/' && inbound.get(p.path).size===0).length
+  };
+
   for (const page of pages) {
     for (const link of page.links) {
       if (!known.has(link) && link !== '/404.html') errors.push({type:'broken_internal_link',file:page.file,message:'No built page for ' + link});
@@ -176,6 +222,6 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   }
   return {
     summary: { pages: pages.length, errors: errors.length, warnings: warnings.length },
-    errors, warnings
+    graph, errors, warnings
   };
 }
