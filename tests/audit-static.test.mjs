@@ -71,3 +71,47 @@ test('detects malformed JSON-LD and unsafe javascript href',async()=>{
     assert.ok(r.errors.some(x=>x.type==='unsafe_href'));
   });
 });
+
+test('reports pages present in the sitemap but disconnected from homepage navigation',async()=>{
+  await withSite({},async root=>{
+    await mkdir(join(root,'campanhas'),{recursive:true});
+    await writeFile(join(root,'campanhas/index.html'),makePage('/campanhas/'));
+    await writeFile(join(root,'sitemap.xml'),
+      '<urlset><url><loc>'+origin+'/</loc></url><url><loc>'+origin+
+      '/servicos/</loc></url><url><loc>'+origin+'/campanhas/</loc></url></urlset>');
+    const r=await auditStaticSite(root);
+    assert.ok(r.warnings.some(x=>x.type==='orphan_page'&&x.file==='campanhas/index.html'));
+    assert.ok(r.warnings.some(x=>x.type==='unreachable_page'&&x.file==='campanhas/index.html'));
+    assert.equal(r.graph.unreachable,1);
+    assert.equal(r.graph.orphanPages,1);
+  });
+});
+test('computes shortest click depth and flags deeply nested navigation',async()=>{
+  await withSite({
+    home:makePage('/',{links:['/servicos/']}),
+    service:makePage('/servicos/',{links:['/nivel2/']})
+  },async root=>{
+    await mkdir(join(root,'nivel2'),{recursive:true});
+    await mkdir(join(root,'nivel3'),{recursive:true});
+    await mkdir(join(root,'nivel4'),{recursive:true});
+    await writeFile(join(root,'nivel2/index.html'),makePage('/nivel2/',{links:['/nivel3/']}));
+    await writeFile(join(root,'nivel3/index.html'),makePage('/nivel3/',{links:['/nivel4/']}));
+    await writeFile(join(root,'nivel4/index.html'),makePage('/nivel4/'));
+    const map=['/','/servicos/','/nivel2/','/nivel3/','/nivel4/'];
+    await writeFile(join(root,'sitemap.xml'),
+      '<urlset>'+map.map(p=>'<url><loc>'+origin+p+'</loc></url>').join('')+'</urlset>');
+    const r=await auditStaticSite(root);
+    assert.equal(r.graph.maxClicks,4);
+    assert.equal(r.graph.reachable,5);
+    assert.ok(r.warnings.some(x=>x.type==='deep_page'&&x.file==='nivel4/index.html'));
+    assert.equal(r.graph.orphanPages,0);
+  });
+});
+test('home page with a self link does not count as an orphan',async()=>{
+  await withSite({home:makePage('/',{links:['/','/servicos/']})},async root=>{
+    const r=await auditStaticSite(root);
+    assert.equal(r.graph.unreachable,0);
+    assert.equal(r.graph.reachable,2);
+    assert.equal(r.graph.orphanPages,0);
+  });
+});
