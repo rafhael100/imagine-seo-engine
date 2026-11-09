@@ -1,0 +1,73 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { auditStaticSite } from '../src/audit-static.mjs';
+
+const origin='https://imaginecomunicacao.com.br';
+function makePage(route, overrides={}) {
+  const { title='Título exclusivo: ' + route, canonical=origin+route,
+    description='Conteúdo comercial original para empresas interessadas em serviços digitais.',
+    h1='Conheça os serviços da Imagine', noindex=false, links=[] }=overrides;
+  return '<!doctype html><html lang="pt-BR"><head><title>'+title+'</title>'+
+    '<meta name="description" content="'+description+'">'+
+    '<meta name="robots" content="'+(noindex?'noindex':'index,follow')+'">'+
+    '<link rel="canonical" href="'+canonical+'">'+
+    '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>'+
+    '</head><body><h1>'+h1+'</h1>'+
+    links.map(href=>'<a href="'+href+'">Visitar</a>').join('')+'</body></html>';
+}
+async function withSite(overrides, run) {
+  const root=await mkdtemp(join(tmpdir(),'imagine-seo-f0-'));
+  await mkdir(join(root,'servicos'),{recursive:true});
+  await writeFile(join(root,'index.html'),overrides.home || makePage('/',{links:['/servicos/']}));
+  await writeFile(join(root,'servicos/index.html'),overrides.service || makePage('/servicos/'));
+  await writeFile(join(root,'robots.txt'), overrides.robots ?? 'User-agent: *\nAllow: /\nSitemap: '+origin+'/sitemap.xml\n');
+  await writeFile(join(root,'sitemap.xml'), overrides.sitemap ?? '<?xml version="1.0"?><urlset><url><loc>'+origin+'/</loc></url><url><loc>'+origin+'/servicos/</loc></url></urlset>');
+  try { return await run(root); } finally { await rm(root,{recursive:true,force:true}); }
+}
+test('passes valid public routes and sitemap without external calls', async()=>{
+  await withSite({}, async root=>{
+    const result=await auditStaticSite(root);
+    assert.deepEqual(result.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('detects accidental noindex and canonical corruption',async()=>{
+  await withSite({home:makePage('/',{noindex:true,canonical:origin+'/wrong/'})}, async root=>{
+    const r=await auditStaticSite(root);
+    assert.ok(r.errors.some(x=>x.type==='unexpected_noindex'));
+    assert.ok(r.errors.some(x=>x.type==='wrong_canonical'));
+  });
+});
+test('detects broken internal links and invalid sitemap URL',async()=>{
+  await withSite({home:makePage('/',{links:['/servicos/','/not-found/']}),
+    sitemap:'<urlset><loc>https://other.example/not-here/</loc></urlset>'}, async root=>{
+    const r=await auditStaticSite(root);
+    assert.ok(r.errors.some(x=>x.type==='broken_internal_link'));
+    assert.ok(r.errors.some(x=>x.type==='invalid_sitemap_url'));
+  });
+});
+test('detects duplicate titles and robots disallow root',async()=>{
+  await withSite({service:makePage('/servicos/',{title:'Título exclusivo: /'}),
+    robots:'User-agent: *\nDisallow: /\n'}, async root=>{
+    const r=await auditStaticSite(root);
+    assert.ok(r.warnings.some(x=>x.type==='duplicate_title'));
+    assert.ok(r.errors.some(x=>x.type==='robots_block_all'));
+  });
+});
+test('rejects invalid origin and missing directory',async()=>{
+  await assert.rejects(auditStaticSite('missing-folder-12345'), /ENOENT/);
+  await withSite({}, async root=>{
+    await assert.rejects(auditStaticSite(root,{siteUrl:'http://example.org'}), /HTTPS origin/);
+  });
+});
+test('detects malformed JSON-LD and unsafe javascript href',async()=>{
+  const broken=makePage('/',{links:['javascript:alert(1)']})
+    .replace('{"@context":"https://schema.org","@type":"WebPage"}','{"invalid":');
+  await withSite({home:broken}, async root=>{
+    const r=await auditStaticSite(root);
+    assert.ok(r.errors.some(x=>x.type==='invalid_jsonld'));
+    assert.ok(r.errors.some(x=>x.type==='unsafe_href'));
+  });
+});
