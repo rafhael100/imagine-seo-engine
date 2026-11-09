@@ -23,3 +23,15 @@ Referência: 09/11/2026.
 - Matriz de similaridade usa trigramas de palavras e normaliza cidades/UF como tokens; é sinal de revisão, não prova de originalidade ou existência de cidade na base oficial.
 - Prioridade P1 mantida; primeiro cliente técnico segue Imagine Comercial, mas nenhuma propriedade GSC/GA4 está conectada e o motor não tem dados reais ou infraestrutura SaaS multiempresa em execução.
 - Próximos gates: pesquisa com fontes verificadas, conexão OAuth consentida, governança multiempresa, autorizações por cliente, integração ao Portal, publicação editorial supervisionada e homologação de produção.
+
+
+## Consolidação P1 — SEO-F5 e consumo pelo Comercial (09/11/2026)
+Esta seção é o **estado atualizado**; indicadores de testes acima são registros históricos.
+
+- PRs #2–#7 permanecem em draft empilhados, sem merge na `main`; [ponta SEO-F5](https://github.com/rafhael100/imagine-seo-engine/pull/7) SHA `238acb0772dc7597f23ce3fd1761d68be1d35179`.
+- **35/35 testes Node** da biblioteca SEO aprovados no [CI do motor](https://github.com/rafhael100/imagine-seo-engine/actions/runs/42610898272).
+- Auditor offline: canonicals, indexação, schema, sitemap, robots, links internos, páginas órfãs e profundidade; política de bloqueio de erros/avisos utilizada pelo site comercial.
+- O importador de CSV Search Console da dimensão Consultas aceita cabeçalhos PT-BR/EN, janelas explícitas, comparação de períodos e filtragem inicial de dados identificáveis; não conecta OAuth nem comprova propriedade/total de acessos.
+- Integrado ao **Imagine Comercial P0** pelo checkout de SHA fixo, com os **35 testes próprios do SEO Engine executados dentro do [CI do Comercial](https://github.com/rafhael100/imagine-comercial/actions/runs/42620760030)**; 78 testes do site e auditoria de 15 páginas passaram.
+- Sem conexão real GSC/GA4, tráfego, métricas orgânicas verdadeiras, credenciais ou autorização de clientes. Não há geração/publicação de páginas territoriais em massa.
+- Próxima prioridade: autorização da propriedade, OAuth e LGPD/retention depois de aprovação explícita; manter auditoria técnica e proteção de migração do Imagine Comercial como consumidor inicial. Nenhum merge, deploy ou compra automática.
