@@ -16,7 +16,7 @@ function normalizedContent(item){
   let content=normalized(item.localContent||'');
   for (const term of [item.city,item.state,item.serviceSlug].filter(Boolean)) {
     const phrase=normalized(term);
-    if(phrase.length>=2) content=content.replace(new RegExp('\\b'+phrase.split(/\\s+/).join('\\s+')+'\\b','g'),' GEO ');
+    if(phrase.length>=2) content=content.replace(new RegExp('\\b'+phrase.split(' ').join('\\s+')+'\\b','g'),' GEO ');
   }
   return content;
 }
