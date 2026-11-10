@@ -45,3 +45,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Adaptador local de relatórios GSC com identificadores de empresa, fingerprint de propriedade e origem, dados agregados e filtro de consultas pessoais.
 - Comparações offline bloqueadas quando empresa/propriedade declarada divergem, com testes sintéticos.
 - NÃO há autenticação, conexão OAuth, verificação real de propriedade, banco de dados, consentimento persistido ou isolamento de produção.
+
+## SEO-F8 — Segurança do auditor estático (09/11/2026)
+- Leitura local de robots.txt/sitemap.xml limitada a 5 MiB e protegida contra links simbólicos; URL de origem rejeita credenciais/porta customizada.
+- Casos de regressão sintéticos para path symlink, recurso gigante e URL de origem insegura.
+- Sem rede, deploy, OAuth, publicação, gasto ou merge na `main`.
