@@ -181,3 +181,24 @@ test('sitemap error messages do not leak untrusted URL secrets',async()=>{
       assert.doesNotMatch(JSON.stringify(result.errors),/PRIVATE123|evil\\.test/);
     });
 });
+
+test('valid near-limit HTML remains readable through bounded reader',async()=>{
+  await withSite({},async root=>{
+    const file=join(root,'almost-large.html');
+    const contents='x'.repeat(2*1024*1024);
+    await writeFile(file,contents);
+    assert.equal((await readSafeHtmlFile(file)).length,contents.length);
+  });
+});
+test('resource symlink rejection is unchanged after shared bounded reader',async()=>{
+  await withSite({},async root=>{
+    const target=join(root,'private-sitemap.xml');
+    await writeFile(target,'<urlset><loc>https://private.test/secret</loc></urlset>');
+    await rm(join(root,'sitemap.xml'));
+    await symlink(target,join(root,'sitemap.xml'));
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='unsafe_site_resource'&&x.file==='sitemap.xml'));
+    assert.ok(result.errors.some(x=>x.type==='missing_sitemap'));
+    assert.doesNotMatch(JSON.stringify(result.errors),/private.test\/secret/);
+  });
+});

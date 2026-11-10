@@ -14,15 +14,18 @@ export async function readBoundedLocalText(path,{maxBytes=10*1024*1024}={}){
     !Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>10*1024*1024)
     throw Error('SEO input: invalid local file or byte limit');
   const meta=await lstat(path);
-  if(!meta.isFile()||meta.isSymbolicLink()||meta.size>maxBytes)
-    throw Error('SEO input: regular local file within size limit required');
+  if(!meta.isFile()||meta.isSymbolicLink())
+    throw Error('SEO input: unsafe local file');
+  if(meta.size>maxBytes)
+    throw Error('SEO input: size limit exceeded');
   let handle;
   try{
     handle=await open(path,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
     const actual=await handle.stat();
-    if(!actual.isFile()||actual.size>maxBytes||
-      actual.dev!==meta.dev||actual.ino!==meta.ino)
-      throw Error('SEO input: file changed or exceeded size limit');
+    if(!actual.isFile()||actual.dev!==meta.dev||actual.ino!==meta.ino)
+      throw Error('SEO input: file changed or is unsafe');
+    if(actual.size>maxBytes)
+      throw Error('SEO input: size limit exceeded');
     const chunks=[];
     let position=0;
     for(;;){
