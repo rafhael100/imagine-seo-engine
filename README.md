@@ -65,3 +65,7 @@ O comando `audit-dist.mjs` aceita no máximo um diretório e uma URL de origem, 
 ## Qualidade de sitemap XML (SEO-F30)
 
 O auditor local descarta URLs ocultas em comentários, exige a estrutura básica `urlset` e pelo menos uma `loc`, e rejeita fragmentos ou URLs diferentes da forma canônica pública. É uma verificação offline; para XML arbitrário ainda é necessário um parser normativo em homologação.
+
+## Diretivas Googlebot (SEO-F31)
+
+O auditor verifica `robots=none` e `meta name="googlebot"` com `noindex`, `none` ou `nofollow`; no modo estrito detecta também declarações Googlebot duplicadas. As regras se aplicam ao build HTML, não a headers HTTP de um servidor ativo.

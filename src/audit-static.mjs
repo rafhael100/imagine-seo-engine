@@ -221,8 +221,22 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       canonicals.set(canon, rel);
     }
     const robots = getMeta(head, 'robots');
-    const content = robots.map(x => x.content?.toLowerCase() || '').join(',');
-    if (/\bnoindex\b/.test(content)) errors.push({type:'unexpected_noindex',file:rel,message:'Public route contains noindex'});
+    const googlebotMeta=getMeta(head,'googlebot');
+    const directiveTokens=items=>items.flatMap(item=>
+      typeof item.content==='string'?item.content.toLowerCase().split(/[,\s]+/):[])
+      .filter(Boolean);
+    const publicRobots=directiveTokens(robots);
+    const googlebotDirectives=directiveTokens(googlebotMeta);
+    // "none" is defined as noindex,nofollow; Googlebot-specific directives
+    // can override a general robots "index,follow" declaration.
+    if(publicRobots.includes('noindex')||publicRobots.includes('none'))
+      errors.push({type:'unexpected_noindex',file:rel,message:'Public route contains noindex/none'});
+    if(googlebotDirectives.some(x=>['noindex','none','nofollow'].includes(x)))
+      errors.push({type:'googlebot_indexing_blocked',file:rel,
+        message:'Googlebot-specific meta prevents indexation or link following'});
+    if(strictPublicHead&&googlebotMeta.length>1)
+      errors.push({type:'duplicate_googlebot_meta',file:rel,
+        message:'Multiple Googlebot meta directives require manual review'});
     if(strictPublicHead){
       // Additional gate for curated public routes, not for arbitrary static builds.
       if(robots.length!==1||!robots[0].content?.trim()){

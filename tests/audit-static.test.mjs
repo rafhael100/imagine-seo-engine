@@ -400,3 +400,41 @@ test('sitemap exact public canonical accepts valid loc whitespace in XML',async(
     assert.deepEqual(result.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('Googlebot-specific noindex is detected despite public robots index-follow',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>','<meta name="googlebot" content="noindex,follow"></head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(e=>e.type==='googlebot_indexing_blocked'&&e.file==='index.html'));
+  });
+});
+test('robots meta none is treated as noindex even without explicit noindex token',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('content="index,follow"','content="none"');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(e=>e.type==='unexpected_noindex'&&e.file==='index.html'));
+  });
+});
+test('strict public head flags Googlebot nofollow and duplicate directives',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>','<meta name="googlebot" content="nofollow">'+
+      '<meta name="googlebot" content="index,follow">'+
+      '<meta property="og:url" content="'+origin+'/"></head>');
+  const svc=makePage('/servicos/')
+    .replace('</head>','<meta property="og:url" content="'+origin+'/servicos/"></head>');
+  await withSite({home,service:svc},async root=>{
+    const result=await auditStaticSite(root,{strictPublicHead:true});
+    assert.ok(result.errors.some(e=>e.type==='googlebot_indexing_blocked'));
+    assert.ok(result.errors.some(e=>e.type==='duplicate_googlebot_meta'));
+  });
+});
+test('Googlebot benign directive does not change the public indexing gate',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>','<meta name="googlebot" content="index,follow"></head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
