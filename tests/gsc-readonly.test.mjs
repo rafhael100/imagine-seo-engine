@@ -79,3 +79,22 @@ test('refuses forged read-only plans with incompatible query dimensions or data 
     ...original,body:{...original.body,dimensions:['page']}
   }),/compatible query plan/);
 });
+
+test('rejects duplicate query rows and out-of-order clicks in one API response',()=>{
+  const row=(q,clicks)=>({keys:[q],clicks,impressions:100,ctr:clicks/100,position:8});
+  assert.throws(()=>analyzeGscQueryResponse({rows:[row('site',10),row('site',10)]},make()),
+    /duplicate query key/);
+  assert.throws(()=>analyzeGscQueryResponse({rows:[row('site',5),row('seo',7)]},make()),
+    /invalid query order/);
+  const ok=analyzeGscQueryResponse({rows:[row('site',7),row('seo',7)]},make());
+  assert.equal(ok.summary.analyzedRows,2);
+});
+test('refuses forged tenant, fingerprint and operator authorization fields',()=>{
+  const plan=make(),response={rows:[]};
+  assert.throws(()=>analyzeGscQueryResponse(response,{...plan,tenantRef:'bad private tenant'}),
+    /compatible query plan/);
+  assert.throws(()=>analyzeGscQueryResponse(response,{...plan,propertyFingerprint:'not-a-hash'}),
+    /compatible query plan/);
+  assert.throws(()=>analyzeGscQueryResponse(response,{...plan,authorization:'verified_provider'}),
+    /compatible query plan/);
+});

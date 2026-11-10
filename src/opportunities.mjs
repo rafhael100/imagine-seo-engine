@@ -38,7 +38,7 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
   try { validateGscPeriod(report.startDate,report.endDate); }
   catch { throw new Error('GSC: invalid reporting dates'); }
   if (!Array.isArray(report.rows) || report.rows.length>100000) throw new Error('GSC: invalid rows');
-  if (!Number.isInteger(minImpressions) || minImpressions<1) throw new Error('GSC: invalid minimum impressions');
+  if (!Number.isSafeInteger(minImpressions) || minImpressions<1) throw new Error('GSC: invalid minimum impressions');
   const buckets=new Map();
   let redactedRows=0;
   let totalRows=0;
@@ -50,7 +50,8 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     if(!Number.isSafeInteger(row.clicks) || row.clicks<0 || !Number.isSafeInteger(row.impressions) || row.impressions<0 ||
       row.clicks>row.impressions || typeof row.ctr!=='number' || !Number.isFinite(row.ctr) || row.ctr<0 || row.ctr>1 ||
       typeof row.position!=='number' || !Number.isFinite(row.position) || row.position<1) throw new Error('GSC: invalid metrics at row '+index);
-    if(row.impressions>0 && Math.abs(row.ctr-row.clicks/row.impressions)>0.02) throw new Error('GSC: inconsistent CTR at row '+index);
+    if((row.impressions===0 && row.ctr!==0) ||
+      (row.impressions>0 && Math.abs(row.ctr-row.clicks/row.impressions)>0.02)) throw new Error('GSC: inconsistent CTR at row '+index);
     totalRows++;
     if(PRIVATE_TERM.test(query)) {redactedRows++;continue;}
     const segment=/\bimagine\b/.test(normalize(query)) ? 'branded' : 'nonbranded';
