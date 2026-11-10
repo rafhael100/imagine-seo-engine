@@ -616,3 +616,40 @@ test('JS strings containing template syntax are not treated as real inert markup
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('head script strings cannot fake title, description, canonical or robots tags',async()=>{
+  const fake=makePage('/',{links:['/servicos/']})
+    .replace(/<title>[\s\S]*?<\/title>/,'')
+    .replace('<meta name="description" content="Conteúdo comercial original para empresas interessadas em serviços digitais.">','')
+    .replace('<link rel="canonical" href="'+origin+'/">','')
+    .replace('<meta name="robots" content="index,follow">','')
+    .replace('</head>','<script>const template = '+
+      '["<title>Forged title</title>",'+
+      '"<meta name=\\"description\\" content=\\"forged\\">",'+
+      '"<link rel=\\"canonical\\" href=\\"'+origin+'/\\">",'+
+      '"<meta name=\\"robots\\" content=\\"index,follow\\">"].join("");</script></head>');
+  await withSite({home:fake},async root=>{
+    const report=await auditStaticSite(root,{strictPublicHead:true});
+    for(const type of ['missing_title','missing_description','missing_canonical',
+      'missing_robots_meta'])
+      assert.ok(report.errors.some(x=>x.type===type&&x.file==='index.html'),type);
+  });
+});
+test('style text cannot spoof a public canonical URL in the head',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<link rel="canonical" href="'+origin+'/">','')
+    .replace('</head>','<style>/* <link rel="canonical" href="'+origin+'/"> */</style></head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='missing_canonical'&&x.file==='index.html'));
+  });
+});
+test('real head metadata and JSON-LD remain valid with scripts present',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>',
+      '<script>const ignored="<title>not real</title>";</script></head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});

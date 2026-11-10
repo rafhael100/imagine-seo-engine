@@ -178,3 +178,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Tags de H1, navegação, metadados e JSON-LD que constem apenas de elementos HTML `<template>` não contam como evidência pública.
 - O removedor cobre templates aninhados e ignora a sintaxe `<template>` contida em scripts/styles, reduzindo falsos positivos da análise do build estático.
 - Testes sintéticos adversariais; não substitui DOM de navegador nem análise do JS após execução.
+
+## SEO-F37 — Metadados de head imunes a texto bruto de scripts/estilos (10/11/2026)
+- O auditor desconsidera scripts e estilos quando localiza title/meta/canonical/robots/og:url dentro de `<head>`; literais contendo markup HTML não podem satisfazer diretivas de indexação.
+- A verificação JSON-LD continua independente sobre o HTML não comentado, sem alterar o comportamento de páginas legítimas.
+- Testes adversariais sintéticos; nenhuma integração real, produção ou publicação alterada.
