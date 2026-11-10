@@ -69,10 +69,14 @@ export function planGscQuery({
  */
 export function analyzeGscQueryResponse(raw,plan){
   if(!plan||plan.contractVersion!=='seo-gsc-readonly-plan-v1' ||
+    typeof plan.tenantRef!=='string'||!TENANT.test(plan.tenantRef)||
+    typeof plan.propertyFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(plan.propertyFingerprint)||
+    plan.authorization!=='operator_declared_provider_verification_pending'||
     plan.method!=='POST'||plan.requiredOAuthScope!==REQUIRED_SCOPE ||
     !plan.body||!Number.isSafeInteger(plan.body.rowLimit)||
     plan.body.rowLimit<1||plan.body.rowLimit>25000||
     !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
+    plan.body.startRow>100000||
     plan.body.aggregationType!=='byProperty'||
     plan.body.dataState!=='final'||plan.body.type!=='web'||
     !Array.isArray(plan.body.dimensions)||plan.body.dimensions.length!==1||
@@ -91,6 +95,21 @@ export function analyzeGscQueryResponse(raw,plan){
   const rows=raw.rows??[];
   if(rows.length>plan.body.rowLimit)
     throw Error('SEO GSC response: exceeds requested rowLimit');
+  // Search Analytics query rows are returned by clicks descending. A single
+  // page must not silently admit duplicates or out-of-order rows either.
+  let previousClicks=Infinity;
+  const seen=new Set();
+  for(const row of rows){
+    if(!row||typeof row!=='object'||Array.isArray(row)||
+      !Array.isArray(row.keys)||row.keys.length!==1||
+      typeof row.keys[0]!=='string'||!Number.isSafeInteger(row.clicks)||
+      row.clicks<0||row.clicks>previousClicks)
+      throw Error('SEO GSC response: invalid query order or key');
+    if(seen.has(row.keys[0]))
+      throw Error('SEO GSC response: duplicate query key');
+    seen.add(row.keys[0]);
+    previousClicks=row.clicks;
+  }
   const report=analyzeQueryExport({
     dimensions:['query'],
     startDate:plan.body.startDate,

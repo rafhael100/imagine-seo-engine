@@ -112,3 +112,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F22 — Controle de migrações com HOLD obrigatório (10/11/2026)
 - Avaliador offline de candidatos a 301 verifica correspondência entre rotas removidas e destinos existentes, rejeita URLs externas/variantes perigosas e duplicatas; saída só agrega contagens.
 - Mesmo mapeamentos estruturalmente completos são HOLD para revisão por URL; nenhum redirect ou deploy é gerado e CLI sai com código não-zero quando existe remoção de rota.
+
+## SEO-F23 — Integridade de respostas GSC por página e métricas vazias (10/11/2026)
+- Adaptador offline GSC rejeita consulta duplicada e ordem de cliques inconsistente em resposta de página única, além de campos de tenant/fingerprint/autorização adulterados.
+- Analisador recusa CTR não zero em linha com zero impressões e exige limiar de impressões como inteiro seguro; testes estritamente sintéticos.
+- Não há validação de identidade/propriedade OAuth, Google online, deploy ou manipulação de clientes reais.

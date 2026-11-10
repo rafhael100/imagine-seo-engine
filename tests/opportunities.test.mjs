@@ -49,3 +49,15 @@ test('requires dates and a positive opportunity threshold',()=>{
   assert.throws(()=>analyzeQueryExport({...report(),endDate:'bad'}),/invalid reporting dates/);
   assert.throws(()=>analyzeQueryExport(report(),{minImpressions:0}),/minimum impressions/);
 });
+
+test('refuses zero-impression rows with nonzero CTR rather than reporting inconsistent metrics',()=>{
+  assert.throws(()=>analyzeQueryExport(report([
+    {keys:['seo'],clicks:0,impressions:0,ctr:0.9,position:1}
+  ])),/inconsistent CTR/);
+  assert.equal(analyzeQueryExport(report([
+    {keys:['seo'],clicks:0,impressions:0,ctr:0,position:1}
+  ])).summary.analyzedRows,1);
+});
+test('minimum-impression threshold must be an integer safe to compare',()=>{
+  assert.throws(()=>analyzeQueryExport(report(),{minImpressions:Number.MAX_SAFE_INTEGER+1}),/minimum impressions/);
+});
