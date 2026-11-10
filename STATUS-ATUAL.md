@@ -183,3 +183,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O auditor desconsidera scripts e estilos quando localiza title/meta/canonical/robots/og:url dentro de `<head>`; literais contendo markup HTML não podem satisfazer diretivas de indexação.
 - A verificação JSON-LD continua independente sobre o HTML não comentado, sem alterar o comportamento de páginas legítimas.
 - Testes adversariais sintéticos; nenhuma integração real, produção ou publicação alterada.
+
+## SEO-F38 — Estrutura estrita de URL no sitemap (10/11/2026)
+- O modo `strictPublicHead` agora exige uma `loc` por elemento `url`, impedindo entradas avulsas, elementos vazios ou duplicados na mesma entrada.
+- Mantida compatibilidade do modo padrão e o limite de 20 mil URLs; a verificação permanece estática e não constitui parser XML normativo.
+- Regressões sintéticas integradas ao CI; integração Comercial deve manter `--strict-public-head`.

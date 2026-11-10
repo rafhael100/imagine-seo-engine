@@ -14,6 +14,7 @@ const ISSUE_ACTIONS=Object.freeze({
   invalid_sitemap_url:['high','fix_sitemap'],
   missing_sitemap:['high','fix_sitemap'],
   invalid_sitemap_structure:['high','fix_sitemap'],
+  invalid_sitemap_entries:['high','fix_sitemap'],
   missing_sitemap_urls:['high','fix_sitemap'],
   robots_block_all:['critical','review_robots'],
   missing_robots:['high','review_robots'],

@@ -458,6 +458,22 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         throw Error('audit: sitemap URL budget exceeded');
       locs.push(match[1].trim());
     }
+    if(strictPublicHead){
+      // The stricter public-site gate requires every loc inside exactly
+      // one URL container. A bare loc outside <url> is not a sitemap entry.
+      // This is conservative structural validation, not an XML parser.
+      const entries=[...xml.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url\s*>/gi)];
+      let contained=0,invalidEntry=false;
+      for(const entry of entries){
+        const nested=[...entry[1].matchAll(/<loc\s*>([^<]*)<\/loc\s*>/gi)];
+        if(nested.length!==1)invalidEntry=true;
+        contained+=nested.length;
+      }
+      if(entries.length===0||invalidEntry||contained!==locs.length||
+         entries.length!==locs.length)
+        emit(errors,{type:'invalid_sitemap_entries',file:'sitemap.xml',
+          message:'Strict sitemap requires one loc per url entry and no loc outside url'});
+    }
     if(locs.length===0)
       emit(errors,{type:'missing_sitemap_urls',file:'sitemap.xml',message:'No sitemap URL entries'});
     const locSet=new Set(locs);

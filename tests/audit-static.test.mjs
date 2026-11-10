@@ -653,3 +653,38 @@ test('real head metadata and JSON-LD remain valid with scripts present',async()=
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('strict public sitemap accepts one valid loc per URL container',async()=>{
+  const sitemap='<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+
+    '<url><loc>'+origin+'/</loc></url>'+
+    '<url><loc>'+origin+'/servicos/</loc></url></urlset>';
+  await withSite({sitemap},async root=>{
+    const report=await auditStaticSite(root,{strictPublicHead:true});
+    assert.equal(report.errors.some(x=>x.type==='invalid_sitemap_entries'),false);
+    assert.equal(report.errors.some(x=>x.type==='invalid_sitemap_url'),false);
+  });
+});
+test('strict sitemap rejects loc outside url even for known canonical pages',async()=>{
+  const sitemap='<urlset><url><loc>'+origin+'/</loc></url>'+
+    '<loc>'+origin+'/servicos/</loc></urlset>';
+  await withSite({sitemap},async root=>{
+    const report=await auditStaticSite(root,{strictPublicHead:true});
+    assert.ok(report.errors.some(x=>x.type==='invalid_sitemap_entries'));
+  });
+});
+test('strict sitemap rejects two loc elements inside one url entry',async()=>{
+  const sitemap='<urlset><url><loc>'+origin+'/</loc>'+
+    '<loc>'+origin+'/servicos/</loc></url></urlset>';
+  await withSite({sitemap},async root=>{
+    const report=await auditStaticSite(root,{strictPublicHead:true});
+    assert.ok(report.errors.some(x=>x.type==='invalid_sitemap_entries'));
+  });
+});
+test('strict sitemap rejects empty url entries even when other locs are valid',async()=>{
+  const sitemap='<urlset><url></url><url><loc>'+origin+'/</loc></url>'+
+    '<url><loc>'+origin+'/servicos/</loc></url></urlset>';
+  await withSite({sitemap},async root=>{
+    const report=await auditStaticSite(root,{strictPublicHead:true});
+    assert.ok(report.errors.some(x=>x.type==='invalid_sitemap_entries'));
+  });
+});
