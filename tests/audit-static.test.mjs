@@ -310,3 +310,47 @@ test('refuses unsafe budgets and unknown settings',async()=>{
     }
   });
 });
+
+test('robots groups: does not mistake a non-Google crawler disallow for a sitewide block',async()=>{
+  const robots='User-agent: BadBot\nDisallow: /\n\n'+
+    'User-agent: *\nAllow: /\nSitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.some(x=>x.type==='robots_block_all'),false);
+    assert.equal(result.warnings.some(x=>x.type==='sitemap_not_in_robots'),false);
+  });
+});
+test('robots Googlebot specific Allow overrides wildcard Disallow',async()=>{
+  const robots='User-agent: *\nDisallow: /\n\n'+
+    'User-agent: Googlebot\nAllow: /\nSitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.some(x=>x.type==='robots_block_all'),false);
+  });
+});
+test('robots catches Googlebot-specific full root deny even if wildcard permits',async()=>{
+  const robots='User-agent: *\nAllow: /\n\n'+
+    'User-agent: Googlebot\nDisallow: / # root blocked\n'+
+    'Sitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='robots_block_all'));
+  });
+});
+test('robots cannot spoof sitemap declaration inside a comment or prose',async()=>{
+  const robots='User-agent: *\nAllow: /\n'+
+    '# Sitemap: '+origin+'/sitemap.xml\n'+
+    'Comment: Sitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.warnings.some(x=>x.type==='sitemap_not_in_robots'));
+  });
+});
+test('robots recognizes a proper sitemap directive with whitespace and inline comment',async()=>{
+  const robots='User-agent: *\nAllow: /\n'+
+    'SITEMAP : '+origin+'/sitemap.xml # reviewed local fixture\n';
+  await withSite({robots},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.warnings.some(x=>x.type==='sitemap_not_in_robots'),false);
+  });
+});

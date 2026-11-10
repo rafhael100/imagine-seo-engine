@@ -135,3 +135,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F27 — Limites de diretórios, entradas e profundidade (10/11/2026)
 - Auditor agora enumera entradas de diretório em streaming e limita, por padrão, a 5.000 diretórios, 100.000 entradas totais e profundidade de 32, além de 20.000 HTML e teto de bytes pré-existentes.
 - Limites podem ser reduzidos nos testes locais, mas nunca ampliados além do máximo permitido; falhas são explícitas, sem seguir symlinks e sem calls de rede.
+
+## SEO-F28 — Leitura de grupos robots e sitemap (10/11/2026)
+- Auditor distingue grupos `User-agent` para Googlebot e wildcard antes de classificar `Disallow: /`, evitando falsos positivos de regras exclusivas para outros robôs.
+- Apenas diretiva real `Sitemap:` conta; comentários e menções em texto não são evidência de sitemap. Testes sintéticos de escopo, exceção e comentário.
+- Heurística de raiz, não implementa todo o algoritmo de precedência de caminhos do RFC 9309; não substitui consulta real ao crawler Google.

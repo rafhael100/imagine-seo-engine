@@ -53,3 +53,7 @@ Metadados técnicos indexáveis são validados somente quando localizados no `<h
 ## Orçamento de recursos do auditor (SEO-F27)
 
 O crawler local tem orçamentos rígidos de diretórios, entradas e profundidade, além do limite de HTML. Testes podem reduzir estes limites usando `crawlLimits` (não é possível aumentá-los); os limites padrão atendem builds estáticos curados. Arquivos são inspecionados somente em workspace controlado.
+
+## Regras robots.txt por grupo (SEO-F28)
+
+A auditoria distingue regras `User-agent: Googlebot` e `User-agent: *`, sem confundir o bloqueio de um robô específico com o de indexação geral. Somente uma diretiva `Sitemap:` real, e não menção em comentário, atende ao requisito. Os demais algoritmos de precedência para caminhos complexos continuam fora do escopo offline.

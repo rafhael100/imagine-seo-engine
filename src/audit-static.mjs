@@ -13,6 +13,51 @@ const MAX_PAGES = 20000;
 const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
 
+/**
+ * Offline robots summary for the general Google web crawler. This interprets
+ * only exact User-agent groups, global Sitemap lines and full-root rules.
+ * It is not an RFC9309 replacement for path-specific precedence or wildcards.
+ */
+function robotsSiteDirectives(text,site){
+  const groups=[];
+  let agents=[],directives=[],hasDirectives=false;
+  const sitemaps=[];
+  const finish=()=>{
+    if(agents.length)groups.push({agents:[...agents],directives:[...directives]});
+    agents=[];directives=[];hasDirectives=false;
+  };
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.split('#',1)[0].trim();
+    if(!line)continue;
+    const match=line.match(/^([a-z-]+)\s*:\s*(.*?)\s*$/i);
+    if(!match)continue;
+    const name=match[1].toLowerCase(),value=match[2].trim();
+    if(name==='sitemap'){
+      if(value)sitemaps.push(value);
+      continue;
+    }
+    if(name==='user-agent'){
+      if(hasDirectives)finish();
+      if(value)agents.push(value.toLowerCase());
+    }else if(name==='disallow'||name==='allow'){
+      if(!agents.length)continue;
+      hasDirectives=true;
+      directives.push({name,path:value});
+    }
+  }
+  finish();
+  const googleSpecific=groups.filter(g=>g.agents.includes('googlebot'));
+  const applicable=googleSpecific.length?googleSpecific:
+    groups.filter(g=>g.agents.includes('*'));
+  const rules=applicable.flatMap(g=>g.directives);
+  const blocksGooglebot=rules.some(r=>r.name==='disallow'&&r.path==='/')&&
+    !rules.some(r=>r.name==='allow'&&r.path==='/');
+  return {
+    blocksGooglebot,
+    sitemapDeclared:sitemaps.includes(site.origin+'/sitemap.xml')
+  };
+}
+
 function attrs(markup) {
   const result = {};
   for (const match of markup.matchAll(ATTR)) {
@@ -289,8 +334,11 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   const sitemapXml = await tryText('sitemap.xml');
   if (!robotsText) errors.push({type:'missing_robots',file:'robots.txt',message:'robots.txt missing'});
   else {
-    if (/^\s*Disallow:\s*\/\s*$/mi.test(robotsText)) errors.push({type:'robots_block_all',file:'robots.txt',message:'Robots blocks all paths'});
-    if (!robotsText.includes(site.origin + '/sitemap.xml')) warnings.push({type:'sitemap_not_in_robots',file:'robots.txt',message:'Sitemap location absent'});
+    const directives=robotsSiteDirectives(robotsText,site);
+    if(directives.blocksGooglebot)
+      errors.push({type:'robots_block_all',file:'robots.txt',message:'Robots blocks Googlebot at root'});
+    if(!directives.sitemapDeclared)
+      warnings.push({type:'sitemap_not_in_robots',file:'robots.txt',message:'Sitemap directive absent'});
   }
   if (!sitemapXml) errors.push({type:'missing_sitemap',file:'sitemap.xml',message:'Sitemap missing'});
   else {
