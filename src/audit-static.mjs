@@ -245,7 +245,11 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
     const publicHtml=stripInertTemplates(html.replace(/<!--[\s\S]*?-->/g,''));
     const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
-    const head=headMatch?headMatch[1]:'';
+    // HTML inside raw <script>/<style> text is not actual metadata in
+    // the document head. JSON-LD is checked separately from publicHtml.
+    const head=headMatch?headMatch[1]
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,''):'';
     const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
     const body=bodyMatch?bodyMatch[1]:'';
     // A title or anchor embedded in a script/style literal is not a visible

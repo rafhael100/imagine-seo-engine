@@ -89,3 +89,7 @@ A auditoria exige idioma `pt-BR` na abertura real da tag raiz `html`, sem aceita
 ## Conteúdo HTML inerte (SEO-F36)
 
 Elementos `<template>`, inclusive aninhados, são desconsiderados em verificações de títulos, H1, links e JSON-LD. Strings com sintaxe semelhante dentro de scripts não são tomadas como templates reais. O auditor continua offline e estático.
+
+## Metadados protegidos contra HTML em scripts (SEO-F37)
+
+Tags SEO presentes apenas dentro do texto de scripts e estilos do `<head>` não contam como metadados reais. O JSON-LD permanece analisado separadamente.
