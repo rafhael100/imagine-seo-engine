@@ -136,3 +136,38 @@ test('forged preflight flags or status are rejected',()=>{
   ])assert.throws(()=>bind({preflight:{...preflight,...override},plan}),
     /SEO GSC binding:/);
 });
+
+test('binding refuses unknown extra query fields that could alter provider request',()=>{
+  const preflight=review(scope([mk(requestedProperty)])),valid=planFor();
+  const forbidden=[
+    {...valid,body:{...valid.body,dimensionFilterGroups:[{filters:[]}]}},
+    {...valid,body:{...valid.body,searchType:'image'}},
+    {...valid,body:{...valid.body,aggregationType:'byProperty',dataState:'final',filters:[]}},
+    {...valid,authorizationContext:{verified:true}},
+    {...valid,body:{...valid.body,dimensions:['query','page']}}
+  ];
+  for(const plan of forbidden)
+    assert.throws(()=>bind({preflight,plan}),/SEO GSC binding:/);
+});
+test('binding revalidates date windows rather than trusting a forged planner',()=>{
+  const preflight=review(scope([mk(requestedProperty)])),valid=planFor();
+  for(const [startDate,endDate] of [
+    ['2026-02-30','2026-03-01'],
+    ['2026-11-01','2026-10-01'],
+    ['2026-01-01','2026-12-31'],
+    ['', '2026-10-07']
+  ])assert.throws(()=>bind({
+    preflight,plan:{...valid,body:{...valid.body,startDate,endDate}}
+  }),/SEO GSC binding: unsupported query period/);
+});
+test('preflight with declared property but zero inspected entries cannot bind',()=>{
+  const original=review(scope([mk(requestedProperty)])),plan=planFor();
+  assert.throws(()=>bind({preflight:{...original,propertiesInspected:0},plan}),
+    /SEO GSC binding: valid offline preflight/);
+});
+test('valid strict query plan has exactly the expected readonly keys',()=>{
+  const preflight=review(scope([mk(requestedProperty)]));
+  const bound=bind({preflight,plan:planFor()});
+  assert.equal(bound.authorization,'HOLD_EXTERNAL_BACKEND_VERIFICATION');
+  assert.equal(bound.productionReadAuthorized,false);
+});

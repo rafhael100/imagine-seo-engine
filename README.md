@@ -105,3 +105,7 @@ Na auditoria estrita de sites públicos, cada URL do sitemap deve estar em um el
 ## Vínculo offline entre property preflight e plano GSC (SEO-F40)
 
 `bindOfflineGscPlanToPreflight` verifica se tenant, fingerprint da propriedade, URL oficial Google, escopo readonly e corpo da consulta são compatíveis antes da revisão por backend. Todas as saídas mantêm `productionReadAuthorized=false` e `HOLD_EXTERNAL_BACKEND_VERIFICATION`: uma lista de sites fornecida pelo operador não comprova OAuth ou grant real.
+
+## Consulta GSC com formato restrito (SEO-F41)
+
+O vínculo offline F40 exige agora uma lista fechada de campos do plano e do corpo da consulta e revalida datas (até 92 dias), impedindo que parâmetros extras, filtros ou datas adulteradas sejam propagados por engano ao futuro backend. Permanece sem autenticação e sem acesso ao Google.
