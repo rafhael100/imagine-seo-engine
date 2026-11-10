@@ -33,7 +33,8 @@ function robotsSiteDirectives(text,site){
     agents=[];directives=[];hasDirectives=false;
   };
   let lineCount=0;
-  for(const raw of text.match(/[^\r\n]+/g)??[]){
+  for(const entry of text.matchAll(/[^\r\n]+/g)){
+    const raw=entry[0];
     if(++lineCount>MAX_ROBOTS_LINES)
       throw Error('audit: robots line budget exceeded');
     const line=raw.split('#',1)[0].trim();
