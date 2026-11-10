@@ -104,3 +104,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F20 — Diagnósticos seguros em todos os CLIs (10/11/2026)
 - Erros de leitura/parse não imprimem trechos de JSON inválido, nomes de caminhos privados nem mensagens livres das fontes. Parser JSON e formato de diagnóstico comuns.
 - Testes end-to-end com segredos fictícios comprovam sanitização; relatório offline segue sem autenticação ou rede.
+
+## SEO-F21 — Ações imutáveis e permissões mínimas de CI (10/11/2026)
+- Migração de checkout/setup-node tags para SHAs completos já verificados no pipeline Imagine Comercial, com `persist-credentials: false` e runner `ubuntu-24.04` fixado.
+- Testes bloqueiam reintrodução de tags móveis, tokens de deploy e permissões adicionais; matriz Node 22/24 mantida.
