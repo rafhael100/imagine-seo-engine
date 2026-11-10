@@ -260,6 +260,9 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // can override a general robots "index,follow" declaration.
     if(publicRobots.includes('noindex')||publicRobots.includes('none'))
       emit(errors,{type:'unexpected_noindex',file:rel,message:'Public route contains noindex/none'});
+    if(publicRobots.includes('nofollow'))
+      emit(errors,{type:'unexpected_nofollow',file:rel,
+        message:'Public route prevents crawler link following'});
     if(googlebotDirectives.some(x=>['noindex','none','nofollow'].includes(x)))
       emit(errors,{type:'googlebot_indexing_blocked',file:rel,
         message:'Googlebot-specific meta prevents indexation or link following'});

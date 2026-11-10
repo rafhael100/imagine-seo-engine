@@ -77,3 +77,7 @@ A verificação de H1 e links internos usa o conteúdo do corpo sem comentários
 ## Limites anti-exaustão (SEO-F33)
 
 Orçamentos internos e não expansíveis abortam a análise de builds com milhares de links por página, dados estruturados excessivos, sitemap gigantesco, robots muito extenso ou apontamentos demais. Um erro por teto excedido não é uma auditoria concluída nem libera publicação.
+
+## Regras gerais de acompanhamento de links (SEO-F34)
+
+`meta robots=nofollow` agora é identificado como problema de links em páginas públicas, mesmo no modo de auditoria padrão. O modo estrito continua exigindo `index,follow`.

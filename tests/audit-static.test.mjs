@@ -513,3 +513,29 @@ test('reasonable repeated page links and sitemap URLs preserve existing behaviou
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('general robots nofollow is flagged on public pages even without strict mode',async()=>{
+  const home=makePage('/',{links:['/servicos/']}).replace(
+    'content="index,follow"','content="index, nofollow"');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='unexpected_nofollow'&&x.file==='index.html'));
+    assert.equal(result.errors.some(x=>x.type==='googlebot_indexing_blocked'),false);
+  });
+});
+test('general robots follow remains valid without false nofollow diagnosis',async()=>{
+  await withSite({},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.some(x=>x.type==='unexpected_nofollow'),false);
+    assert.deepEqual(result.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('nofollow in non-meta content cannot forge a crawler restriction',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>','<!-- <meta name="robots" content="nofollow"> --></head>')
+    .replace('</body>','<p>nofollow</p></body>');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.some(x=>x.type==='unexpected_nofollow'),false);
+  });
+});

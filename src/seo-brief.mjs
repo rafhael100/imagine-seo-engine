@@ -5,6 +5,7 @@
  */
 const ISSUE_ACTIONS=Object.freeze({
   unexpected_noindex:['critical','review_indexation'],
+  unexpected_nofollow:['high','review_indexation'],
   googlebot_indexing_blocked:['critical','review_indexation'],
   duplicate_googlebot_meta:['high','review_indexation'],
   wrong_canonical:['critical','repair_canonical'],
