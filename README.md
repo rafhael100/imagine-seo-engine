@@ -57,3 +57,7 @@ O crawler local tem orçamentos rígidos de diretórios, entradas e profundidade
 ## Regras robots.txt por grupo (SEO-F28)
 
 A auditoria distingue regras `User-agent: Googlebot` e `User-agent: *`, sem confundir o bloqueio de um robô específico com o de indexação geral. Somente uma diretiva `Sitemap:` real, e não menção em comentário, atende ao requisito. Os demais algoritmos de precedência para caminhos complexos continuam fora do escopo offline.
+
+## Argumentos seguros de CLI (SEO-F29)
+
+O comando `audit-dist.mjs` aceita no máximo um diretório e uma URL de origem, além de `--fail-on-warnings` e `--strict-public-head`. Opções desconhecidas ou repetidas provocam erro, em vez de desabilitar silenciosamente uma proteção.

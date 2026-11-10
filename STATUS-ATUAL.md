@@ -140,3 +140,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor distingue grupos `User-agent` para Googlebot e wildcard antes de classificar `Disallow: /`, evitando falsos positivos de regras exclusivas para outros robôs.
 - Apenas diretiva real `Sitemap:` conta; comentários e menções em texto não são evidência de sitemap. Testes sintéticos de escopo, exceção e comentário.
 - Heurística de raiz, não implementa todo o algoritmo de precedência de caminhos do RFC 9309; não substitui consulta real ao crawler Google.
+
+## SEO-F29 — CLI de auditoria rejeita opções desconhecidas (10/11/2026)
+- O `audit-dist.mjs` agora recusa flags com erros de digitação, duplicadas e argumentos posicionais excedentes; evita CI acidentalmente permissivo por `--fail-on-warning` em vez de `--fail-on-warnings`.
+- Opções permanecem order-independent e não ativam integração externa; testes unitários e CLI end-to-end verificam falha fechada.
