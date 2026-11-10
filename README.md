@@ -1,18 +1,31 @@
 # Imagine SEO Engine
 
-Motor de SEO independente e futuramente comercializável, inicialmente dedicado ao crescimento orgânico e às conversões do site público da Imagine.
+Motor de auditoria técnica e análise SEO **offline**, sem conexão com contas de clientes nem publicação automática.
 
-## Prioridade aprovada em 08/11/2026
-1. Imagine Comercial é prioridade P0 de implementação.
-2. SEO Engine é prioridade P1, começando por auditoria técnica, monitoramento e recomendações úteis ao site Imagine.
-3. Evoluir para serviço gerenciado multiempresa apenas quando houver casos de uso reais, dados verificados e as autorizações necessárias.
+## Estado técnico em 09/11/2026
+- Etapas SEO-F0…F14 implementadas em PRs de desenvolvimento, com 78 testes Node aprovados na ponta F14: https://github.com/rafhael100/imagine-seo-engine/pull/17
+- Esta branch adiciona testes de ponta a ponta para os CLIs (SEO-F15).
+- `main` permanece sem merge. O código **não é uma operação SaaS habilitada**; todas as fontes GSC são exportações manuais ou respostas fornecidas offline.
+- Imagine Comercial permanece prioridade P0, SEO Engine P1.
 
-## Integrações planejadas
-- Portal Imagine: contas, contratação, cobrança, interface administrativa e relatórios do cliente.
-- Imagine Comercial e Imagine Sites: publicação técnica versionada e controlada, não diretamente pelo crawler.
-- Search Console/GA4/CrUX: somente mediante consentimento e credenciais autorizadas.
-- Páginas territoriais: qualidade editorial, evidências e revisão; proibição de páginas doorway e produção massiva para manipulação de busca.
+## Funções locais
+- Auditor: `node scripts/audit-dist.mjs dist https://example.com/ --fail-on-warnings`
+- Comparação de builds: `node scripts/compare-audit-offline.mjs antes.json depois.json`
+- Análise de consultas CSV: `node scripts/report-gsc-csv-offline.mjs consultas.csv 2026-10-01 2026-10-07`
+- Tendência entre períodos: `node scripts/compare-gsc-csv-offline.mjs antes.csv 2026-10-01 2026-10-07 depois.csv 2026-10-08 2026-10-14`
 
-**Estado:** somente fundação documental. Nenhum OAuth, código de produção, deploy, custo, credencial ou monitoramento real ativado.
+## Testes
+- `npm test` roda testes unitários e os cenários de ponta a ponta com dados fictícios.
+- `npm run test:smoke` roda apenas os CLIs sintéticos.
+- Node.js 22 ou superior, sem dependências externas ou instalação de fornecedores.
 
-Referência: https://github.com/rafhael100/imagine-portal/issues/102
+## Limites antes de produção
+1. Confirmar acesso autorizado à propriedade Search Console real, consentimento e credenciais OAuth somente leitura.
+2. Implementar autenticação/segregação multiempresa no Portal, RBAC, criptografia de tokens, retenção e LGPD.
+3. Fazer homologação na VPS quando disponível; conferir configuração, monitoramento, backups, migrações e rollback.
+4. Validar integração de CI e atualização segura do SHA pinado no Imagine Comercial.
+5. Revisar e aprovar integração/merge em `main`; **não publicar páginas, trocar DNS ou ativar cobrança automaticamente**.
+
+Checklist rastreável: https://github.com/rafhael100/imagine-seo-engine/issues/14
+
+Dados artificiais de testes não demonstram tráfego, ranking, indexação ou conformidade de produção.

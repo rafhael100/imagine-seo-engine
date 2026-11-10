@@ -78,3 +78,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F14 — Conformidade de respostas simuladas GSC (09/11/2026)
 - Adaptadores de consultas e paginação rejeitam tipo de agregação incompatível, datas parciais em respostas que deveriam ser finais, planos adulterados e ordem de cliques inconsistente.
 - Verificação dos parâmetros conforme documentação oficial, mas **sem execução OAuth, chamadas reais ou comprovação de dados do Search Console**.
+
+## SEO-F15 — Testes E2E offline de CLIs e manual de operação (09/11/2026)
+- Testes sintéticos invocam comandos de auditoria, importação/comparação CSV e gate de URLs em processos separados e temporários.
+- README atualizado para estado real de implementação; checklist de bloqueios externos mantido.
+- PR draft sem merge/deploy; não significa SaaS ou Search Console operacional.
