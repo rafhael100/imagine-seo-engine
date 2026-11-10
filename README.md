@@ -29,3 +29,7 @@ Motor de auditoria técnica e análise SEO **offline**, sem conexão com contas 
 Checklist rastreável: https://github.com/rafhael100/imagine-seo-engine/issues/14
 
 Dados artificiais de testes não demonstram tráfego, ranking, indexação ou conformidade de produção.
+
+## Relatório executivo local SEO-F17
+
+`node scripts/report-seo-brief-offline.mjs auditoria.json [comparacao-gsc.json]` produz categorias fixas de revisão e totais agregados para futura interface do Portal. O comando não publica relatórios nem consulta o Google, e não imprime termos, caminhos de arquivos ou mensagens livres do input.

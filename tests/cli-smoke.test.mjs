@@ -108,3 +108,20 @@ test('audit regression CLI refuses symlink input as well',async()=>{
     assert.match(runResult.stderr,/SEO input:/);
   });
 });
+
+test('executive brief CLI returns fixed categories and no path/messages',async()=>{
+  await workspace(async dir=>{
+    const auditFile=join(dir,'audit-brief.json');
+    await writeFile(auditFile,JSON.stringify({
+      summary:{pages:1,errors:1,warnings:0},
+      routes:['/sensitive/path/'],errors:[{
+        type:'unexpected_noindex',file:'private/file.html',
+        message:'PRIVATE SECRET EXAMPLE'
+      }],warnings:[]
+    }));
+    const result=run('report-seo-brief-offline.mjs',[auditFile]);
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(JSON.parse(result.stdout).recommendedReviews[0].code,'review_indexation');
+    assert.doesNotMatch(result.stdout,/PRIVATE SECRET|private\/file|sensitive\/path/);
+  });
+});

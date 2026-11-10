@@ -87,3 +87,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F16 — Leitura segura de arquivos e diagnóstico sem vazamento (09/11/2026)
 - CLIs locais agora compartilham leitor limitado em bytes com abertura segura e rejeição de links simbólicos finais; mensagens de URL inválida no sitemap não reproduzem a URL bruta.
 - Testes sintéticos de inputs symlink e segredos em sitemap; processos permanecem offline, sem credenciais, rede ou armazenamento adicional.
+
+## SEO-F17 — Resumo executivo offline sem dados brutos (09/11/2026)
+- Contrato `seo-brief-offline-v1` agrupa problemas técnicos e sinais de variação GSC em ações fixas e métricas sintéticas para consumo futuro pelo Portal.
+- CLI limitada a relatórios locais, mensagens livres e caminhos originais descartados; não conecta Google nem garante causalidade, ranking ou conversão.
