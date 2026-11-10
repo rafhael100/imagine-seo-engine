@@ -11,7 +11,8 @@ const data=(startDate,endDate,query='landing pages')=>({
     '"pessoa@empresa.com",1,10,10%,4\n'
 });
 const previous=()=>data('2026-10-01','2026-10-07');
-const current=()=>data('2026-10-08','2026-10-14');
+const current=()=>({...data('2026-10-08','2026-10-14'),
+  csv:data('2026-10-08','2026-10-14').csv.replace('20,200,10%,8','12,200,6%,8')});
 
 test('scoped report exposes only aggregated clusters and fingerprints',()=>{
   const result=analyzeScopedGscCsv(previous());
@@ -27,7 +28,7 @@ test('scope can be used in equal-window offline comparisons',()=>{
   const result=compareScopedGscCsv(previous(),current());
   assert.equal(result.summary.days,7);
   assert.equal(result.scope.tenantRef,'imagine-demo');
-  assert.equal(result.sourceFingerprints.previous,result.sourceFingerprints.current,false);
+  assert.notEqual(result.sourceFingerprints.previous,result.sourceFingerprints.current);
 });
 test('cross-tenant and cross-property comparisons fail closed',()=>{
   assert.throws(()=>compareScopedGscCsv(previous(),{
