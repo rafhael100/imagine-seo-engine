@@ -95,3 +95,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F18 — Compatibilidade Node 22/24 e bloqueio de CI (09/11/2026)
 - Workflow somente leitura passa a executar a suíte offline em Node 22 e Node 24, com timeouts e sem segredos, deploy nem dependências externas de código.
 - Não habilita publicação ou integração GSC real; confirma apenas os comportamentos cobertos pelos testes sintéticos.
+
+## SEO-F19 — Leitura limitada de HTML e arquivos auxiliares (10/11/2026)
+- Auditor agora usa o mesmo leitor seguro limitado em bytes da F16 para HTML, robots e sitemap; evita crescimento não limitado após stat.
+- Contratos anteriores de erros seguros são preservados e novos testes cobrem HTML próximo do teto e sitemap via symlink.
+- Sem chamadas externas ou dados reais; workspace de build precisa permanecer isolado contra trocas de diretórios ancestrais.

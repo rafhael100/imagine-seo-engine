@@ -3,8 +3,8 @@
  * Sem rede, OAuth, scraping, dados pessoais ou rastreamento de concorrentes.
  * Analisa o HTML produzido (não substitui Chrome/Lighthouse/URL Inspection).
  */
-import { readFile, readdir, lstat, open } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { readdir, lstat } from 'node:fs/promises';
+import {readBoundedLocalText} from './local-input.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -52,21 +52,16 @@ function normalizeUrl(value, site) {
  * Parent directory races still require a trusted build workspace.
  */
 export async function readSafeHtmlFile(file){
-  if (typeof file !== 'string' || !file) throw new Error('audit: HTML file path required');
-  // lstat also provides a fallback check on systems without O_NOFOLLOW.
-  const before=await lstat(file);
-  if (!before.isFile() || before.isSymbolicLink()) throw new Error('audit: unsafe_html_file');
-  let handle;
-  try {
-    handle=await open(file,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
-    const after=await handle.stat();
-    if (!after.isFile() || after.size>HTML_MAX_BYTES)
+  if(typeof file!=='string'||!file)throw new Error('audit: HTML file path required');
+  try{
+    return await readBoundedLocalText(file,{maxBytes:HTML_MAX_BYTES});
+  }catch(error){
+    // The shared reader rejects symlinks, file swaps, and growth after stat.
+    // Preserve the existing auditor error contract for unsafe local HTML.
+    if(error.message?.startsWith('SEO input:'))
       throw new Error('audit: unsafe_html_file');
-    return await handle.readFile({encoding:'utf8'});
-  } catch(error){
-    if (error.code==='ELOOP') throw new Error('audit: unsafe_html_file');
     throw error;
-  } finally { await handle?.close(); }
+  }
 }
 
 async function crawlTree(root, errors) {
@@ -234,28 +229,18 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   // robots/sitemap are untrusted local artifacts too: never follow symlinks,
   // and reject oversized files before loading them into process memory.
   const tryText = async name => {
-    const full=join(base,name);
-    let info;
-    try { info=await lstat(full); }
-    catch(error) { if(error.code==='ENOENT')return null; throw error; }
-    if(info.isSymbolicLink() || !info.isFile()){
-      errors.push({type:'unsafe_site_resource',file:name,message:'Regular file required, symbolic links forbidden'});
-      return null;
-    }
-    if(info.size>RESOURCE_MAX_BYTES){
-      errors.push({type:'oversize_site_resource',file:name,message:'Site resource exceeds 5 MiB'});
-      return null;
-    }
-    // O_NOFOLLOW also protects against symlink swaps between lstat and open.
-    const handle=await open(full,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
     try {
-      const opened=await handle.stat();
-      if(!opened.isFile() || opened.size>RESOURCE_MAX_BYTES){
-        errors.push({type:'unsafe_site_resource',file:name,message:'Resource changed or exceeded safe size'});
+      return await readBoundedLocalText(join(base,name),{maxBytes:RESOURCE_MAX_BYTES});
+    } catch(error) {
+      if(error.code==='ENOENT')return null;
+      if(error.message?.startsWith('SEO input:')) {
+        const large=/size limit/.test(error.message);
+        errors.push({type:large?'oversize_site_resource':'unsafe_site_resource',
+          file:name,message:large?'Resource exceeds 5 MiB':'Unsafe local resource'});
         return null;
       }
-      return await handle.readFile({encoding:'utf8'});
-    } finally { await handle.close(); }
+      throw error;
+    }
   };
   const robotsText = await tryText('robots.txt');
   const sitemapXml = await tryText('sitemap.xml');
