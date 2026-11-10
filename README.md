@@ -97,3 +97,7 @@ Tags SEO presentes apenas dentro do texto de scripts e estilos do `<head>` não 
 ## Inventário estrito do sitemap (SEO-F38)
 
 Na auditoria estrita de sites públicos, cada URL do sitemap deve estar em um elemento `url` com exatamente uma `loc`. URLs soltas, contêineres vazios e duplicações dentro de um contêiner geram erro. A validação não substitui um parser XML completo.
+
+## Pré-verificação de propriedade GSC (SEO-F39)
+
+`reviewOfflineGscPropertyPreflight` confere apenas **correspondência exata** de propriedade (domínio GSC versus URL-prefix), a partir de uma lista local fornecida pelo operador. Não autentica Google, não confirma vínculo do tenant, não concede acesso real e não revela URLs no resultado. Mesmo com correspondência e permissão declarada, mantém `productionReadAuthorized=false` até verificação independente no Portal.

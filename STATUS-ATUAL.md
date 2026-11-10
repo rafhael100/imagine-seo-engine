@@ -188,3 +188,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O modo `strictPublicHead` agora exige uma `loc` por elemento `url`, impedindo entradas avulsas, elementos vazios ou duplicados na mesma entrada.
 - Mantida compatibilidade do modo padrão e o limite de 20 mil URLs; a verificação permanece estática e não constitui parser XML normativo.
 - Regressões sintéticas integradas ao CI; integração Comercial deve manter `--strict-public-head`.
+
+## SEO-F39 — Pré-verificação segura de propriedade GSC (10/11/2026)
+- Novo contrato offline verifica propriedade GSC exata e nível declarado de acesso de leitura, sem confundir domínio com URL-prefix ou propriedade de terceiros.
+- Resposta só apresenta fingerprint e status de revisão, sem URLs de outras propriedades. OAuth, consentimento e grant do Portal permanecem `false` e a operação real fica sob `HOLD` mesmo quando a lista indica correspondência.
+- Testes inteiramente sintéticos, sem consumir dados reais do Google ou credenciais.

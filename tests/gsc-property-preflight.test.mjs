@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {reviewOfflineGscPropertyPreflight as review} from '../src/gsc-property-preflight.mjs';
+const tenantRef='imagine-demo',requestedProperty='sc-domain:imagine.example';
+const mk=(siteUrl,permissionLevel='siteOwner')=>({siteUrl,permissionLevel});
+const scope=(list,overrides={})=>({tenantRef,requestedProperty,
+  listedProperties:list,...overrides});
+
+test('requires an exact declared property match without granting real access',()=>{
+  const result=review(scope([
+    mk('sc-domain:unrelated.example'),
+    mk('sc-domain:imagine.example','siteRestrictedUser')
+  ]));
+  assert.equal(result.status,'DECLARED_READ_ACCESS_NOT_VERIFIED');
+  assert.equal(result.exactPropertyListed,true);
+  assert.equal(result.declaredReadPermissionEligible,true);
+  assert.equal(result.productionReadAuthorized,false);
+  assert.equal(result.oauthVerified,false);
+  assert.equal(result.portalTenantGrantVerified,false);
+  assert.equal(result.propertyConsentVerified,false);
+  assert.equal(result.propertyFingerprint,
+    createHash('sha256').update(requestedProperty).digest('hex'));
+  assert.doesNotMatch(JSON.stringify(result),/imagine\.example|unrelated\.example|siteRestrictedUser/);
+});
+
+test('blocks cross-property mixing when only unrelated sites are listed',()=>{
+  const result=review(scope([
+    mk('sc-domain:unrelated.example'),
+    mk('https://www.another.example/')
+  ]));
+  assert.equal(result.exactPropertyListed,false);
+  assert.equal(result.declaredReadPermissionEligible,false);
+  assert.equal(result.status,'PROPERTY_NOT_LISTED');
+  assert.equal(result.productionReadAuthorized,false);
+});
+
+test('domain properties do not silently match URL-prefix properties',()=>{
+  const result=review(scope([mk('https://imagine.example/')]));
+  assert.equal(result.exactPropertyListed,false);
+  const inverse=review(scope([mk('sc-domain:imagine.example')],{
+    requestedProperty:'https://imagine.example/'
+  }));
+  assert.equal(inverse.exactPropertyListed,false);
+});
+test('URL-prefix requires same origin and path, not just same hostname',()=>{
+  const result=review(scope([mk('https://www.imagine.example/')],{
+    requestedProperty:'https://imagine.example/'
+  }));
+  assert.equal(result.exactPropertyListed,false);
+  const otherPath=review(scope([mk('https://imagine.example/sub/')],{
+    requestedProperty:'https://imagine.example/'
+  }));
+  assert.equal(otherPath.exactPropertyListed,false);
+});
+test('unverified Google property declaration never satisfies read permission',()=>{
+  const result=review(scope([mk(requestedProperty,'siteUnverifiedUser')]));
+  assert.equal(result.exactPropertyListed,true);
+  assert.equal(result.declaredReadPermissionEligible,false);
+  assert.equal(result.status,'INSUFFICIENT_DECLARED_PERMISSION');
+});
+test('empty listing remains an explicit hold',()=>{
+  const result=review(scope([]));
+  assert.equal(result.propertiesInspected,0);
+  assert.equal(result.status,'PROPERTY_NOT_LISTED');
+  assert.equal(result.authorization,'HOLD_BACKEND_OAUTH_AND_TENANT_VERIFICATION');
+});
+test('rejects malformed listings, duplicates and unsupported permission labels',()=>{
+  for(const list of [
+    [mk(requestedProperty),mk(requestedProperty)],
+    [mk(requestedProperty,'owner')],
+    [{siteUrl:requestedProperty}],
+    [null],
+    'not a list',
+    Array.from({length:101},()=>mk('sc-domain:other.example'))
+  ])assert.throws(()=>review(scope(list)),/GSC preflight:|GSC plan:/);
+});
+test('invalid properties and tenant values fail closed with generic errors',()=>{
+  const bad=[
+    {tenantRef:'other tenant'},
+    {requestedProperty:'https://person:secret@imagine.example/'},
+    {requestedProperty:'http://imagine.example/'},
+    {requestedProperty:'sc-domain:localhost'},
+    {listedProperties:[mk('https://person:secret@imagine.example/')]}
+  ];
+  for(const override of bad){
+    let error;
+    try{review(scope([],override));}catch(e){error=e;}
+    assert.ok(error);
+    assert.doesNotMatch(error.message,/person:secret|imagine\.example|other tenant/);
+  }
+});

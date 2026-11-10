@@ -11,7 +11,7 @@ const DOMAIN=/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,6
 const REQUIRED_SCOPE='https://www.googleapis.com/auth/webmasters.readonly';
 const sha256=value=>createHash('sha256').update(value).digest('hex');
 
-function canonicalProperty(siteUrl){
+export function canonicalProperty(siteUrl){
   if(typeof siteUrl!=='string'||siteUrl.length>2048)
     throw Error('SEO GSC plan: invalid property');
   if(siteUrl.startsWith('sc-domain:')){
