@@ -100,3 +100,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor agora usa o mesmo leitor seguro limitado em bytes da F16 para HTML, robots e sitemap; evita crescimento não limitado após stat.
 - Contratos anteriores de erros seguros são preservados e novos testes cobrem HTML próximo do teto e sitemap via symlink.
 - Sem chamadas externas ou dados reais; workspace de build precisa permanecer isolado contra trocas de diretórios ancestrais.
+
+## SEO-F20 — Diagnósticos seguros em todos os CLIs (10/11/2026)
+- Erros de leitura/parse não imprimem trechos de JSON inválido, nomes de caminhos privados nem mensagens livres das fontes. Parser JSON e formato de diagnóstico comuns.
+- Testes end-to-end com segredos fictícios comprovam sanitização; relatório offline segue sem autenticação ou rede.

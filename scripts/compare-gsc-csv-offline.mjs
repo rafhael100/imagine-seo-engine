@@ -1,3 +1,4 @@
+import {safeCliDiagnostic} from '../src/cli-diagnostics.mjs';
 import {readBoundedLocalText} from '../src/local-input.mjs';
 import {importGscQueriesCsv} from '../src/gsc-csv.mjs';
 import {compareGscPeriods} from '../src/organic-trends.mjs';
@@ -13,4 +14,4 @@ if(!oldFile||!oldStart||!oldEnd||!newFile||!newStart||!newEnd){
   const result=compareGscPeriods(
     await importFile(oldFile,oldStart,oldEnd),await importFile(newFile,newStart,newEnd));
   console.log(JSON.stringify(result,null,2));
-}catch(error){console.error('GSC CSV trend comparison failed:',error.message);process.exitCode=1;}
+}catch(error){console.error('GSC CSV trend comparison failed:',safeCliDiagnostic(error));process.exitCode=1;}

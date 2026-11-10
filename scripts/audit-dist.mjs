@@ -1,3 +1,4 @@
+import {safeCliDiagnostic} from '../src/cli-diagnostics.mjs';
 import { auditStaticSite } from '../src/audit-static.mjs';
 
 const target = process.argv[2] || 'dist';
@@ -8,6 +9,6 @@ try {
   console.log(JSON.stringify(result, null, 2));
   if (result.summary.errors > 0 || (strict && result.summary.warnings > 0)) process.exitCode = 1;
 } catch (error) {
-  console.error('SEO audit failed:', error.message);
+  console.error('SEO audit failed:', safeCliDiagnostic(error));
   process.exitCode = 1;
 }

@@ -125,3 +125,33 @@ test('executive brief CLI returns fixed categories and no path/messages',async()
     assert.doesNotMatch(result.stdout,/PRIVATE SECRET|private\/file|sensitive\/path/);
   });
 });
+
+test('GSC malformed JSON diagnostics never print private input fragments',async()=>{
+  await workspace(async dir=>{
+    const path=join(dir,'sensitive.json');
+    await writeFile(path,'{"password":"CLIENT-PASSWORD-SECRET", badly}');
+    const result=run('report-gsc-offline.mjs',[path]);
+    assert.equal(result.status,1);
+    assert.match(result.stderr,/SEO input: invalid JSON/);
+    assert.doesNotMatch(result.stderr+result.stdout,/CLIENT-PASSWORD-SECRET|password|badly/);
+  });
+});
+test('GSC missing input diagnostics never print private absolute paths',async()=>{
+  await workspace(async dir=>{
+    const missing=join(dir,'CLIENT-SECRET-financial.json');
+    const result=run('report-gsc-offline.mjs',[missing]);
+    assert.equal(result.status,1);
+    assert.match(result.stderr,/input_rejected/);
+    assert.doesNotMatch(result.stderr+result.stdout,/CLIENT-SECRET|financial/);
+  });
+});
+test('SEO executive brief malformed JSON errors omit user-provided text',async()=>{
+  await workspace(async dir=>{
+    const path=join(dir,'corrupt.json');
+    await writeFile(path,'{"SECRET_TOKEN":"sensitive@example.com", invalid}');
+    const result=run('report-seo-brief-offline.mjs',[path]);
+    assert.equal(result.status,1);
+    assert.match(result.stderr,/SEO input: invalid JSON/);
+    assert.doesNotMatch(result.stderr+result.stdout,/SECRET_TOKEN|sensitive@example.com/);
+  });
+});

@@ -1,3 +1,4 @@
+import {safeCliDiagnostic} from '../src/cli-diagnostics.mjs';
 import {readBoundedLocalText} from '../src/local-input.mjs';
 import {importGscQueriesCsv} from '../src/gsc-csv.mjs';
 import {analyzeQueryExport} from '../src/opportunities.mjs';
@@ -11,4 +12,4 @@ if(!file||!startDate||!endDate){
   const report=importGscQueriesCsv(csv,{startDate,endDate});
   // Somente estatísticas agregadas; não imprimir consultas brutas.
   console.log(JSON.stringify(analyzeQueryExport(report),null,2));
-}catch(error){console.error('GSC CSV offline import failed:',error.message);process.exitCode=1;}
+}catch(error){console.error('GSC CSV offline import failed:',safeCliDiagnostic(error));process.exitCode=1;}
