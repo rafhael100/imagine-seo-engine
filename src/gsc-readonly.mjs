@@ -141,9 +141,15 @@ export function analyzeGscQueryResponse(raw,plan){
   if(raw.responseAggregationType!==undefined &&
     raw.responseAggregationType!==plan.body.aggregationType)
     throw Error('SEO GSC response: unexpected aggregation type');
+  // Only the documented incomplete-date/hour signals are recognized.
+  // Presence of either signal means a final-data report cannot be trusted,
+  // even if an adversarial fixture supplies an empty or null value.
+  const metadataFields=new Set(['first_incomplete_date','first_incomplete_hour']);
   if(raw.metadata!==undefined &&
     (!raw.metadata || typeof raw.metadata!=='object' || Array.isArray(raw.metadata) ||
-      raw.metadata.first_incomplete_date || raw.metadata.first_incomplete_hour))
+      Object.keys(raw.metadata).some(k=>!metadataFields.has(k)) ||
+      Object.hasOwn(raw.metadata,'first_incomplete_date') ||
+      Object.hasOwn(raw.metadata,'first_incomplete_hour')))
     throw Error('SEO GSC response: unexpected or incomplete metadata');
   const rows=raw.rows??[];
   if(rows.length>plan.body.rowLimit)
