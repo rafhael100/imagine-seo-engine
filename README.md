@@ -93,3 +93,7 @@ Elementos `<template>`, inclusive aninhados, são desconsiderados em verificaç�
 ## Metadados protegidos contra HTML em scripts (SEO-F37)
 
 Tags SEO presentes apenas dentro do texto de scripts e estilos do `<head>` não contam como metadados reais. O JSON-LD permanece analisado separadamente.
+
+## Inventário estrito do sitemap (SEO-F38)
+
+Na auditoria estrita de sites públicos, cada URL do sitemap deve estar em um elemento `url` com exatamente uma `loc`. URLs soltas, contêineres vazios e duplicações dentro de um contêiner geram erro. A validação não substitui um parser XML completo.
