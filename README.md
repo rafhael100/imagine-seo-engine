@@ -61,3 +61,7 @@ A auditoria distingue regras `User-agent: Googlebot` e `User-agent: *`, sem conf
 ## Argumentos seguros de CLI (SEO-F29)
 
 O comando `audit-dist.mjs` aceita no máximo um diretório e uma URL de origem, além de `--fail-on-warnings` e `--strict-public-head`. Opções desconhecidas ou repetidas provocam erro, em vez de desabilitar silenciosamente uma proteção.
+
+## Qualidade de sitemap XML (SEO-F30)
+
+O auditor local descarta URLs ocultas em comentários, exige a estrutura básica `urlset` e pelo menos uma `loc`, e rejeita fragmentos ou URLs diferentes da forma canônica pública. É uma verificação offline; para XML arbitrário ainda é necessário um parser normativo em homologação.

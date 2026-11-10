@@ -10,6 +10,8 @@ const ISSUE_ACTIONS=Object.freeze({
   duplicate_canonical:['high','repair_canonical'],
   invalid_sitemap_url:['high','fix_sitemap'],
   missing_sitemap:['high','fix_sitemap'],
+  invalid_sitemap_structure:['high','fix_sitemap'],
+  missing_sitemap_urls:['high','fix_sitemap'],
   robots_block_all:['critical','review_robots'],
   missing_robots:['high','review_robots'],
   broken_internal_link:['high','repair_internal_links'],

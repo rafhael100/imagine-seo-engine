@@ -144,3 +144,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F29 — CLI de auditoria rejeita opções desconhecidas (10/11/2026)
 - O `audit-dist.mjs` agora recusa flags com erros de digitação, duplicadas e argumentos posicionais excedentes; evita CI acidentalmente permissivo por `--fail-on-warning` em vez de `--fail-on-warnings`.
 - Opções permanecem order-independent e não ativam integração externa; testes unitários e CLI end-to-end verificam falha fechada.
+
+## SEO-F30 — Localização de páginas no sitemap sem comentários falsos (10/11/2026)
+- Auditor ignora comentários XML ao coletar `<loc>`, exige `urlset` e entrada(s), rejeita DTD e URL com fragmento ou fora do canonical exato.
+- Diagnósticos não reproduzem URLs dos arquivos de origem; testes sintéticos cobrem sitemap falso, XML incompleto e caminho válido.
+- Verificador estático heurístico: não faz parsing XML geral nem acesso HTTP/Google.
