@@ -271,7 +271,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     if (locSet.size !== locs.length) errors.push({type:'duplicate_sitemap_url',file:'sitemap.xml',message:'Repeated URL'});
     for(const loc of locs){
       const norm = normalizeUrl(loc,site);
-      if (norm.external || norm.invalid || !known.has(norm.path)) errors.push({type:'invalid_sitemap_url',file:'sitemap.xml',message:'URL missing or external: ' + loc.slice(0,180)});
+      if (norm.external || norm.invalid || !known.has(norm.path)) errors.push({type:'invalid_sitemap_url',file:'sitemap.xml',message:'Sitemap contains an invalid, missing or external URL'});
     }
     for (const page of pages) {
       const u = new URL(page.path,site).href;

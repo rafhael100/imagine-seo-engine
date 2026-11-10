@@ -172,3 +172,12 @@ test('records a deterministic inventory of public routes, excluding 404.html',as
     assert.equal(report.summary.pages,report.routes.length);
   });
 });
+
+test('sitemap error messages do not leak untrusted URL secrets',async()=>{
+  await withSite({sitemap:'<urlset><loc>https://evil.test/secret?token=PRIVATE123</loc></urlset>'},
+    async root=>{
+      const result=await auditStaticSite(root);
+      assert.ok(result.errors.some(x=>x.type==='invalid_sitemap_url'));
+      assert.doesNotMatch(JSON.stringify(result.errors),/PRIVATE123|evil\\.test/);
+    });
+});

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,rm,symlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
@@ -78,5 +78,33 @@ test('CLI regression gate fails on silently replaced public URLs',async()=>{
     const comparison=JSON.parse(result.stdout);
     assert.equal(comparison.passed,false);
     assert.deepEqual(comparison.removedRoutes,['/servicos/']);
+  });
+});
+
+test('CSV and JSON CLIs refuse symlinked inputs without exposing file content',async()=>{
+  await workspace(async dir=>{
+    const real=join(dir,'sensitive.csv'), alias=join(dir,'queries.csv');
+    await writeFile(real,'Queries,Clicks,Impressions,CTR,Position\n'+
+      '"contact example@private.test",1,10,10%,8\n');
+    await symlink(real,alias);
+    const runResult=run('report-gsc-csv-offline.mjs',[alias,'2026-10-01','2026-10-07']);
+    assert.equal(runResult.status,1);
+    assert.match(runResult.stderr,/SEO input:/);
+    assert.doesNotMatch(runResult.stderr+runResult.stdout,/example@private.test|contact example/);
+    const realJson=join(dir,'report.json'), aliasJson=join(dir,'alias.json');
+    await writeFile(realJson,JSON.stringify({dimensions:['query'],startDate:'2026-10-01',endDate:'2026-10-07',rows:[]}));
+    await symlink(realJson,aliasJson);
+    assert.equal(run('report-gsc-offline.mjs',[aliasJson]).status,1);
+  });
+});
+test('audit regression CLI refuses symlink input as well',async()=>{
+  await workspace(async dir=>{
+    const report=join(dir,'audit.json'),alias=join(dir,'alias.json');
+    const clean={summary:{pages:1,errors:0,warnings:0},routes:['/'],errors:[],warnings:[]};
+    await writeFile(report,JSON.stringify(clean));
+    await symlink(report,alias);
+    const runResult=run('compare-audit-offline.mjs',[alias,report]);
+    assert.equal(runResult.status,2);
+    assert.match(runResult.stderr,/SEO input:/);
   });
 });
