@@ -354,3 +354,49 @@ test('robots recognizes a proper sitemap directive with whitespace and inline co
     assert.equal(result.warnings.some(x=>x.type==='sitemap_not_in_robots'),false);
   });
 });
+
+test('sitemap ignores fake loc URLs inside XML comments',async()=>{
+  const sitemap='<urlset><!-- <loc>'+origin+'/</loc> -->'+
+    '<loc>'+origin+'/servicos/</loc></urlset>';
+  await withSite({sitemap},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.warnings.some(x=>x.type==='page_not_in_sitemap'&&x.file==='index.html'));
+    assert.equal(result.errors.some(x=>x.type==='invalid_sitemap_url'),false);
+  });
+});
+test('sitemap refuses a URL fragment even when its base URL exists',async()=>{
+  const sitemap='<urlset><loc>'+origin+'/#PRIVATE-ANCHOR</loc>'+
+    '<loc>'+origin+'/servicos/</loc></urlset>';
+  await withSite({sitemap},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='invalid_sitemap_url'));
+    assert.doesNotMatch(JSON.stringify(result.errors),/PRIVATE-ANCHOR/);
+  });
+});
+test('sitemap refuses XML without urlset or with a DTD',async()=>{
+  for(const sitemap of [
+    '<something><loc>'+origin+'/</loc><loc>'+origin+'/servicos/</loc></something>',
+    '<!DOCTYPE urlset><urlset><loc>'+origin+'/</loc>'+
+      '<loc>'+origin+'/servicos/</loc></urlset>'
+  ]){
+    await withSite({sitemap},async root=>{
+      const result=await auditStaticSite(root);
+      assert.ok(result.errors.some(x=>x.type==='invalid_sitemap_structure'));
+    });
+  }
+});
+test('sitemap with comments only is rejected as empty URL inventory',async()=>{
+  const sitemap='<urlset><!-- <loc>'+origin+'/</loc> --></urlset>';
+  await withSite({sitemap},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='missing_sitemap_urls'));
+  });
+});
+test('sitemap exact public canonical accepts valid loc whitespace in XML',async()=>{
+  const sitemap='<urlset><loc> '+origin+'/ </loc><loc>'+
+    origin+'/servicos/</loc></urlset>';
+  await withSite({sitemap},async root=>{
+    const result=await auditStaticSite(root);
+    assert.deepEqual(result.summary,{pages:2,errors:0,warnings:0});
+  });
+});

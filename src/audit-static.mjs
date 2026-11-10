@@ -342,12 +342,29 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   }
   if (!sitemapXml) errors.push({type:'missing_sitemap',file:'sitemap.xml',message:'Sitemap missing'});
   else {
-    const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/gi)].map(x=>x[1]);
-    const locSet = new Set(locs);
-    if (locSet.size !== locs.length) errors.push({type:'duplicate_sitemap_url',file:'sitemap.xml',message:'Repeated URL'});
+    // Ignore XML comments so an attacker cannot hide a fake <loc> inside
+    // <!-- ... --> and make a missing public URL appear to be covered.
+    // This is a static structural heuristic, not a general XML parser.
+    const xml=sitemapXml.replace(/<!--[\s\S]*?-->/g,'');
+    if(!/<urlset(?:\s|>)/i.test(xml)||!/<\/urlset\s*>/i.test(xml)||
+       /<!DOCTYPE/i.test(xml)){
+      errors.push({type:'invalid_sitemap_structure',file:'sitemap.xml',message:'Valid urlset root required'});
+    }
+    const locs=[...xml.matchAll(/<loc\s*>([^<]*)<\/loc\s*>/gi)]
+      .map(x=>x[1].trim());
+    if(locs.length===0)
+      errors.push({type:'missing_sitemap_urls',file:'sitemap.xml',message:'No sitemap URL entries'});
+    const locSet=new Set(locs);
+    if(locSet.size!==locs.length)
+      errors.push({type:'duplicate_sitemap_url',file:'sitemap.xml',message:'Repeated URL'});
     for(const loc of locs){
-      const norm = normalizeUrl(loc,site);
-      if (norm.external || norm.invalid || !known.has(norm.path)) errors.push({type:'invalid_sitemap_url',file:'sitemap.xml',message:'Sitemap contains an invalid, missing or external URL'});
+      const norm=normalizeUrl(loc,site);
+      let fragment=false;
+      try{fragment=new URL(loc,site).hash!=='';}catch{fragment=true;}
+      const canonical=norm.path?new URL(norm.path,site).href:null;
+      if(norm.external||norm.invalid||fragment||loc!==canonical||
+         !known.has(norm.path))
+        errors.push({type:'invalid_sitemap_url',file:'sitemap.xml',message:'Sitemap entry is not an exact canonical public URL'});
     }
     for (const page of pages) {
       const u = new URL(page.path,site).href;
