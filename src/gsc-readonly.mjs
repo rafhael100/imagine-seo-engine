@@ -70,11 +70,24 @@ export function planGscQuery({
 export function analyzeGscQueryResponse(raw,plan){
   if(!plan||plan.contractVersion!=='seo-gsc-readonly-plan-v1' ||
     plan.method!=='POST'||plan.requiredOAuthScope!==REQUIRED_SCOPE ||
-    !plan.body||!Number.isSafeInteger(plan.body.rowLimit))
+    !plan.body||!Number.isSafeInteger(plan.body.rowLimit)||
+    plan.body.rowLimit<1||plan.body.rowLimit>25000||
+    !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
+    plan.body.aggregationType!=='byProperty'||
+    plan.body.dataState!=='final'||plan.body.type!=='web'||
+    !Array.isArray(plan.body.dimensions)||plan.body.dimensions.length!==1||
+    plan.body.dimensions[0]!=='query')
     throw Error('SEO GSC response: compatible query plan required');
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||
     (raw.rows!==undefined&&!Array.isArray(raw.rows)))
     throw Error('SEO GSC response: invalid response');
+  if(raw.responseAggregationType!==undefined &&
+    raw.responseAggregationType!==plan.body.aggregationType)
+    throw Error('SEO GSC response: unexpected aggregation type');
+  if(raw.metadata!==undefined &&
+    (!raw.metadata || typeof raw.metadata!=='object' || Array.isArray(raw.metadata) ||
+      raw.metadata.first_incomplete_date || raw.metadata.first_incomplete_hour))
+    throw Error('SEO GSC response: unexpected or incomplete metadata');
   const rows=raw.rows??[];
   if(rows.length>plan.body.rowLimit)
     throw Error('SEO GSC response: exceeds requested rowLimit');

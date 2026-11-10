@@ -56,3 +56,26 @@ test('rejects malformed response, excessive rows and inconsistent metrics',()=>{
     {keys:['site'],clicks:1,impressions:10,ctr:.1,position:3}
   ]},planGscQuery({...base,rowLimit:1})),/rowLimit/);
 });
+
+test('rejects a response whose aggregation disagrees with requested property mode',()=>{
+  assert.throws(()=>analyzeGscQueryResponse({
+    rows:[],responseAggregationType:'byPage'
+  },make()),/unexpected aggregation type/);
+  assert.equal(analyzeGscQueryResponse({
+    rows:[],responseAggregationType:'byProperty'
+  },make()).summary.analyzedRows,0);
+});
+test('rejects incomplete response metadata despite final-data request',()=>{
+  assert.throws(()=>analyzeGscQueryResponse({
+    rows:[],metadata:{first_incomplete_date:'2026-10-07'}
+  },make()),/incomplete metadata/);
+});
+test('refuses forged read-only plans with incompatible query dimensions or data state',()=>{
+  const original=make();
+  assert.throws(()=>analyzeGscQueryResponse({rows:[]},{
+    ...original,body:{...original.body,dataState:'all'}
+  }),/compatible query plan/);
+  assert.throws(()=>analyzeGscQueryResponse({rows:[]},{
+    ...original,body:{...original.body,dimensions:['page']}
+  }),/compatible query plan/);
+});

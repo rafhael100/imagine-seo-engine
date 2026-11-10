@@ -59,3 +59,19 @@ test('rejects malformed supplied responses and nonzero starting offset',()=>{
   assert.throws(()=>analyzeGscPaginatedResponses([{startRow:2,rows:[]}],
     planGscQuery({...config,startRow:2})),/start at zero/);
 });
+
+test('rejects pagination that violates descending clicks order',()=>{
+  assert.throws(()=>analyzeGscPaginatedResponses([
+    {startRow:0,rows:[row('primeiro',30),row('segundo',20)]},
+    {startRow:2,rows:[row('terceiro',25)]}
+  ],plan()),/click order/);
+});
+test('rejects mixed aggregation and incomplete provider metadata across pages',()=>{
+  assert.throws(()=>analyzeGscPaginatedResponses([
+    {startRow:0,rows:[row('site'),row('seo')],responseAggregationType:'byPage'}
+  ],plan()),/aggregation type/);
+  assert.throws(()=>analyzeGscPaginatedResponses([
+    {startRow:0,rows:[row('site'),row('seo')],
+      metadata:{first_incomplete_date:'2026-10-01'}}
+  ],plan()),/incomplete metadata/);
+});

@@ -20,6 +20,7 @@ export function analyzeGscPaginatedResponses(pages,plan,{maxPages=4,maxRows=5000
   if(pages.length>maxPages)
     throw Error('SEO GSC pagination: too many response pages');
   const merged=[],queries=new Set();
+  let previousClicks=Infinity;
   for(const [index,page] of pages.entries()){
     const expectedOffset=index*rowLimit;
     if(!page||typeof page!=='object'||Array.isArray(page)||
@@ -28,10 +29,20 @@ export function analyzeGscPaginatedResponses(pages,plan,{maxPages=4,maxRows=5000
       throw Error('SEO GSC pagination: invalid page order, offset or size');
     if(index<pages.length-1&&page.rows.length!==rowLimit)
       throw Error('SEO GSC pagination: incomplete intermediate page');
+    if(page.responseAggregationType!==undefined &&
+      page.responseAggregationType!=='byProperty')
+      throw Error('SEO GSC pagination: unexpected aggregation type');
+    if(page.metadata!==undefined &&
+      (!page.metadata || typeof page.metadata!=='object' ||
+        page.metadata.first_incomplete_date || page.metadata.first_incomplete_hour))
+      throw Error('SEO GSC pagination: unexpected or incomplete metadata');
     for(const row of page.rows){
       if(!row||!Array.isArray(row.keys)||row.keys.length!==1||
-        typeof row.keys[0]!=='string')
+        typeof row.keys[0]!=='string'||row.keys[0].length>500)
         throw Error('SEO GSC pagination: expected one query key');
+      if(!Number.isSafeInteger(row.clicks)||row.clicks<0||row.clicks>previousClicks)
+        throw Error('SEO GSC pagination: click order differs from provider contract');
+      previousClicks=row.clicks;
       if(queries.has(row.keys[0]))
         throw Error('SEO GSC pagination: duplicated query across pages');
       queries.add(row.keys[0]);
