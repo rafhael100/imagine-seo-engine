@@ -3,10 +3,12 @@
  * Sem rede, OAuth, scraping, dados pessoais ou rastreamento de concorrentes.
  * Analisa o HTML produzido (não substitui Chrome/Lighthouse/URL Inspection).
  */
-import { readFile, readdir, lstat } from 'node:fs/promises';
+import { readFile, readdir, lstat, open } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
+const RESOURCE_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 20000;
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
 
@@ -74,7 +76,8 @@ async function crawlTree(root, errors) {
 export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/' } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   const site = new URL(siteUrl);
-  if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash) {
+  if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
+    site.username || site.password || site.port) {
     throw new Error('audit: siteUrl must be an HTTPS origin');
   }
   const base = resolve(root);
@@ -195,9 +198,31 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       if (!known.has(link) && link !== '/404.html') errors.push({type:'broken_internal_link',file:page.file,message:'No built page for ' + link});
     }
   }
+  // robots/sitemap are untrusted local artifacts too: never follow symlinks,
+  // and reject oversized files before loading them into process memory.
   const tryText = async name => {
-    try { return await readFile(join(base,name),'utf8'); }
-    catch(error) { if (error.code==='ENOENT') return null; throw error; }
+    const full=join(base,name);
+    let info;
+    try { info=await lstat(full); }
+    catch(error) { if(error.code==='ENOENT')return null; throw error; }
+    if(info.isSymbolicLink() || !info.isFile()){
+      errors.push({type:'unsafe_site_resource',file:name,message:'Regular file required, symbolic links forbidden'});
+      return null;
+    }
+    if(info.size>RESOURCE_MAX_BYTES){
+      errors.push({type:'oversize_site_resource',file:name,message:'Site resource exceeds 5 MiB'});
+      return null;
+    }
+    // O_NOFOLLOW also protects against symlink swaps between lstat and open.
+    const handle=await open(full,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try {
+      const opened=await handle.stat();
+      if(!opened.isFile() || opened.size>RESOURCE_MAX_BYTES){
+        errors.push({type:'unsafe_site_resource',file:name,message:'Resource changed or exceeded safe size'});
+        return null;
+      }
+      return await handle.readFile({encoding:'utf8'});
+    } finally { await handle.close(); }
   };
   const robotsText = await tryText('robots.txt');
   const sitemapXml = await tryText('sitemap.xml');

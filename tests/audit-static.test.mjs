@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { auditStaticSite } from '../src/audit-static.mjs';
@@ -113,5 +113,31 @@ test('home page with a self link does not count as an orphan',async()=>{
     assert.equal(r.graph.unreachable,0);
     assert.equal(r.graph.reachable,2);
     assert.equal(r.graph.orphanPages,0);
+  });
+});
+
+test('does not follow a symlinked robots.txt to an arbitrary local file',async()=>{
+  await withSite({},async root=>{
+    await writeFile(join(root,'private.txt'),'User-agent: *\\nDisallow: /\\n');
+    await rm(join(root,'robots.txt'));
+    await symlink(join(root,'private.txt'),join(root,'robots.txt'));
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='unsafe_site_resource'&&x.file==='robots.txt'));
+    assert.ok(!report.errors.some(x=>x.type==='robots_block_all'));
+  });
+});
+
+test('rejects oversized sitemap files without reading their contents',async()=>{
+  await withSite({},async root=>{
+    await writeFile(join(root,'sitemap.xml'),'x'.repeat(5*1024*1024+1));
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='oversize_site_resource'&&x.file==='sitemap.xml'));
+  });
+});
+
+test('site origin cannot embed user credentials or custom port',async()=>{
+  await withSite({},async root=>{
+    await assert.rejects(auditStaticSite(root,{siteUrl:'https://user:secret@imaginecomunicacao.com.br/'}),/HTTPS origin/);
+    await assert.rejects(auditStaticSite(root,{siteUrl:'https://imaginecomunicacao.com.br:8443/'}),/HTTPS origin/);
   });
 });
