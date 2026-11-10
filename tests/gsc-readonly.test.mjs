@@ -142,3 +142,18 @@ test('F44 rejects unknown response and row fields in offline GSC payloads',()=>{
     /SEO GSC response: invalid response|SEO GSC response: invalid query order or key/);
   assert.equal(analyzeGscQueryResponse({rows:[valid]},make()).summary.analyzedRows,1);
 });
+
+test('F45 rejects unknown and falsy incomplete metadata markers',()=>{
+  for(const metadata of [
+    {first_incomplete_date:null},
+    {first_incomplete_date:''},
+    {first_incomplete_hour:0},
+    {first_incomplete_hour:false},
+    {oauthVerified:true},
+    {tenantRef:'other'},
+    [],
+    null
+  ])assert.throws(()=>analyzeGscQueryResponse({rows:[],metadata},make()),
+    /unexpected or incomplete metadata/);
+  assert.equal(analyzeGscQueryResponse({rows:[],metadata:{}},make()).summary.analyzedRows,0);
+});
