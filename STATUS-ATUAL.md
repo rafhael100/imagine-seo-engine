@@ -50,3 +50,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Leitura local de robots.txt/sitemap.xml limitada a 5 MiB e protegida contra links simbólicos; URL de origem rejeita credenciais/porta customizada.
 - Casos de regressão sintéticos para path symlink, recurso gigante e URL de origem insegura.
 - Sem rede, deploy, OAuth, publicação, gasto ou merge na `main`.
+
+## SEO-F9 — Comparação offline entre builds (09/11/2026)
+- Gate que compara relatórios de auditoria, bloqueando novos erros, avisos e quedas de número de páginas por padrão; CLI offline retorna status de falha.
+- Relatório emitido é sanitizado, sem mensagens livres de URLs; testes sintéticos garantem comportamento de política.
+- Sem integração automática no site comercial nem alteração em `main`; futura adoção exige CI validado e atualização controlada da referência pinada.
