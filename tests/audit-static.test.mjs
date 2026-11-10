@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { auditStaticSite } from '../src/audit-static.mjs';
+import { auditStaticSite, readSafeHtmlFile } from '../src/audit-static.mjs';
 
 const origin='https://imaginecomunicacao.com.br';
 function makePage(route, overrides={}) {
@@ -139,5 +139,27 @@ test('site origin cannot embed user credentials or custom port',async()=>{
   await withSite({},async root=>{
     await assert.rejects(auditStaticSite(root,{siteUrl:'https://user:secret@imaginecomunicacao.com.br/'}),/HTTPS origin/);
     await assert.rejects(auditStaticSite(root,{siteUrl:'https://imaginecomunicacao.com.br:8443/'}),/HTTPS origin/);
+  });
+});
+
+test('readSafeHtmlFile forbids final-path symlinks even if a crawler raced',async()=>{
+  await withSite({},async root=>{
+    const unsafe=join(root,'symlink.html');
+    await symlink(join(root,'index.html'),unsafe);
+    await assert.rejects(readSafeHtmlFile(unsafe),/unsafe_html_file/);
+  });
+});
+test('readSafeHtmlFile enforces size after opening',async()=>{
+  await withSite({},async root=>{
+    const huge=join(root,'oversize.html');
+    await writeFile(huge,'x'.repeat(2*1024*1024+1));
+    await assert.rejects(readSafeHtmlFile(huge),/unsafe_html_file/);
+  });
+});
+test('audit rejects unsafe non-http hyperlinks, not just javascript URLs',async()=>{
+  const broken=makePage('/',{links:['data:text/html,x','file:///etc/passwd','vbscript:msgbox(1)']});
+  await withSite({home:broken},async root=>{
+    const out=await auditStaticSite(root);
+    assert.equal(out.errors.filter(x=>x.type==='invalid_internal_link').length,3);
   });
 });
