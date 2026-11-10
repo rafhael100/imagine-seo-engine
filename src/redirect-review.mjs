@@ -6,9 +6,9 @@
  */
 function validateRoute(raw){
   if(typeof raw!=='string'||raw.length<1||raw.length>512||
-     !raw.startsWith('/')||raw.startsWith('//')||
+     !raw.startsWith('/')||raw.startsWith('//')||raw.includes('//')||
      /[?#%\\\u0000-\u001f\u007f]/.test(raw)||
-     raw.split('/').some(x=>x==='.'||x==='..'||x===''))
+     raw.split('/').slice(1).some(x=>x==='.'||x==='..'))
     throw Error('SEO redirect review: invalid route');
   if(!/^\/[A-Za-z0-9._~!$&'()*+,;=:@/-]*$/.test(raw))
     throw Error('SEO redirect review: invalid route');
