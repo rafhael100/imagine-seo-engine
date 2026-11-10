@@ -129,3 +129,16 @@ test('valid response remains offline, aggregated and privacy-safe',()=>{
   assert.equal(result.summary.analyzedRows,1);
   assert.doesNotMatch(JSON.stringify(result),/servicos imagine|example.com/);
 });
+
+test('F44 rejects unknown response and row fields in offline GSC payloads',()=>{
+  const valid={keys:['seo audit'],clicks:2,impressions:20,ctr:.1,position:4};
+  for(const response of [
+    {rows:[valid],oauthVerified:true},
+    {rows:[valid],tenantRef:'other-tenant'},
+    {rows:[{...valid,authorization:'APPROVED'}]},
+    {rows:[{...valid,experimentalMetric:1}]},
+    {rows:[{keys:['seo audit'],clicks:2,impressions:20,ctr:.1}]}
+  ])assert.throws(()=>analyzeGscQueryResponse(response,make()),
+    /SEO GSC response: invalid response|SEO GSC response: invalid query order or key/);
+  assert.equal(analyzeGscQueryResponse({rows:[valid]},make()).summary.analyzedRows,1);
+});
