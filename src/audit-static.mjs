@@ -3,13 +3,14 @@
  * Sem rede, OAuth, scraping, dados pessoais ou rastreamento de concorrentes.
  * Analisa o HTML produzido (não substitui Chrome/Lighthouse/URL Inspection).
  */
-import { readdir, lstat } from 'node:fs/promises';
+import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
 const RESOURCE_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 20000;
+const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
 
 function attrs(markup) {
@@ -64,28 +65,49 @@ export async function readSafeHtmlFile(file){
   }
 }
 
-async function crawlTree(root, errors) {
-  const found = [];
-  async function visit(dir) {
-    const entries = await readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = join(dir, entry.name);
-      const info = await lstat(full);
-      if (info.isSymbolicLink()) {
-        errors.push({ type: 'unsafe_symlink', file: relative(root, full), message: 'Symbolic link skipped' });
+function crawlBudget(input){
+  if(!input||typeof input!=='object'||Array.isArray(input)||
+    Object.keys(input).some(k=>!Object.hasOwn(CRAWL_BUDGETS,k)))
+    throw new Error('audit: invalid crawl budget');
+  const limits={...CRAWL_BUDGETS,...input};
+  for(const key of Object.keys(CRAWL_BUDGETS)){
+    const value=limits[key],max=CRAWL_BUDGETS[key];
+    if(!Number.isSafeInteger(value)||value< (key==='maxDepth'?0:1)||value>max)
+      throw new Error('audit: invalid crawl budget');
+  }
+  return limits;
+}
+async function crawlTree(root,errors,limits){
+  const found=[];
+  let directoryCount=0,entryCount=0;
+  async function visit(dir,depth){
+    if(depth>limits.maxDepth)
+      throw new Error('audit: directory depth budget exceeded');
+    if(++directoryCount>limits.maxDirectories)
+      throw new Error('audit: directory count budget exceeded');
+    // Streaming directory enumeration avoids loading a giant directory listing.
+    const handle=await opendir(dir);
+    for await(const entry of handle){
+      if(++entryCount>limits.maxEntries)
+        throw new Error('audit: directory entry budget exceeded');
+      const full=join(dir,entry.name);
+      const info=await lstat(full);
+      if(info.isSymbolicLink()){
+        errors.push({type:'unsafe_symlink',file:relative(root,full),message:'Symbolic link skipped'});
         continue;
       }
-      if (info.isDirectory()) { await visit(full); continue; }
-      if (!info.isFile() || !entry.name.endsWith('.html')) continue;
-      if (info.size > HTML_MAX_BYTES) {
-        errors.push({ type: 'oversize_html', file: relative(root, full), message: 'HTML over 2 MiB' });
+      if(info.isDirectory()){await visit(full,depth+1);continue;}
+      if(!info.isFile()||!entry.name.endsWith('.html'))continue;
+      if(info.size>HTML_MAX_BYTES){
+        errors.push({type:'oversize_html',file:relative(root,full),message:'HTML over 2 MiB'});
         continue;
       }
-      if (found.length >= MAX_PAGES) throw new Error('audit: maximum HTML page count exceeded');
+      if(found.length>=MAX_PAGES)
+        throw new Error('audit: maximum HTML page count exceeded');
       found.push(full);
     }
   }
-  await visit(root);
+  await visit(root,0);
   return found;
 }
 
@@ -93,7 +115,7 @@ async function crawlTree(root, errors) {
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={} } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
   const site = new URL(siteUrl);
@@ -105,7 +127,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   const rootInfo = await lstat(base);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw new Error('audit: directory expected');
   const errors = [], warnings = [], pages = [];
-  const htmlFiles = await crawlTree(base, errors);
+  const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits));
   const known = new Map(), titles = new Map(), canonicals = new Map();
 
   for (const file of htmlFiles.sort()) {

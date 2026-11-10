@@ -280,3 +280,33 @@ test('does not accept a canonical stored in the body when head lacks one',async(
     assert.ok(report.errors.some(x=>x.type==='missing_canonical'&&x.file==='index.html'));
   });
 });
+
+test('bounds directory traversal by depth, count and global entry budget',async()=>{
+  await withSite({},async root=>{
+    await assert.rejects(
+      auditStaticSite(root,{crawlLimits:{maxDepth:0}}),
+      /directory depth budget exceeded/);
+    await assert.rejects(
+      auditStaticSite(root,{crawlLimits:{maxDirectories:1}}),
+      /directory count budget exceeded/);
+    await assert.rejects(
+      auditStaticSite(root,{crawlLimits:{maxEntries:3}}),
+      /directory entry budget exceeded/);
+  });
+});
+test('bounded crawler permits a healthy small build',async()=>{
+  await withSite({},async root=>{
+    const report=await auditStaticSite(root,{
+      crawlLimits:{maxDirectories:2,maxEntries:6,maxDepth:1}
+    });
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('refuses unsafe budgets and unknown settings',async()=>{
+  await withSite({},async root=>{
+    for(const budget of [{maxDepth:-1},{maxDirectories:5001},
+      {maxEntries:1e20},{maxEntries:0},{unknownKey:true},null]){
+      await assert.rejects(auditStaticSite(root,{crawlLimits:budget}),/invalid crawl budget/);
+    }
+  });
+});

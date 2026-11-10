@@ -131,3 +131,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F26 — Metadados somente do cabeçalho real (10/11/2026)
 - O auditor agora considera `title`, `meta description`, `canonical`, `robots` e `og:url` somente em `<head>`, desconsiderando tags em comentários do cabeçalho e no corpo HTML.
 - Testes com HTML propositalmente enganoso demonstram que metadados falsos não atendem ao gate técnico; o analisador permanece heurístico, não substitui um parser HTML de navegador.
+
+## SEO-F27 — Limites de diretórios, entradas e profundidade (10/11/2026)
+- Auditor agora enumera entradas de diretório em streaming e limita, por padrão, a 5.000 diretórios, 100.000 entradas totais e profundidade de 32, além de 20.000 HTML e teto de bytes pré-existentes.
+- Limites podem ser reduzidos nos testes locais, mas nunca ampliados além do máximo permitido; falhas são explícitas, sem seguir symlinks e sem calls de rede.
