@@ -1,4 +1,4 @@
-import {readFile,stat} from 'node:fs/promises';
+import {readBoundedLocalText} from '../src/local-input.mjs';
 import {importGscQueriesCsv} from '../src/gsc-csv.mjs';
 import {compareGscPeriods} from '../src/organic-trends.mjs';
 
@@ -8,9 +8,7 @@ if(!oldFile||!oldStart||!oldEnd||!newFile||!newStart||!newEnd){
   process.exitCode=2;
 }else try{
   async function importFile(file,startDate,endDate){
-    const meta=await stat(file);
-    if(!meta.isFile()||meta.size>10*1024*1024)throw Error('GSC CSV: local file <=10 MiB required');
-    return importGscQueriesCsv(await readFile(file,'utf8'),{startDate,endDate});
+    return importGscQueriesCsv(await readBoundedLocalText(file),{startDate,endDate});
   }
   const result=compareGscPeriods(
     await importFile(oldFile,oldStart,oldEnd),await importFile(newFile,newStart,newEnd));

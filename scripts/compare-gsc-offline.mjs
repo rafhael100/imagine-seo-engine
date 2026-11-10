@@ -1,11 +1,9 @@
-import {readFile,stat} from 'node:fs/promises';
+import {readBoundedLocalText} from '../src/local-input.mjs';
 import {compareGscPeriods} from '../src/organic-trends.mjs';
 
 const [previousFile,currentFile]=process.argv.slice(2);
 async function input(path){
-  const file=await stat(path);
-  if(!file.isFile()||file.size>10*1024*1024)throw new Error('Input must be a local JSON file <= 10 MiB');
-  return JSON.parse(await readFile(path,'utf8'));
+  return JSON.parse(await readBoundedLocalText(path));
 }
 if(!previousFile||!currentFile) {
   console.error('Usage: node scripts/compare-gsc-offline.mjs previous.json current.json');

@@ -83,3 +83,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Testes sintéticos invocam comandos de auditoria, importação/comparação CSV e gate de URLs em processos separados e temporários.
 - README atualizado para estado real de implementação; checklist de bloqueios externos mantido.
 - PR draft sem merge/deploy; não significa SaaS ou Search Console operacional.
+
+## SEO-F16 — Leitura segura de arquivos e diagnóstico sem vazamento (09/11/2026)
+- CLIs locais agora compartilham leitor limitado em bytes com abertura segura e rejeição de links simbólicos finais; mensagens de URL inválida no sitemap não reproduzem a URL bruta.
+- Testes sintéticos de inputs symlink e segredos em sitemap; processos permanecem offline, sem credenciais, rede ou armazenamento adicional.
