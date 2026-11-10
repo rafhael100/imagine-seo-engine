@@ -22,3 +22,7 @@ Motor SEO independente (P1), inicialmente dedicado à melhora orgânica e conver
 3. Conexão OAuth/GSC só após autorização da propriedade e conformidade LGPD.
 4. Projetar fila, observabilidade, tenant isolation e relatórios comerciais no Portal.
 5. Expandir com revisão editorial e dados originais, sem promessa de primeiro lugar.
+
+## CI supply chain (SEO-F21)
+- GitHub Actions devem usar SHAs completos e imutáveis para `actions/checkout` e `actions/setup-node`, `persist-credentials: false`, permissão `contents: read` e runner `ubuntu-24.04`.
+- Não incluir `pull_request_target`, `id-token: write`, uploads de dados reais, deploy ou publicação a partir de workflows de auditoria offline.
