@@ -41,6 +41,7 @@ export function reviewOfflineGscPropertyPreflight({
   const seen=new Set();
   for(const entry of listedProperties){
     if(!entry||typeof entry!=='object'||Array.isArray(entry)||
+      !exactFields(entry,new Set(['siteUrl','permissionLevel']))||
       typeof entry.siteUrl!=='string'||!VALID_LEVELS.has(entry.permissionLevel))
       throw Error('SEO GSC preflight: malformed property listing');
     const property=canonicalProperty(entry.siteUrl);
