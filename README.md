@@ -41,3 +41,7 @@ Dados artificiais de testes não demonstram tráfego, ranking, indexação ou co
 ## Envelope de revisão para Portal (SEO-F24)
 
 `node scripts/prepare-portal-handoff-offline.mjs brief.json tenantRef propertySha256 sourceCommitSha` gera contrato de revisão sanitizado. O campo `customerDisplayAuthorized` é sempre `false`; cabe ao Portal real autenticar, autorizar e comprovar propriedade/consentimento. Não há rota API, dashboard SaaS, credencial ou publicação implementada por este comando.
+
+## Política reforçada para páginas públicas (SEO-F25)
+
+Adicione `--strict-public-head` ao auditor para exigir `meta robots=index,follow` e `og:url` correspondente à URL canônica, além das verificações padrão. Recomendado somente para builds de páginas públicas curadas; continua desativado por padrão para manter compatibilidade com outros builds estáticos.

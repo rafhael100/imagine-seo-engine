@@ -122,3 +122,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Adiciona contrato offline `seo-portal-review-handoff-v1`: métricas agregadas, ações fechadas e escopo sintático do tenant/fingerprint, sem repassar consultas, páginas nem mensagens brutas.
 - Negação explícita de autorização de exibição, propriedade e grant de tenant; exige verificação **independente** no backend Portal antes de tornar visível qualquer dado.
 - CLI local e testes provam que flags de permissão injetadas pelo operador são ignoradas e que não se autentica ninguém.
+
+## SEO-F25 — Auditor de cabeçalho público estrito (10/11/2026)
+- Modo opt-in `--strict-public-head` verifica 1 meta robots publicável `index,follow` e 1 `og:url` idêntica à URL canônica em todas as rotas HTML públicas (exceto 404).
+- Compatibilidade com builds anteriores mantida sem flag; novos testes sintéticos cobrem falta, duplicação e discrepância de metadados.
+- A adoção no CI Comercial exige teste integrado e pin fixo; não há produção, Google, alteração de main ou deploy.
