@@ -40,3 +40,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Nova validação comum de datas civis UTC: rejeita datas impossíveis (ex.: 29/02 em ano não bissexto), intervalos invertidos e períodos superiores a 92 dias.
 - Importação CSV e análises de consultas usam o mesmo contrato; acumuladores rejeitam overflow de inteiros seguros e de posição ponderada.
 - Cobertura sintética de calendário, intervalo e overflow; sem credenciais, gastos, dados de clientes, publicação ou merge na `main`.
+
+## SEO-F7 — Contrato para consumo read-only multiempresa (09/11/2026)
+- Adaptador local de relatórios GSC com identificadores de empresa, fingerprint de propriedade e origem, dados agregados e filtro de consultas pessoais.
+- Comparações offline bloqueadas quando empresa/propriedade declarada divergem, com testes sintéticos.
+- NÃO há autenticação, conexão OAuth, verificação real de propriedade, banco de dados, consentimento persistido ou isolamento de produção.
