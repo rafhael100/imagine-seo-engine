@@ -193,3 +193,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Novo contrato offline verifica propriedade GSC exata e nível declarado de acesso de leitura, sem confundir domínio com URL-prefix ou propriedade de terceiros.
 - Resposta só apresenta fingerprint e status de revisão, sem URLs de outras propriedades. OAuth, consentimento e grant do Portal permanecem `false` e a operação real fica sob `HOLD` mesmo quando a lista indica correspondência.
 - Testes inteiramente sintéticos, sem consumir dados reais do Google ou credenciais.
+
+## SEO-F40 — Contrato de vínculo seguro GSC preflight/plano (10/11/2026)
+- O vínculo offline cruza tenant e property fingerprint com o alvo contido na URL real do query plan `googleapis.com`, detectando troca de propriedade mesmo que metadados tenham sido forjados.
+- Restringe escopo `webmasters.readonly`, método POST, consultas `web/query` com dados finais e limites já aprovados, sempre com autorização real em `HOLD`.
+- Testes sintéticos rejeitam cross-tenant, cross-property, URLs adulteradas e flags de autorização inventadas. Nenhuma chamada externa ao Google.

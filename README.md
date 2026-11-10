@@ -101,3 +101,7 @@ Na auditoria estrita de sites públicos, cada URL do sitemap deve estar em um el
 ## Pré-verificação de propriedade GSC (SEO-F39)
 
 `reviewOfflineGscPropertyPreflight` confere apenas **correspondência exata** de propriedade (domínio GSC versus URL-prefix), a partir de uma lista local fornecida pelo operador. Não autentica Google, não confirma vínculo do tenant, não concede acesso real e não revela URLs no resultado. Mesmo com correspondência e permissão declarada, mantém `productionReadAuthorized=false` até verificação independente no Portal.
+
+## Vínculo offline entre property preflight e plano GSC (SEO-F40)
+
+`bindOfflineGscPlanToPreflight` verifica se tenant, fingerprint da propriedade, URL oficial Google, escopo readonly e corpo da consulta são compatíveis antes da revisão por backend. Todas as saídas mantêm `productionReadAuthorized=false` e `HOLD_EXTERNAL_BACKEND_VERIFICATION`: uma lista de sites fornecida pelo operador não comprova OAuth ou grant real.
