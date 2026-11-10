@@ -93,8 +93,9 @@ async function crawlTree(root, errors) {
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/' } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
+  if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
   const site = new URL(siteUrl);
   if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
     site.username || site.password || site.port) {
@@ -150,6 +151,21 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const robots = getMeta(html, 'robots');
     const content = robots.map(x => x.content?.toLowerCase() || '').join(',');
     if (/\bnoindex\b/.test(content)) errors.push({type:'unexpected_noindex',file:rel,message:'Public route contains noindex'});
+    if(strictPublicHead){
+      // Additional gate for curated public routes, not for arbitrary static builds.
+      if(robots.length!==1||!robots[0].content?.trim()){
+        errors.push({type:'missing_robots_meta',file:rel,message:'Exactly one robots meta required'});
+      }else if(robots[0].content.toLowerCase().replace(/\s+/g,'')!=='index,follow'){
+        errors.push({type:'wrong_robots_meta',file:rel,message:'Public route must be index,follow'});
+      }
+      const og=tags(html,'meta').map(attrs)
+        .filter(x=>(x.property??'').toLowerCase()==='og:url');
+      if(og.length!==1||!og[0].content?.trim()){
+        errors.push({type:'missing_og_url',file:rel,message:'Exactly one og:url required'});
+      }else if(og[0].content!==new URL(path,site).href){
+        errors.push({type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
+      }
+    }
     if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) warnings.push({type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
 
     const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];

@@ -202,3 +202,44 @@ test('resource symlink rejection is unchanged after shared bounded reader',async
     assert.doesNotMatch(JSON.stringify(result.errors),/private.test\/secret/);
   });
 });
+
+test('strict public head detects a missing og:url without changing default audit',async()=>{
+  await withSite({},async root=>{
+    const regular=await auditStaticSite(root);
+    assert.deepEqual(regular.summary,{pages:2,errors:0,warnings:0});
+    const strict=await auditStaticSite(root,{strictPublicHead:true});
+    assert.equal(strict.errors.filter(x=>x.type==='missing_og_url').length,2);
+    assert.equal(strict.errors.some(x=>x.type==='missing_robots_meta'),false);
+  });
+});
+test('strict public head accepts matching canonical and Open Graph URL',async()=>{
+  await withSite({},async root=>{
+    for(const [rel,route] of [['index.html','/'],['servicos/index.html','/servicos/']]){
+      const html=makePage(route).replace('</head>',
+        '<meta property="og:url" content="'+origin+route+'"></head>');
+      await writeFile(join(root,rel),html);
+    }
+    const result=await auditStaticSite(root,{strictPublicHead:true});
+    assert.equal(result.errors.length,0);
+  });
+});
+test('strict public head blocks wrong OG URL and missing or duplicated meta robots',async()=>{
+  const home=makePage('/').replace('</head>',
+    '<meta property="og:url" content="https://wrong.example/"></head>')
+      .replace('name="robots"','name="not-robots"');
+  const service=makePage('/servicos/').replace('</head>',
+    '<meta name="robots" content="noindex">'+
+    '<meta property="og:url" content="'+origin+'/servicos/"></head>');
+  await withSite({home,service},async root=>{
+    const result=await auditStaticSite(root,{strictPublicHead:true});
+    assert.ok(result.errors.some(x=>x.type==='missing_robots_meta'));
+    assert.ok(result.errors.some(x=>x.type==='wrong_og_url'));
+    assert.ok(result.errors.some(x=>x.type==='unexpected_noindex'));
+    assert.ok(result.errors.some(x=>x.type==='missing_robots_meta'&&x.file==='servicos/index.html'));
+  });
+});
+test('strict public head explicitly rejects nonboolean option',async()=>{
+  await withSite({},async root=>{
+    await assert.rejects(auditStaticSite(root,{strictPublicHead:'true'}),/invalid strictPublicHead/);
+  });
+});

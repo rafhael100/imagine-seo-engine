@@ -190,3 +190,18 @@ test('Portal handoff CLI emits review-only envelope, not source file paths',asyn
     assert.doesNotMatch(res.stdout,/personal@example.com|\/secret\/private.pdf/);
   });
 });
+
+test('strict public head CLI rejects missing Open Graph URL when requested',async()=>{
+  await workspace(async dir=>{
+    await writeFile(join(dir,'index.html'),page('/'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc></urlset>');
+    const normal=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings']);
+    assert.equal(normal.status,0,normal.stderr);
+    const strict=run('audit-dist.mjs',[dir,site+'/','--strict-public-head']);
+    assert.equal(strict.status,1);
+    assert.equal(JSON.parse(strict.stdout).errors.some(x=>x.type==='missing_og_url'),true);
+  });
+});
