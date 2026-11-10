@@ -111,10 +111,6 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
     plan.authorization!=='operator_declared_provider_verification_pending'||
     plan.requiredOAuthScope!=='https://www.googleapis.com/auth/webmasters.readonly')
     throw Error('SEO GSC binding: incompatible query plan or tenant');
-  // Revalidate the whole plan even if an offline caller already checked
-  // some of its fields: the same contract is enforced during normalization.
-  try { validateOfflineGscQueryPlan(plan); }
-  catch { throw Error('SEO GSC binding: incompatible query plan'); }
   // Pin the actual Google URL path too, not only the claimed fingerprint.
   // A tampered URL is otherwise able to point the future HTTP client at
   // another site while the fingerprint remains unchanged.
@@ -143,6 +139,10 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
   } catch {
     throw Error('SEO GSC binding: unsupported query period');
   }
+  // Keep existing specific validation failures and run the shared strict
+  // validator before accepting a plan, so callers cannot bypass F41 rules.
+  try { validateOfflineGscQueryPlan(plan); }
+  catch { throw Error('SEO GSC binding: incompatible query plan'); }
   return {
     contractVersion:'seo-gsc-offline-bound-plan-v1',
     tenantRef:preflight.tenantRef,
