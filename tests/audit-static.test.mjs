@@ -574,3 +574,45 @@ test('a case variant of pt-BR on the root html tag remains valid',async()=>{
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('inert template headings and navigation links do not satisfy visible body rules',async()=>{
+  const home=makePage('/',{links:[]})
+    .replace('<h1>Conheça os serviços da Imagine</h1>',
+      '<template id="fragment"><h1>Not visible</h1><a href="/servicos/">fake nav</a></template>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='heading_count'&&x.file==='index.html'));
+    assert.ok(report.warnings.some(x=>x.type==='unreachable_page'&&x.file==='servicos/index.html'));
+  });
+});
+test('inert template metadata and JSON-LD do not satisfy head checks',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<title>Título exclusivo: /</title>',
+      '<template><title>Hidden title</title></template>')
+    .replace('<script type="application/ld+json">',
+      '<template><script type="application/ld+json">')
+    .replace('</script>','</script></template>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='missing_title'&&x.file==='index.html'));
+    assert.ok(report.warnings.some(x=>x.type==='missing_jsonld'&&x.file==='index.html'));
+  });
+});
+test('nested templates do not leak inner headings into page structure',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<h1>Conheça os serviços da Imagine</h1>',
+      '<template><template><h1>Nested fake</h1></template></template>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='heading_count'&&x.file==='index.html'));
+  });
+});
+test('JS strings containing template syntax are not treated as real inert markup',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>',
+      '<script>const sample="<template><h1>text</h1></template>";</script></head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});

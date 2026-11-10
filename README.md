@@ -85,3 +85,7 @@ Orçamentos internos e não expansíveis abortam a análise de builds com milhar
 ## Validação de idioma e canonical HTML (SEO-F35)
 
 A auditoria exige idioma `pt-BR` na abertura real da tag raiz `html`, sem aceitar strings que apenas mencionem `lang` no corpo ou JavaScript. O token `canonical` de `rel` é comparado sem distinção entre maiúsculas/minúsculas.
+
+## Conteúdo HTML inerte (SEO-F36)
+
+Elementos `<template>`, inclusive aninhados, são desconsiderados em verificações de títulos, H1, links e JSON-LD. Strings com sintaxe semelhante dentro de scripts não são tomadas como templates reais. O auditor continua offline e estático.

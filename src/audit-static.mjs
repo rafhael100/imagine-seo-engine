@@ -76,6 +76,37 @@ function attrs(markup) {
   }
   return result;
 }
+/**
+ * Omit inactive <template> subtrees from static SEO evidence. Handle nested
+ * template elements and never interpret <template> strings inside raw script
+ * or style text as live markup. This is a bounded HTML heuristic, not a DOM.
+ */
+function stripInertTemplates(markup){
+  let depth=0,rawText=null,start=0,result='';
+  const rx=/<(\/?)(template|script|style)\b[^>]*>/gi;
+  for(const match of markup.matchAll(rx)){
+    const closing=match[1]==='/',tag=match[2].toLowerCase();
+    if(rawText!==null){
+      if(closing&&tag===rawText)rawText=null;
+      continue;
+    }
+    if(tag==='script'||tag==='style'){
+      if(!closing)rawText=tag;
+      continue;
+    }
+    if(tag==='template'){
+      if(!closing){
+        if(depth===0)result+=markup.slice(start,match.index);
+        depth++;
+      }else if(depth>0){
+        depth--;
+        if(depth===0)start=match.index+match[0].length;
+      }
+    }
+  }
+  if(depth===0)result+=markup.slice(start);
+  return result;
+}
 function* tagIterator(html,name) {
   for(const match of html.matchAll(new RegExp('<'+name+'\\b[^>]*>', 'gi')))
     yield match[0];
@@ -212,7 +243,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     // Strip HTML comments before scanning metadata, navigation, headings or
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
-    const publicHtml=html.replace(/<!--[\s\S]*?-->/g,'');
+    const publicHtml=stripInertTemplates(html.replace(/<!--[\s\S]*?-->/g,''));
     const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
     const head=headMatch?headMatch[1]:'';
     const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
