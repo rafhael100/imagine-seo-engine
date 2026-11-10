@@ -46,3 +46,28 @@ test('rejects altered counts, unsafe paths, invalid policies and missing reports
   assert.throws(()=>compareStaticAuditReports(report(1),report(1),{maxErrors:-1}),/invalid policy/);
   assert.throws(()=>compareStaticAuditReports(null,report(1)),/structured audit report/);
 });
+
+test('blocks replacing a route with a different URL even when page count is unchanged',()=>{
+  const before={...report(2),routes:['/','/servicos/']};
+  const after={...report(2),routes:['/','/promocoes/']};
+  const result=compareStaticAuditReports(before,after);
+  assert.equal(result.passed,false);
+  assert.equal(result.changes.removedPageCount,0);
+  assert.deepEqual(result.removedRoutes,['/servicos/']);
+  assert.deepEqual(result.addedRoutes,['/promocoes/']);
+  assert.equal(result.changes.routeInventoryCompared,true);
+  assert.equal(compareStaticAuditReports(before,after,{blockRouteLoss:false}).passed,true);
+});
+test('fails closed when current report drops a previously present route inventory',()=>{
+  const before={...report(1),routes:['/']};
+  const result=compareStaticAuditReports(before,report(1));
+  assert.equal(result.passed,false);
+  assert.equal(result.changes.routeInventoryRegressed,true);
+  assert.equal(compareStaticAuditReports(report(1),report(1)).passed,true);
+});
+test('rejects manipulated route inventories and illegal route names',()=>{
+  assert.throws(()=>compareStaticAuditReports(report(2),{...report(2),routes:['/']}),/invalid route inventory/);
+  assert.throws(()=>compareStaticAuditReports(report(2),{...report(2),routes:['/','/']}),/duplicate routes/);
+  assert.throws(()=>compareStaticAuditReports(report(1),{...report(1),routes:['/../private']}),/invalid route inventory/);
+  assert.throws(()=>compareStaticAuditReports(report(1),{...report(1),routes:['/index?secret=1']}),/invalid route inventory/);
+});

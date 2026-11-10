@@ -69,3 +69,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Reabertura de arquivo HTML com O_NOFOLLOW (quando disponível) e revisão de tipo/tamanho, evitando leitura de symlink no último componente após o inventário inicial.
 - Auditor rejeita URLs de hyperlinks com protocolos data, file e vbscript e URLs com credenciais.
 - Testes sintéticos de symlink, HTML excessivo e protocolos inseguros. Ainda exige workspace de build confiável contra troca de diretórios pais.
+
+## SEO-F13 — Inventário de rotas e detecção de migração acidental (09/11/2026)
+- O auditor fornece inventário ordenado das rotas HTML públicas para distinguir páginas apenas substituídas de perdas reais.
+- Comparador de build bloqueia remoção de rota com mesmo número total de páginas, rejeita inventário malformado e perda de inventário previamente presente.
+- Comparações antigas sem inventário continuam usando regra conservadora por contagem, sem fingir avaliação de URL.
