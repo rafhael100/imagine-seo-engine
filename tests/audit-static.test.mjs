@@ -539,3 +539,38 @@ test('nofollow in non-meta content cannot forge a crawler restriction',async()=>
     assert.equal(result.errors.some(x=>x.type==='unexpected_nofollow'),false);
   });
 });
+
+test('canonical rel matching is case-insensitive and supports space-separated tokens',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('rel="canonical"','rel="Alternate CANONICAL"');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('a language attribute in a comment, body or JS cannot replace html lang',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html>')
+    .replace('</head>','<script>const fake="lang=\\"pt-BR\\"";</script></head>')
+    .replace('<h1>','<div lang="pt-BR">Text</div><h1>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.warnings.some(x=>x.type==='missing_ptbr_lang'&&x.file==='index.html'));
+  });
+});
+test('multiple root language attributes are not silently accepted',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html lang="en" lang="pt-BR">');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.warnings.some(x=>x.type==='missing_ptbr_lang'&&x.file==='index.html'));
+  });
+});
+test('a case variant of pt-BR on the root html tag remains valid',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html LANG="PT-br">');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});

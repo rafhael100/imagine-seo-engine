@@ -81,3 +81,7 @@ Orçamentos internos e não expansíveis abortam a análise de builds com milhar
 ## Regras gerais de acompanhamento de links (SEO-F34)
 
 `meta robots=nofollow` agora é identificado como problema de links em páginas públicas, mesmo no modo de auditoria padrão. O modo estrito continua exigindo `index,follow`.
+
+## Validação de idioma e canonical HTML (SEO-F35)
+
+A auditoria exige idioma `pt-BR` na abertura real da tag raiz `html`, sem aceitar strings que apenas mencionem `lang` no corpo ou JavaScript. O token `canonical` de `rel` é comparado sem distinção entre maiúsculas/minúsculas.

@@ -168,3 +168,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F34 — Diretiva nofollow no robots geral (10/11/2026)
 - O auditor agora sinaliza `meta name="robots" content="nofollow"` no cabeçalho público, mesmo sem modo estrito, além das restrições Googlebot já detectadas.
 - O resumo executivo registra revisão de indexação/navegação sem refletir conteúdos privados; testes cobrem a regra, falso positivo em comentário e ausência de regressão em `index,follow`.
+
+## SEO-F35 — Idioma do documento e canonical sem falsos positivos (10/11/2026)
+- O auditor valida o idioma somente no `lang` da tag raiz `html`, exigindo uma única declaração `pt-BR` e não aceitando textos em comentários, scripts ou corpo.
+- `rel=CANONICAL` passa a ser reconhecido conforme tokens de relação HTML case-insensitive, inclusive quando há múltiplos tokens.
+- Cobertura com testes sintéticos e nenhuma mudança na integração GSC, produção ou main.
