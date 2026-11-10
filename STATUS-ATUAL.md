@@ -74,3 +74,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O auditor fornece inventário ordenado das rotas HTML públicas para distinguir páginas apenas substituídas de perdas reais.
 - Comparador de build bloqueia remoção de rota com mesmo número total de páginas, rejeita inventário malformado e perda de inventário previamente presente.
 - Comparações antigas sem inventário continuam usando regra conservadora por contagem, sem fingir avaliação de URL.
+
+## SEO-F14 — Conformidade de respostas simuladas GSC (09/11/2026)
+- Adaptadores de consultas e paginação rejeitam tipo de agregação incompatível, datas parciais em respostas que deveriam ser finais, planos adulterados e ordem de cliques inconsistente.
+- Verificação dos parâmetros conforme documentação oficial, mas **sem execução OAuth, chamadas reais ou comprovação de dados do Search Console**.
