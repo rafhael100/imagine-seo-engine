@@ -149,3 +149,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor ignora comentários XML ao coletar `<loc>`, exige `urlset` e entrada(s), rejeita DTD e URL com fragmento ou fora do canonical exato.
 - Diagnósticos não reproduzem URLs dos arquivos de origem; testes sintéticos cobrem sitemap falso, XML incompleto e caminho válido.
 - Verificador estático heurístico: não faz parsing XML geral nem acesso HTTP/Google.
+
+## SEO-F31 — Bloqueios de indexação específicos do Googlebot (10/11/2026)
+- Auditor reconhece `robots=none` e meta `googlebot` com `noindex`, `none` ou `nofollow` mesmo quando `robots=index,follow` geral está válido.
+- O modo estrito também acusa `googlebot` meta duplicado; novos tipos são mapeados para revisão crítica no brief, sem alterar dados sensíveis.
+- Não avalia cabeçalhos HTTP `X-Robots-Tag` nem comprova indexação real; requer staging HTTP/Google com autorização.
