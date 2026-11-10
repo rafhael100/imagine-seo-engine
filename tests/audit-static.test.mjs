@@ -438,3 +438,45 @@ test('Googlebot benign directive does not change the public indexing gate',async
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('commented-out H1 and nav links do not count as public page structure',async()=>{
+  const fake=makePage('/',{links:[]})
+    .replace('<h1>Conheça os serviços da Imagine</h1>',
+      '<!-- <h1>Fake H1</h1><a href="/PRIVATE-DO-NOT-COUNT/">hidden</a> -->');
+  await withSite({home:fake},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='heading_count'&&x.file==='index.html'));
+    assert.equal(result.errors.some(x=>x.type==='broken_internal_link'&&
+      x.message.includes('PRIVATE-DO-NOT-COUNT')),false);
+  });
+});
+test('fake H1 and links in inline JavaScript strings cannot satisfy body checks',async()=>{
+  const fake=makePage('/',{links:[]})
+    .replace('<h1>Conheça os serviços da Imagine</h1>',
+      '<script>const markup = "<h1>Injected</h1><a href=\"/hidden/\">fake</a>";</script>');
+  await withSite({home:fake},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.errors.some(x=>x.type==='heading_count'&&x.file==='index.html'));
+    assert.equal(result.errors.some(x=>x.type==='broken_internal_link'&&
+      x.message.includes('/hidden/')),false);
+  });
+});
+test('a real body H1 and navigation link still pass after comment and script stripping',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<h1>Conheça os serviços da Imagine</h1>',
+      '<!-- <h1>Hidden</h1> --><h1>Conheça os serviços da Imagine</h1>');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.deepEqual(result.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('commented-out JSON-LD does not satisfy structured-data presence',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<script type="application/ld+json">',
+      '<!-- <script type="application/ld+json">')
+    .replace('</script>','</script> -->');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.ok(result.warnings.some(x=>x.type==='missing_jsonld'&&x.file==='index.html'));
+  });
+});

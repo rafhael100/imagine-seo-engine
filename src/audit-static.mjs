@@ -188,11 +188,18 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }
       throw error;
     }
-    // Metadata must live in the actual <head>. Ignore tags in HTML comments,
-    // templates or <body>, which do not provide reliable SEO directives.
-    // This remains a bounded static heuristic, not an HTML5 browser parser.
-    const headMatch=html.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
-    const head=headMatch?headMatch[1].replace(/<!--[\s\S]*?-->/g,''):'';
+    // Strip HTML comments before scanning metadata, navigation, headings or
+    // JSON-LD; commented-out markup cannot constitute public SEO evidence.
+    const publicHtml=html.replace(/<!--[\s\S]*?-->/g,'');
+    const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
+    const head=headMatch?headMatch[1]:'';
+    const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
+    const body=bodyMatch?bodyMatch[1]:'';
+    // A title or anchor embedded in a script/style literal is not a visible
+    // page heading or navigation link. Keep JSON-LD detection separate.
+    const visibleBody=body
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,'');
     const record = { path, file: rel };
     if (path === '/404.html') {
       // Error document: keep out of XML sitemap and public page totals.
@@ -207,7 +214,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const description = getMeta(head,'description');
     if (description.length !== 1 || !description[0].content?.trim()) errors.push({type:'missing_description',file:rel,message:'One non-empty meta description required'});
 
-    const headings = tags(html, 'h1');
+    const headings = tags(visibleBody, 'h1');
     if (headings.length !== 1) errors.push({type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
 
     const canonicalTags = tags(head,'link').map(attrs).filter(x => (x.rel || '').split(/\s+/).includes('canonical'));
@@ -254,14 +261,14 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) warnings.push({type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
 
-    const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    const scripts = [...publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
     if (scripts.length === 0) warnings.push({type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
     for (const script of scripts) {
       try { JSON.parse(script[1]); } catch { errors.push({type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
     }
 
     const links = [];
-    for (const tag of tags(html,'a')) {
+    for (const tag of tags(visibleBody,'a')) {
       const href = attrs(tag).href;
       if (!href || href.startsWith('#') || /^(mailto:|tel:)/i.test(href)) continue;
       if (/^javascript:/i.test(href)) {

@@ -69,3 +69,7 @@ O auditor local descarta URLs ocultas em comentários, exige a estrutura básica
 ## Diretivas Googlebot (SEO-F31)
 
 O auditor verifica `robots=none` e `meta name="googlebot"` com `noindex`, `none` ou `nofollow`; no modo estrito detecta também declarações Googlebot duplicadas. As regras se aplicam ao build HTML, não a headers HTTP de um servidor ativo.
+
+## Análise do corpo HTML (SEO-F32)
+
+A verificação de H1 e links internos usa o conteúdo do corpo sem comentários nem scripts/estilos. Isso impede que trechos comentados ou literais de JavaScript sejam interpretados como navegação pública. JSON-LD também ignora comentários; a análise continua estática e não interpreta visibilidade CSS.

@@ -154,3 +154,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor reconhece `robots=none` e meta `googlebot` com `noindex`, `none` ou `nofollow` mesmo quando `robots=index,follow` geral está válido.
 - O modo estrito também acusa `googlebot` meta duplicado; novos tipos são mapeados para revisão crítica no brief, sem alterar dados sensíveis.
 - Não avalia cabeçalhos HTTP `X-Robots-Tag` nem comprova indexação real; requer staging HTTP/Google com autorização.
+
+## SEO-F32 — Estrutura visível e navegação sem conteúdo comentado (10/11/2026)
+- Auditor remove comentários HTML antes de localizar cabeçalho, JSON-LD, H1 e links, e considera apenas `<body>` para H1/navegação.
+- Tags escondidas em literais de `<script>` e `<style>` não podem satisfazer H1 ou criar falsos links quebrados. Testes sintéticos com markup enganoso.
+- Heurística estática, não valida CSS de visibilidade nem substitui QA em navegador; nenhuma mudança na web publicada.
