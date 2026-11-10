@@ -688,3 +688,12 @@ test('strict sitemap rejects empty url entries even when other locs are valid',a
     assert.ok(report.errors.some(x=>x.type==='invalid_sitemap_entries'));
   });
 });
+
+test('strict sitemap bounds even empty URL entries without a full array allocation',async()=>{
+  const sitemap='<urlset>'+Array.from({length:20001},()=>'<url></url>').join('')+
+    '</urlset>';
+  await withSite({sitemap},async root=>{
+    await assert.rejects(auditStaticSite(root,{strictPublicHead:true}),
+      /sitemap entry budget exceeded/);
+  });
+});
