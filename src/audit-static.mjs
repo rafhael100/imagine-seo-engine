@@ -280,6 +280,9 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   }
   return {
     summary: { pages: pages.length, errors: errors.length, warnings: warnings.length },
+    // Explicit public route inventory detects accidental replacements even if
+    // the total HTML page count stays constant.
+    routes:pages.map(page=>page.path).sort(),
     graph, errors, warnings
   };
 }

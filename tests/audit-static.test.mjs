@@ -163,3 +163,12 @@ test('audit rejects unsafe non-http hyperlinks, not just javascript URLs',async(
     assert.equal(out.errors.filter(x=>x.type==='invalid_internal_link').length,3);
   });
 });
+
+test('records a deterministic inventory of public routes, excluding 404.html',async()=>{
+  await withSite({},async root=>{
+    await writeFile(join(root,'404.html'),makePage('/404.html'));
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.routes,['/','/servicos/']);
+    assert.equal(report.summary.pages,report.routes.length);
+  });
+});
