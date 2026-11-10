@@ -90,3 +90,49 @@ test('invalid properties and tenant values fail closed with generic errors',()=>
     assert.doesNotMatch(error.message,/person:secret|imagine\.example|other tenant/);
   }
 });
+
+import {planGscQuery} from '../src/gsc-readonly.mjs';
+import {bindOfflineGscPlanToPreflight as bind} from '../src/gsc-property-preflight.mjs';
+const planFor=(property='sc-domain:imagine.example',tenant='imagine-demo')=>planGscQuery({
+  tenantRef:tenant,siteUrl:property,startDate:'2026-10-01',
+  endDate:'2026-10-07',authorizationConfirmed:true
+});
+test('offline binding joins an exact property and tenant but never grants access',()=>{
+  const preflight=review(scope([mk(requestedProperty)]));
+  const result=bind({preflight,plan:planFor()});
+  assert.equal(result.scopeIntegrityCheckedOffline,true);
+  assert.equal(result.productionReadAuthorized,false);
+  assert.equal(result.oauthVerified,false);
+  assert.equal(result.tenantGrantVerified,false);
+  assert.equal(result.networkPerformed,false);
+  assert.doesNotMatch(JSON.stringify(result),/imagine\.example|googleapis\.com/);
+});
+test('offline binding rejects mismatched tenant, property or tampered Google URL',()=>{
+  const preflight=review(scope([mk(requestedProperty)])),valid=planFor();
+  for(const plan of [
+    planFor('sc-domain:another.example'),
+    planFor(requestedProperty,'another-tenant'),
+    {...valid,url:valid.url.replace('imagine.example','another.example')},
+    {...valid,url:'https://malicious.example/webmasters/v3/sites/site/searchAnalytics/query'},
+    {...valid,requiredOAuthScope:'https://www.googleapis.com/auth/webmasters'},
+    {...valid,body:{...valid.body,type:'image'}},
+    {...valid,networkPerformed:true}
+  ])assert.throws(()=>bind({preflight,plan}),/SEO GSC binding:/);
+});
+test('operator-supplied missing property still cannot authorize a read',()=>{
+  const preflight=review(scope([]));
+  const result=bind({preflight,plan:planFor()});
+  assert.equal(result.exactPropertyListed,false);
+  assert.equal(result.declaredReadPermissionEligible,false);
+  assert.equal(result.productionReadAuthorized,false);
+});
+test('forged preflight flags or status are rejected',()=>{
+  const preflight=review(scope([mk(requestedProperty)])),plan=planFor();
+  for(const override of [
+    {oauthVerified:true},{tenantRef:'other-tenant'},
+    {status:'VERIFIED'},{propertyConsentVerified:true},
+    {productionReadAuthorized:true},{exactPropertyListed:false},
+    {authorization:'APPROVED'}
+  ])assert.throws(()=>bind({preflight:{...preflight,...override},plan}),
+    /SEO GSC binding:/);
+});

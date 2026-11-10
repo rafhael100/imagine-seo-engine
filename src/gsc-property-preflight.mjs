@@ -60,3 +60,76 @@ export function reviewOfflineGscPropertyPreflight({
     ]
   };
 }
+
+/**
+ * SEO-F40 — Bind a read-only query plan to the exact synthetic preflight
+ * fingerprint and tenant. The result is never authorization.
+ */
+export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
+  if(!preflight||typeof preflight!=='object'||Array.isArray(preflight)||
+    preflight.contractVersion!=='seo-gsc-property-preflight-offline-v1'||
+    preflight.sourceType!=='operator_supplied_sites_list_not_verified'||
+    typeof preflight.tenantRef!=='string'||!TENANT.test(preflight.tenantRef)||
+    typeof preflight.propertyFingerprint!=='string'||
+    !/^[0-9a-f]{64}$/.test(preflight.propertyFingerprint)||
+    preflight.authorization!=='HOLD_BACKEND_OAUTH_AND_TENANT_VERIFICATION'||
+    preflight.oauthVerified!==false||
+    preflight.portalTenantGrantVerified!==false||
+    preflight.propertyConsentVerified!==false||
+    preflight.productionReadAuthorized!==false||
+    typeof preflight.exactPropertyListed!=='boolean'||
+    typeof preflight.declaredReadPermissionEligible!=='boolean'||
+    !Number.isSafeInteger(preflight.propertiesInspected)||
+    preflight.propertiesInspected<0||preflight.propertiesInspected>100)
+    throw Error('SEO GSC binding: valid offline preflight required');
+  const status=!preflight.exactPropertyListed?'PROPERTY_NOT_LISTED':
+    preflight.declaredReadPermissionEligible?
+      'DECLARED_READ_ACCESS_NOT_VERIFIED':'INSUFFICIENT_DECLARED_PERMISSION';
+  if(status!==preflight.status||
+    (preflight.declaredReadPermissionEligible&&!preflight.exactPropertyListed))
+    throw Error('SEO GSC binding: inconsistent property preflight');
+  if(!plan||typeof plan!=='object'||Array.isArray(plan)||
+    plan.contractVersion!=='seo-gsc-readonly-plan-v1'||
+    plan.tenantRef!==preflight.tenantRef||
+    plan.propertyFingerprint!==preflight.propertyFingerprint||
+    plan.method!=='POST'||plan.networkPerformed!==false||
+    plan.authorization!=='operator_declared_provider_verification_pending'||
+    plan.requiredOAuthScope!=='https://www.googleapis.com/auth/webmasters.readonly')
+    throw Error('SEO GSC binding: incompatible query plan or tenant');
+  // Pin the actual Google URL path too, not only the claimed fingerprint.
+  // A tampered URL is otherwise able to point the future HTTP client at
+  // another site while the fingerprint remains unchanged.
+  if(typeof plan.url!=='string'||plan.url.length>4096)
+    throw Error('SEO GSC binding: invalid query URL');
+  const match=plan.url.match(/^https:\/\/www\.googleapis\.com\/webmasters\/v3\/sites\/([^/?#]+)\/searchAnalytics\/query$/);
+  if(!match)throw Error('SEO GSC binding: invalid query URL');
+  let property;
+  try{property=canonicalProperty(decodeURIComponent(match[1]));}
+  catch{throw Error('SEO GSC binding: invalid query URL');}
+  if(fingerprint(property)!==plan.propertyFingerprint||
+    encodeURIComponent(property)!==match[1])
+    throw Error('SEO GSC binding: property and query URL mismatch');
+  if(!plan.body||typeof plan.body!=='object'||
+    plan.body.type!=='web'||plan.body.dataState!=='final'||
+    plan.body.aggregationType!=='byProperty'||
+    !Array.isArray(plan.body.dimensions)||
+    plan.body.dimensions.length!==1||plan.body.dimensions[0]!=='query'||
+    !Number.isSafeInteger(plan.body.rowLimit)||
+    plan.body.rowLimit<1||plan.body.rowLimit>25000||
+    !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
+    plan.body.startRow>100000)
+    throw Error('SEO GSC binding: unsupported query body');
+  return {
+    contractVersion:'seo-gsc-offline-bound-plan-v1',
+    tenantRef:preflight.tenantRef,
+    propertyFingerprint:preflight.propertyFingerprint,
+    exactPropertyListed:preflight.exactPropertyListed,
+    declaredReadPermissionEligible:preflight.declaredReadPermissionEligible,
+    scopeIntegrityCheckedOffline:true,
+    oauthVerified:false,
+    tenantGrantVerified:false,
+    productionReadAuthorized:false,
+    networkPerformed:false,
+    authorization:'HOLD_EXTERNAL_BACKEND_VERIFICATION'
+  };
+}
