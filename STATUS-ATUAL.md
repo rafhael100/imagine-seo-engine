@@ -198,3 +198,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O vínculo offline cruza tenant e property fingerprint com o alvo contido na URL real do query plan `googleapis.com`, detectando troca de propriedade mesmo que metadados tenham sido forjados.
 - Restringe escopo `webmasters.readonly`, método POST, consultas `web/query` com dados finais e limites já aprovados, sempre com autorização real em `HOLD`.
 - Testes sintéticos rejeitam cross-tenant, cross-property, URLs adulteradas e flags de autorização inventadas. Nenhuma chamada externa ao Google.
+
+## SEO-F41 — Campos e datas de consulta GSC sem extensão implícita (10/11/2026)
+- O validador F40 só aceita campos conhecidos do plano e do corpo `query/web/final`, rejeitando extras que possam modificar o pedido ao provedor.
+- Datas de período são revalidadas (calendário real, ordem e limite de 92 dias) no momento do vínculo, em vez de confiar somente em um planner potencialmente alterado.
+- Metadados de propriedade incompatíveis com o inventário são bloqueados; testes sintéticos mantêm `productionReadAuthorized=false` e nenhum acesso externo.

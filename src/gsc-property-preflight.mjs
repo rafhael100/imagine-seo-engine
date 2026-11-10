@@ -5,6 +5,7 @@
  */
 import {createHash} from 'node:crypto';
 import {canonicalProperty} from './gsc-readonly.mjs';
+import {validateGscPeriod} from './gsc-period.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
 const VALID_LEVELS=new Set([
@@ -14,6 +15,18 @@ const READ_LEVELS=new Set([
   'siteOwner','siteFullUser','siteRestrictedUser'
 ]);
 const fingerprint=value=>createHash('sha256').update(value,'utf8').digest('hex');
+const QUERY_FIELDS=new Set([
+  'startDate','endDate','dimensions','type','aggregationType',
+  'dataState','rowLimit','startRow'
+]);
+const PLAN_FIELDS=new Set([
+  'contractVersion','tenantRef','propertyFingerprint','requiredOAuthScope',
+  'authorization','method','url','body','networkPerformed'
+]);
+const exactFields=(record,fields)=>
+  record&&typeof record==='object'&&!Array.isArray(record)&&
+  Object.keys(record).length===fields.size&&
+  Object.keys(record).every(k=>fields.has(k));
 
 export function reviewOfflineGscPropertyPreflight({
   tenantRef,requestedProperty,listedProperties
@@ -80,7 +93,8 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
     typeof preflight.exactPropertyListed!=='boolean'||
     typeof preflight.declaredReadPermissionEligible!=='boolean'||
     !Number.isSafeInteger(preflight.propertiesInspected)||
-    preflight.propertiesInspected<0||preflight.propertiesInspected>100)
+    preflight.propertiesInspected<0||preflight.propertiesInspected>100||
+    (preflight.exactPropertyListed&&preflight.propertiesInspected===0))
     throw Error('SEO GSC binding: valid offline preflight required');
   const status=!preflight.exactPropertyListed?'PROPERTY_NOT_LISTED':
     preflight.declaredReadPermissionEligible?
@@ -89,6 +103,7 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
     (preflight.declaredReadPermissionEligible&&!preflight.exactPropertyListed))
     throw Error('SEO GSC binding: inconsistent property preflight');
   if(!plan||typeof plan!=='object'||Array.isArray(plan)||
+    !exactFields(plan,PLAN_FIELDS)||
     plan.contractVersion!=='seo-gsc-readonly-plan-v1'||
     plan.tenantRef!==preflight.tenantRef||
     plan.propertyFingerprint!==preflight.propertyFingerprint||
@@ -109,7 +124,7 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
   if(fingerprint(property)!==plan.propertyFingerprint||
     encodeURIComponent(property)!==match[1])
     throw Error('SEO GSC binding: property and query URL mismatch');
-  if(!plan.body||typeof plan.body!=='object'||
+  if(!exactFields(plan.body,QUERY_FIELDS)||
     plan.body.type!=='web'||plan.body.dataState!=='final'||
     plan.body.aggregationType!=='byProperty'||
     !Array.isArray(plan.body.dimensions)||
@@ -119,6 +134,11 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
     !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
     plan.body.startRow>100000)
     throw Error('SEO GSC binding: unsupported query body');
+  try {
+    validateGscPeriod(plan.body.startDate,plan.body.endDate);
+  } catch {
+    throw Error('SEO GSC binding: unsupported query period');
+  }
   return {
     contractVersion:'seo-gsc-offline-bound-plan-v1',
     tenantRef:preflight.tenantRef,
