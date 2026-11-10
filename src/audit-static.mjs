@@ -121,24 +121,29 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }
       throw error;
     }
+    // Metadata must live in the actual <head>. Ignore tags in HTML comments,
+    // templates or <body>, which do not provide reliable SEO directives.
+    // This remains a bounded static heuristic, not an HTML5 browser parser.
+    const headMatch=html.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
+    const head=headMatch?headMatch[1].replace(/<!--[\s\S]*?-->/g,''):'';
     const record = { path, file: rel };
     if (path === '/404.html') {
       // Error document: keep out of XML sitemap and public page totals.
       continue;
     }
-    const titleMatch = html.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
+    const titleMatch = head.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
     const title = titleMatch?.[1]?.replace(/\s+/g, ' ').trim() || '';
     if (!title) errors.push({ type:'missing_title', file:rel, message: 'Page has no title' });
     else if (titles.has(title)) warnings.push({ type:'duplicate_title', file:rel, message: 'Same title as ' + titles.get(title) });
     else titles.set(title, rel);
 
-    const description = getMeta(html,'description');
+    const description = getMeta(head,'description');
     if (description.length !== 1 || !description[0].content?.trim()) errors.push({type:'missing_description',file:rel,message:'One non-empty meta description required'});
 
     const headings = tags(html, 'h1');
     if (headings.length !== 1) errors.push({type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
 
-    const canonicalTags = tags(html,'link').map(attrs).filter(x => (x.rel || '').split(/\s+/).includes('canonical'));
+    const canonicalTags = tags(head,'link').map(attrs).filter(x => (x.rel || '').split(/\s+/).includes('canonical'));
     if (canonicalTags.length !== 1 || !canonicalTags[0].href) {
       errors.push({type:'missing_canonical',file:rel,message:'Exactly one canonical link required'});
     } else {
@@ -148,7 +153,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       if (canonicals.has(canon)) errors.push({type:'duplicate_canonical',file:rel,message:'Canonical shared with ' + canonicals.get(canon)});
       canonicals.set(canon, rel);
     }
-    const robots = getMeta(html, 'robots');
+    const robots = getMeta(head, 'robots');
     const content = robots.map(x => x.content?.toLowerCase() || '').join(',');
     if (/\bnoindex\b/.test(content)) errors.push({type:'unexpected_noindex',file:rel,message:'Public route contains noindex'});
     if(strictPublicHead){
@@ -158,7 +163,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }else if(robots[0].content.toLowerCase().replace(/\s+/g,'')!=='index,follow'){
         errors.push({type:'wrong_robots_meta',file:rel,message:'Public route must be index,follow'});
       }
-      const og=tags(html,'meta').map(attrs)
+      const og=tags(head,'meta').map(attrs)
         .filter(x=>(x.property??'').toLowerCase()==='og:url');
       if(og.length!==1||!og[0].content?.trim()){
         errors.push({type:'missing_og_url',file:rel,message:'Exactly one og:url required'});

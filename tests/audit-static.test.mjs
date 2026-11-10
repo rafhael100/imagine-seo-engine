@@ -243,3 +243,40 @@ test('strict public head explicitly rejects nonboolean option',async()=>{
     await assert.rejects(auditStaticSite(root,{strictPublicHead:'true'}),/invalid strictPublicHead/);
   });
 });
+
+test('ignores forged canonical and meta description placed only in body or HTML comments',async()=>{
+  const spoofed='<!doctype html><html lang="pt-BR"><head>'+
+    '<!-- <title>Forged title</title><meta name="description" content="forged">'+
+    '<link rel="canonical" href="'+origin+'/"><meta property="og:url" content="'+origin+'/"> -->'+
+    '</head><body><title>Body title</title>'+
+    '<meta name="description" content="Body description">'+
+    '<link rel="canonical" href="'+origin+'/">'+
+    '<meta name="robots" content="index,follow">'+
+    '<meta property="og:url" content="'+origin+'/">'+
+    '<h1>Title</h1></body></html>';
+  await withSite({home:spoofed},async root=>{
+    const result=await auditStaticSite(root,{strictPublicHead:true});
+    for(const type of ['missing_title','missing_description','missing_canonical',
+      'missing_robots_meta','missing_og_url']){
+      assert.ok(result.errors.some(e=>e.type===type&&e.file==='index.html'),type);
+    }
+  });
+});
+test('rejects commented out canonical but accepts a visible real canonical in head',async()=>{
+  const page=makePage('/',{links:['/servicos/']})
+    .replace('<link rel="canonical" href="'+origin+'/">',
+      '<!-- <link rel="canonical" href="'+origin+'/wrong/"> -->'+
+      '<link rel="canonical" href="'+origin+'/">');
+  await withSite({home:page},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.filter(x=>x.file==='index.html').length,0);
+  });
+});
+test('does not accept a canonical stored in the body when head lacks one',async()=>{
+  const body=makePage('/').replace('<link rel="canonical" href="'+origin+'/">',
+    '</head><body><link rel="canonical" href="'+origin+'/">');
+  await withSite({home:body},async root=>{
+    const report=await auditStaticSite(root);
+    assert.ok(report.errors.some(x=>x.type==='missing_canonical'&&x.file==='index.html'));
+  });
+});

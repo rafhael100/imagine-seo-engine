@@ -45,3 +45,7 @@ Dados artificiais de testes não demonstram tráfego, ranking, indexação ou co
 ## Política reforçada para páginas públicas (SEO-F25)
 
 Adicione `--strict-public-head` ao auditor para exigir `meta robots=index,follow` e `og:url` correspondente à URL canônica, além das verificações padrão. Recomendado somente para builds de páginas públicas curadas; continua desativado por padrão para manter compatibilidade com outros builds estáticos.
+
+## Verificação de head HTML (SEO-F26)
+
+Metadados técnicos indexáveis são validados somente quando localizados no `<head>` verdadeiro do arquivo HTML; comentários e tags inseridas no `<body>` não podem satisfazer os requisitos da auditoria. Os testes continuam locais e sintéticos.
