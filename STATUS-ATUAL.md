@@ -60,3 +60,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Planejador sem rede para método Search Analytics POST, escopo OAuth mínimo, período validado, limites de linhas e normalização agregada de resposta sintética.
 - Não acessa contas, não guarda tokens, não configura OAuth, não comprova propriedade nem representa tráfego real.
 - Ativação depende de autorização da propriedade/Portal autenticado, políticas LGPD e homologação protegida. Sem merge `main`/deploy.
+
+## SEO-F11 — Paginação de consultas GSC offline (09/11/2026)
+- Agrega páginas sintéticas ordenadas, bloqueia duplicatas, lacunas de offset e excedentes; saída com métricas agregadas e sinais de possível truncamento.
+- Não executa API, OAuth, consulta de contas, credenciais ou armazenamento; apenas preparação técnica de integração.
