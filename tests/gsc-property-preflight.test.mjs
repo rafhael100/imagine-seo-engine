@@ -171,3 +171,19 @@ test('valid strict query plan has exactly the expected readonly keys',()=>{
   assert.equal(bound.authorization,'HOLD_EXTERNAL_BACKEND_VERIFICATION');
   assert.equal(bound.productionReadAuthorized,false);
 });
+
+test('F43 rejects extra keys in operator-provided property listings',()=>{
+  for(const entry of [
+    {...mk(requestedProperty),oauthVerified:true},
+    {...mk(requestedProperty),tenantRef:'other-tenant'},
+    {...mk(requestedProperty),authorization:'APPROVED'},
+    {...mk(requestedProperty),permissionLevel:'siteOwner',unknown:null},
+    {...mk(requestedProperty),permissionLevel:'siteOwner',networkPerformed:false}
+  ]){
+    assert.throws(()=>review(scope([entry])),/SEO GSC preflight: malformed property listing/);
+  }
+  // The exact two provider fields remain valid, but never imply OAuth authorization.
+  const valid=review(scope([mk(requestedProperty,'siteRestrictedUser')]));
+  assert.equal(valid.declaredReadPermissionEligible,true);
+  assert.equal(valid.productionReadAuthorized,false);
+});
