@@ -98,3 +98,34 @@ test('refuses forged tenant, fingerprint and operator authorization fields',()=>
   assert.throws(()=>analyzeGscQueryResponse(response,{...plan,authorization:'verified_provider'}),
     /compatible query plan/);
 });
+
+test('response normalization rejects forged provider host and property target',()=>{
+  const valid=make();
+  for(const candidate of [
+    {...valid,url:valid.url.replace('www.googleapis.com','malicious.example')},
+    {...valid,url:valid.url.replace('example.com','unrelated.example')},
+    {...valid,networkPerformed:true}
+  ])assert.throws(()=>analyzeGscQueryResponse({rows:[]},candidate),
+    /compatible query plan/);
+});
+test('response normalization rejects forged dates, extra request fields and scope',()=>{
+  const valid=make();
+  for(const candidate of [
+    {...valid,body:{...valid.body,startDate:'2026-02-30'}},
+    {...valid,body:{...valid.body,startDate:'2026-01-01',endDate:'2026-10-07'}},
+    {...valid,body:{...valid.body,dimensionFilterGroups:[]}},
+    {...valid,body:{...valid.body,searchType:'image'}},
+    {...valid,requiredOAuthScope:'https://www.googleapis.com/auth/webmasters'},
+    {...valid,pretendVerified:true}
+  ])assert.throws(()=>analyzeGscQueryResponse({rows:[]},candidate),
+    /compatible query plan/);
+});
+test('valid response remains offline, aggregated and privacy-safe',()=>{
+  const valid=make();
+  const result=analyzeGscQueryResponse({rows:[
+    {keys:['servicos imagine'],clicks:4,impressions:40,ctr:0.1,position:5}
+  ]},valid);
+  assert.equal(result.sourceType,'operator_supplied_api_shaped_response_not_verified');
+  assert.equal(result.summary.analyzedRows,1);
+  assert.doesNotMatch(JSON.stringify(result),/servicos imagine|example.com/);
+});
