@@ -3,15 +3,8 @@
  * Não prevê posição, não acessa Google e não expõe consultas brutas.
  */
 import {analyzeQueryExport} from './opportunities.mjs';
+import {gscDay as day} from './gsc-period.mjs';
 
-const day = value => {
-  const parsed=Date.parse(value+'T00:00:00Z');
-  if(!Number.isFinite(parsed) ||
-    new Date(parsed).toISOString().slice(0,10)!==value) {
-    throw new Error('SEO trend: invalid calendar date');
-  }
-  return Math.floor(parsed/86400000);
-};
 const round=(v,d=4)=>Math.round((v+Number.EPSILON)*10**d)/10**d;
 const delta=(current,previous)=>previous>0?round((current-previous)/previous,3):null;
 

@@ -70,7 +70,7 @@ test('rejects impossible calendar dates and invalid Search Console dimensions',(
   assert.throws(()=>compareGscPeriods(
     report('2026-02-30','2026-03-07',[]),
     report('2026-03-08','2026-03-14',[])
-  ),/invalid calendar date|equal windows/);
+  ),/invalid calendar date|invalid reporting dates|equal windows/);
   assert.throws(()=>compareGscPeriods(
     {...prev([]),dimensions:['page']},curr([])
   ),/only dimension/);

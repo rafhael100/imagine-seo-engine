@@ -1,3 +1,4 @@
+import {validateGscPeriod} from './gsc-period.mjs';
 /**
  * SEO-F5 — Importa somente a tabela de CONSULTAS do CSV padrão
  * exportado manualmente pelo Google Search Console, em PT-BR ou EN.
@@ -78,10 +79,9 @@ export function importGscQueriesCsv(contents,{startDate,endDate}={}){
   if(typeof contents!=='string' || Buffer.byteLength(contents,'utf8')>MAX_BYTES){
     throw Error('GSC CSV: string file <= 10 MiB required');
   }
-  if(typeof startDate!=='string'||typeof endDate!=='string' ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)){
+  if(typeof startDate!=='string'||typeof endDate!=='string')
     throw Error('GSC CSV: explicit startDate/endDate required');
-  }
+  validateGscPeriod(startDate,endDate);
   const body=contents.replace(/^\uFEFF/,'');
   // CSV PT-BR pode usar ";" para permitir número decimal com vírgula.
   const first=body.split(/\r?\n/,1)[0];

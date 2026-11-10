@@ -35,3 +35,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Integrado ao **Imagine Comercial P0** pelo checkout de SHA fixo, com os **35 testes próprios do SEO Engine executados dentro do [CI do Comercial](https://github.com/rafhael100/imagine-comercial/actions/runs/42620760030)**; 78 testes do site e auditoria de 15 páginas passaram.
 - Sem conexão real GSC/GA4, tráfego, métricas orgânicas verdadeiras, credenciais ou autorização de clientes. Não há geração/publicação de páginas territoriais em massa.
 - Próxima prioridade: autorização da propriedade, OAuth e LGPD/retention depois de aprovação explícita; manter auditoria técnica e proteção de migração do Imagine Comercial como consumidor inicial. Nenhum merge, deploy ou compra automática.
+
+## SEO-F6 — Integridade de datas e contadores (09/11/2026)
+- Nova validação comum de datas civis UTC: rejeita datas impossíveis (ex.: 29/02 em ano não bissexto), intervalos invertidos e períodos superiores a 92 dias.
+- Importação CSV e análises de consultas usam o mesmo contrato; acumuladores rejeitam overflow de inteiros seguros e de posição ponderada.
+- Cobertura sintética de calendário, intervalo e overflow; sem credenciais, gastos, dados de clientes, publicação ou merge na `main`.
