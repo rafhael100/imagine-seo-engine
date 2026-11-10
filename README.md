@@ -37,3 +37,7 @@ Dados artificiais de testes não demonstram tráfego, ranking, indexação ou co
 ## Revisão de migração de URLs (SEO-F22)
 
 `node scripts/review-route-migration-offline.mjs before.json after.json candidates.json` verifica candidatos 301 informados manualmente, mas **nunca** gera regras ou autoriza publicação. Qualquer URL removida mantém o gate de revisão humana e status de saída 1. Variantes com query, percent-encoding ou destino externo são rejeitadas.
+
+## Envelope de revisão para Portal (SEO-F24)
+
+`node scripts/prepare-portal-handoff-offline.mjs brief.json tenantRef propertySha256 sourceCommitSha` gera contrato de revisão sanitizado. O campo `customerDisplayAuthorized` é sempre `false`; cabe ao Portal real autenticar, autorizar e comprovar propriedade/consentimento. Não há rota API, dashboard SaaS, credencial ou publicação implementada por este comando.

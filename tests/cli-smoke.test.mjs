@@ -170,3 +170,23 @@ test('route migration CLI stays HOLD even if candidate maps deleted URLs',async(
     assert.doesNotMatch(result.stdout,/\/servicos\/|\/planos\//);
   });
 });
+
+test('Portal handoff CLI emits review-only envelope, not source file paths',async()=>{
+  await workspace(async dir=>{
+    const file=join(dir,'private-brief.json');
+    await writeFile(file,JSON.stringify({
+      contractVersion:'seo-brief-offline-v1',
+      sourceType:'operator_supplied_offline_reports_unverified',
+      technical:{status:'attention',pages:3,errors:0,warnings:1},
+      organic:null,recommendedReviews:[{code:'review_page_metadata',priority:'medium',count:1}],
+      rawQuery:'personal@example.com',rawFile:'/secret/private.pdf'
+    }));
+    const res=run('prepare-portal-handoff-offline.mjs',
+      [file,'imagine-demo','a'.repeat(64),'b'.repeat(40)]);
+    assert.equal(res.status,0,res.stderr);
+    const result=JSON.parse(res.stdout);
+    assert.equal(result.releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
+    assert.equal(result.customerDisplayAuthorized,false);
+    assert.doesNotMatch(res.stdout,/personal@example.com|\/secret\/private.pdf/);
+  });
+});

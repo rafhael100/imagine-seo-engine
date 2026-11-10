@@ -117,3 +117,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Adaptador offline GSC rejeita consulta duplicada e ordem de cliques inconsistente em resposta de página única, além de campos de tenant/fingerprint/autorização adulterados.
 - Analisador recusa CTR não zero em linha com zero impressões e exige limiar de impressões como inteiro seguro; testes estritamente sintéticos.
 - Não há validação de identidade/propriedade OAuth, Google online, deploy ou manipulação de clientes reais.
+
+## SEO-F24 — Envelope de revisão para futuro Portal (10/11/2026)
+- Adiciona contrato offline `seo-portal-review-handoff-v1`: métricas agregadas, ações fechadas e escopo sintático do tenant/fingerprint, sem repassar consultas, páginas nem mensagens brutas.
+- Negação explícita de autorização de exibição, propriedade e grant de tenant; exige verificação **independente** no backend Portal antes de tornar visível qualquer dado.
+- CLI local e testes provam que flags de permissão injetadas pelo operador são ignoradas e que não se autentica ninguém.
