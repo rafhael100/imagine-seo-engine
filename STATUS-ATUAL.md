@@ -164,3 +164,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor recusa builds que ultrapassem 50.000 apontamentos, 1.000 âncoras por página, 100.000 links locais, 128 scripts JSON-LD por página, 10.000 linhas de robots ou 20.000 URLs de sitemap.
 - Os limites abortam a auditoria inteira (sem aprovar relatórios parciais), complementando os limites de diretórios e bytes já presentes.
 - Testes adversariais sintéticos validam limites e compatibilidade de builds comuns; não há conectividade externa nem dados reais.
+
+## SEO-F34 — Diretiva nofollow no robots geral (10/11/2026)
+- O auditor agora sinaliza `meta name="robots" content="nofollow"` no cabeçalho público, mesmo sem modo estrito, além das restrições Googlebot já detectadas.
+- O resumo executivo registra revisão de indexação/navegação sem refletir conteúdos privados; testes cobrem a regra, falso positivo em comentário e ausência de regressão em `index,follow`.
