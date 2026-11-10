@@ -91,3 +91,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F17 — Resumo executivo offline sem dados brutos (09/11/2026)
 - Contrato `seo-brief-offline-v1` agrupa problemas técnicos e sinais de variação GSC em ações fixas e métricas sintéticas para consumo futuro pelo Portal.
 - CLI limitada a relatórios locais, mensagens livres e caminhos originais descartados; não conecta Google nem garante causalidade, ranking ou conversão.
+
+## SEO-F18 — Compatibilidade Node 22/24 e bloqueio de CI (09/11/2026)
+- Workflow somente leitura passa a executar a suíte offline em Node 22 e Node 24, com timeouts e sem segredos, deploy nem dependências externas de código.
+- Não habilita publicação ou integração GSC real; confirma apenas os comportamentos cobertos pelos testes sintéticos.
