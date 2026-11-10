@@ -33,3 +33,7 @@ Dados artificiais de testes não demonstram tráfego, ranking, indexação ou co
 ## Relatório executivo local SEO-F17
 
 `node scripts/report-seo-brief-offline.mjs auditoria.json [comparacao-gsc.json]` produz categorias fixas de revisão e totais agregados para futura interface do Portal. O comando não publica relatórios nem consulta o Google, e não imprime termos, caminhos de arquivos ou mensagens livres do input.
+
+## Revisão de migração de URLs (SEO-F22)
+
+`node scripts/review-route-migration-offline.mjs before.json after.json candidates.json` verifica candidatos 301 informados manualmente, mas **nunca** gera regras ou autoriza publicação. Qualquer URL removida mantém o gate de revisão humana e status de saída 1. Variantes com query, percent-encoding ou destino externo são rejeitadas.
