@@ -239,7 +239,9 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const headings = tags(visibleBody, 'h1');
     if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
 
-    const canonicalTags = tags(head,'link').map(attrs).filter(x => (x.rel || '').split(/\s+/).includes('canonical'));
+    // HTML rel tokens are ASCII case-insensitive: CANONICAL is a valid rel.
+    const canonicalTags = tags(head,'link').map(attrs).filter(x =>
+      typeof x.rel==='string' && x.rel.toLowerCase().split(/\s+/).includes('canonical'));
     if (canonicalTags.length !== 1 || !canonicalTags[0].href) {
       emit(errors,{type:'missing_canonical',file:rel,message:'Exactly one canonical link required'});
     } else {
@@ -284,7 +286,14 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         emit(errors,{type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
       }
     }
-    if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) emit(warnings,{type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
+    // Do not let a lang=pt-BR string inside scripts, comments, or body
+    // spoof the document's actual root <html lang="..."> attribute.
+    const htmlTag=publicHtml.match(/<html\b[^>]*>/i)?.[0]??'';
+    const rootLanguages=[...htmlTag.matchAll(ATTR)]
+      .filter(x=>x[1].toLowerCase()==='lang').map(x=>x[3].trim());
+    if(rootLanguages.length!==1 || rootLanguages[0].toLowerCase()!=='pt-br')
+      emit(warnings,{type:'missing_ptbr_lang',file:rel,
+        message:'Exactly one pt-BR language on root html required'});
 
     let jsonldCount=0;
     for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
