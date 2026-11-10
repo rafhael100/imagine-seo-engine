@@ -155,3 +155,18 @@ test('SEO executive brief malformed JSON errors omit user-provided text',async()
     assert.doesNotMatch(result.stderr+result.stdout,/SECRET_TOKEN|sensitive@example.com/);
   });
 });
+
+test('route migration CLI stays HOLD even if candidate maps deleted URLs',async()=>{
+  await workspace(async dir=>{
+    const files=['before.json','after.json','candidates.json'].map(x=>join(dir,x));
+    await writeFile(files[0],JSON.stringify({routes:['/','/servicos/']}));
+    await writeFile(files[1],JSON.stringify({routes:['/','/planos/']}));
+    await writeFile(files[2],JSON.stringify([{from:'/servicos/',to:'/planos/'}]));
+    const result=run('review-route-migration-offline.mjs',files);
+    assert.equal(result.status,1);
+    const report=JSON.parse(result.stdout);
+    assert.equal(report.structurallyComplete,true);
+    assert.equal(report.deploymentAuthorized,false);
+    assert.doesNotMatch(result.stdout,/\/servicos\/|\/planos\//);
+  });
+});

@@ -108,3 +108,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F21 — Ações imutáveis e permissões mínimas de CI (10/11/2026)
 - Migração de checkout/setup-node tags para SHAs completos já verificados no pipeline Imagine Comercial, com `persist-credentials: false` e runner `ubuntu-24.04` fixado.
 - Testes bloqueiam reintrodução de tags móveis, tokens de deploy e permissões adicionais; matriz Node 22/24 mantida.
+
+## SEO-F22 — Controle de migrações com HOLD obrigatório (10/11/2026)
+- Avaliador offline de candidatos a 301 verifica correspondência entre rotas removidas e destinos existentes, rejeita URLs externas/variantes perigosas e duplicatas; saída só agrega contagens.
+- Mesmo mapeamentos estruturalmente completos são HOLD para revisão por URL; nenhum redirect ou deploy é gerado e CLI sai com código não-zero quando existe remoção de rota.
