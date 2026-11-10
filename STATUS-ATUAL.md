@@ -173,3 +173,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O auditor valida o idioma somente no `lang` da tag raiz `html`, exigindo uma única declaração `pt-BR` e não aceitando textos em comentários, scripts ou corpo.
 - `rel=CANONICAL` passa a ser reconhecido conforme tokens de relação HTML case-insensitive, inclusive quando há múltiplos tokens.
 - Cobertura com testes sintéticos e nenhuma mudança na integração GSC, produção ou main.
+
+## SEO-F36 — Conteúdo de template inerte (10/11/2026)
+- Tags de H1, navegação, metadados e JSON-LD que constem apenas de elementos HTML `<template>` não contam como evidência pública.
+- O removedor cobre templates aninhados e ignora a sintaxe `<template>` contida em scripts/styles, reduzindo falsos positivos da análise do build estático.
+- Testes sintéticos adversariais; não substitui DOM de navegador nem análise do JS após execução.
