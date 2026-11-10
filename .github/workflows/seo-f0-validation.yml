@@ -1,4 +1,4 @@
-name: SEO Engine F0 - Offline audit
+name: SEO Engine - offline validation
 
 on:
   pull_request:
@@ -9,15 +9,19 @@ permissions:
 
 jobs:
   unit:
-    name: Auditoria sintética sem rede
+    name: Node ${{ matrix.node }} — synthetic SEO tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Node 22
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - name: Testes sintéticos
+          node-version: ${{ matrix.node }}
+      - name: Run offline tests
         run: npm test
