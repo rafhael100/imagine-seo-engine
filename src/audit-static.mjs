@@ -12,6 +12,7 @@ const RESOURCE_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 20000;
 const MAX_FINDINGS = 50000;
 const MAX_ANCHORS_PER_PAGE = 1000;
+const MAX_TOTAL_ANCHORS = 200000;
 const MAX_TOTAL_NAV_LINKS = 100000;
 const MAX_JSONLD_PER_PAGE = 128;
 const MAX_ROBOTS_LINES = 10000;
@@ -75,8 +76,12 @@ function attrs(markup) {
   }
   return result;
 }
-function tags(html, name) {
-  return [...html.matchAll(new RegExp('<' + name + '\\b[^>]*>', 'gi'))].map(x => x[0]);
+function* tagIterator(html,name) {
+  for(const match of html.matchAll(new RegExp('<'+name+'\\b[^>]*>', 'gi')))
+    yield match[0];
+}
+function tags(html,name){
+  return [...tagIterator(html,name)];
 }
 function getMeta(html, name) {
   return tags(html, 'meta').map(attrs).filter(x => (x.name ?? '').toLowerCase() === name);
@@ -188,7 +193,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       throw Error('audit: findings budget exceeded');
     list.push(issue);
   };
-  let totalNavLinks=0;
+  let totalNavLinks=0,totalAnchors=0;
   const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits),emit);
   const known = new Map(), titles = new Map(), canonicals = new Map();
 
@@ -278,17 +283,20 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) emit(warnings,{type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
 
-    const scripts = [...publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-    if (scripts.length === 0) emit(warnings,{type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
-    if(scripts.length>MAX_JSONLD_PER_PAGE)
-      throw Error('audit: JSON-LD script budget exceeded');
-    for (const script of scripts) {
+    let jsonldCount=0;
+    for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+      if(++jsonldCount>MAX_JSONLD_PER_PAGE)
+        throw Error('audit: JSON-LD script budget exceeded');
       try { JSON.parse(script[1]); } catch { emit(errors,{type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
     }
 
+    if(jsonldCount===0)
+      emit(warnings,{type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
     const links = [];
     let anchorCount=0;
-    for (const tag of tags(visibleBody,'a')) {
+    for (const tag of tagIterator(visibleBody,'a')) {
+      if(++totalAnchors>MAX_TOTAL_ANCHORS)
+        throw Error('audit: total anchor budget exceeded');
       if(++anchorCount>MAX_ANCHORS_PER_PAGE)
         throw Error('audit: page anchor budget exceeded');
       const href = attrs(tag).href;
