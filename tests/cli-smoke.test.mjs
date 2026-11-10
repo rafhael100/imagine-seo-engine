@@ -205,3 +205,30 @@ test('strict public head CLI rejects missing Open Graph URL when requested',asyn
     assert.equal(JSON.parse(strict.stdout).errors.some(x=>x.type==='missing_og_url'),true);
   });
 });
+
+test('auditor CLI fails closed on typo, unexpected position and duplicate flags',async()=>{
+  for(const args of [
+    ['--fail-on-warning'],['dist','https://example.com/','--strict-public-headz'],
+    ['dist','https://example.com/','--fail-on-warnings','--fail-on-warnings'],
+    ['dist','https://example.com/','extra-file']
+  ]){
+    const result=run('audit-dist.mjs',args);
+    assert.equal(result.status,1,args.join(' '));
+    assert.match(result.stderr,/SEO audit failed:/);
+    assert.equal(result.stdout,'');
+  }
+});
+test('auditor CLI accepts flags before or after optional site origin',async()=>{
+  await workspace(async dir=>{
+    await writeFile(join(dir,'index.html'),page('/'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc></urlset>');
+    const a=run('audit-dist.mjs',['--fail-on-warnings',dir,site+'/']);
+    const b=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings']);
+    assert.equal(a.status,0,a.stderr);
+    assert.equal(b.status,0,b.stderr);
+    assert.deepEqual(JSON.parse(a.stdout).summary,JSON.parse(b.stdout).summary);
+  });
+});
