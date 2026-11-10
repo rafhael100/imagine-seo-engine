@@ -159,3 +159,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Auditor remove comentários HTML antes de localizar cabeçalho, JSON-LD, H1 e links, e considera apenas `<body>` para H1/navegação.
 - Tags escondidas em literais de `<script>` e `<style>` não podem satisfazer H1 ou criar falsos links quebrados. Testes sintéticos com markup enganoso.
 - Heurística estática, não valida CSS de visibilidade nem substitui QA em navegador; nenhuma mudança na web publicada.
+
+## SEO-F33 — Orçamentos de relatórios, links, scripts e sitemap (10/11/2026)
+- Auditor recusa builds que ultrapassem 50.000 apontamentos, 1.000 âncoras por página, 100.000 links locais, 128 scripts JSON-LD por página, 10.000 linhas de robots ou 20.000 URLs de sitemap.
+- Os limites abortam a auditoria inteira (sem aprovar relatórios parciais), complementando os limites de diretórios e bytes já presentes.
+- Testes adversariais sintéticos validam limites e compatibilidade de builds comuns; não há conectividade externa nem dados reais.

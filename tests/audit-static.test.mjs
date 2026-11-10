@@ -480,3 +480,36 @@ test('commented-out JSON-LD does not satisfy structured-data presence',async()=>
     assert.ok(result.warnings.some(x=>x.type==='missing_jsonld'&&x.file==='index.html'));
   });
 });
+
+test('bounded audit refuses too many anchors without returning partial success',async()=>{
+  const links=Array.from({length:1001},(_,i)=>'/demo-'+i+'/');
+  await withSite({home:makePage('/',{links})},async root=>{
+    await assert.rejects(auditStaticSite(root),/page anchor budget exceeded/);
+  });
+});
+test('bounded audit refuses more than 128 JSON-LD scripts per page',async()=>{
+  const scripts=Array.from({length:129},()=>'<script type="application/ld+json">{}</script>').join('');
+  const home=makePage('/',{links:['/servicos/']}).replace('</head>',scripts+'</head>');
+  await withSite({home},async root=>{
+    await assert.rejects(auditStaticSite(root),/JSON-LD script budget exceeded/);
+  });
+});
+test('bounded audit refuses excessive sitemap URL entries',async()=>{
+  const urls=Array.from({length:20001},()=>'<loc>'+origin+'/</loc>').join('');
+  await withSite({sitemap:'<urlset>'+urls+'</urlset>'},async root=>{
+    await assert.rejects(auditStaticSite(root),/sitemap URL budget exceeded/);
+  });
+});
+test('bounded audit rejects extremely long robots rule files with many directives',async()=>{
+  const robots='User-agent: *\n'+Array.from({length:10010},()=> 'Allow: /\n').join('')+
+    'Sitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+    await assert.rejects(auditStaticSite(root),/robots line budget exceeded/);
+  });
+});
+test('reasonable repeated page links and sitemap URLs preserve existing behaviour',async()=>{
+  await withSite({},async root=>{
+    const report=await auditStaticSite(root);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});

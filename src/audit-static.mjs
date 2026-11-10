@@ -10,6 +10,12 @@ import { resolve, relative, join, sep } from 'node:path';
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
 const RESOURCE_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_PAGES = 20000;
+const MAX_FINDINGS = 50000;
+const MAX_ANCHORS_PER_PAGE = 1000;
+const MAX_TOTAL_NAV_LINKS = 100000;
+const MAX_JSONLD_PER_PAGE = 128;
+const MAX_ROBOTS_LINES = 10000;
+const MAX_SITEMAP_LOCS = MAX_PAGES;
 const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
 
@@ -26,7 +32,10 @@ function robotsSiteDirectives(text,site){
     if(agents.length)groups.push({agents:[...agents],directives:[...directives]});
     agents=[];directives=[];hasDirectives=false;
   };
-  for(const raw of text.split(/\r?\n/)){
+  let lineCount=0;
+  for(const raw of text.match(/[^\r\n]+/g)??[]){
+    if(++lineCount>MAX_ROBOTS_LINES)
+      throw Error('audit: robots line budget exceeded');
     const line=raw.split('#',1)[0].trim();
     if(!line)continue;
     const match=line.match(/^([a-z-]+)\s*:\s*(.*?)\s*$/i);
@@ -122,7 +131,7 @@ function crawlBudget(input){
   }
   return limits;
 }
-async function crawlTree(root,errors,limits){
+async function crawlTree(root,errors,limits,emit){
   const found=[];
   let directoryCount=0,entryCount=0;
   async function visit(dir,depth){
@@ -138,13 +147,13 @@ async function crawlTree(root,errors,limits){
       const full=join(dir,entry.name);
       const info=await lstat(full);
       if(info.isSymbolicLink()){
-        errors.push({type:'unsafe_symlink',file:relative(root,full),message:'Symbolic link skipped'});
+        emit(errors,{type:'unsafe_symlink',file:relative(root,full),message:'Symbolic link skipped'});
         continue;
       }
       if(info.isDirectory()){await visit(full,depth+1);continue;}
       if(!info.isFile()||!entry.name.endsWith('.html'))continue;
       if(info.size>HTML_MAX_BYTES){
-        errors.push({type:'oversize_html',file:relative(root,full),message:'HTML over 2 MiB'});
+        emit(errors,{type:'oversize_html',file:relative(root,full),message:'HTML over 2 MiB'});
         continue;
       }
       if(found.length>=MAX_PAGES)
@@ -172,7 +181,14 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   const rootInfo = await lstat(base);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw new Error('audit: directory expected');
   const errors = [], warnings = [], pages = [];
-  const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits));
+  // No partial success: abort before emitting an unbounded diagnostics report.
+  const emit=(list,issue)=>{
+    if(errors.length+warnings.length>=MAX_FINDINGS)
+      throw Error('audit: findings budget exceeded');
+    list.push(issue);
+  };
+  let totalNavLinks=0;
+  const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits),emit);
   const known = new Map(), titles = new Map(), canonicals = new Map();
 
   for (const file of htmlFiles.sort()) {
@@ -183,7 +199,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     try { html=await readSafeHtmlFile(file); }
     catch(error) {
       if(error.message==='audit: unsafe_html_file' || error.code==='ENOENT'){
-        errors.push({type:'unsafe_html_file',file:rel,message:'HTML file changed or is unsafe'});
+        emit(errors,{type:'unsafe_html_file',file:rel,message:'HTML file changed or is unsafe'});
         continue;
       }
       throw error;
@@ -207,24 +223,24 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     const titleMatch = head.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
     const title = titleMatch?.[1]?.replace(/\s+/g, ' ').trim() || '';
-    if (!title) errors.push({ type:'missing_title', file:rel, message: 'Page has no title' });
-    else if (titles.has(title)) warnings.push({ type:'duplicate_title', file:rel, message: 'Same title as ' + titles.get(title) });
+    if (!title) emit(errors,{ type:'missing_title', file:rel, message: 'Page has no title' });
+    else if (titles.has(title)) emit(warnings,{ type:'duplicate_title', file:rel, message: 'Same title as ' + titles.get(title) });
     else titles.set(title, rel);
 
     const description = getMeta(head,'description');
-    if (description.length !== 1 || !description[0].content?.trim()) errors.push({type:'missing_description',file:rel,message:'One non-empty meta description required'});
+    if (description.length !== 1 || !description[0].content?.trim()) emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
 
     const headings = tags(visibleBody, 'h1');
-    if (headings.length !== 1) errors.push({type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
+    if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
 
     const canonicalTags = tags(head,'link').map(attrs).filter(x => (x.rel || '').split(/\s+/).includes('canonical'));
     if (canonicalTags.length !== 1 || !canonicalTags[0].href) {
-      errors.push({type:'missing_canonical',file:rel,message:'Exactly one canonical link required'});
+      emit(errors,{type:'missing_canonical',file:rel,message:'Exactly one canonical link required'});
     } else {
       const canon = canonicalTags[0].href;
       const wanted = new URL(path, site).href;
-      if (canon !== wanted) errors.push({type:'wrong_canonical',file:rel,message:'Canonical does not match public URL'});
-      if (canonicals.has(canon)) errors.push({type:'duplicate_canonical',file:rel,message:'Canonical shared with ' + canonicals.get(canon)});
+      if (canon !== wanted) emit(errors,{type:'wrong_canonical',file:rel,message:'Canonical does not match public URL'});
+      if (canonicals.has(canon)) emit(errors,{type:'duplicate_canonical',file:rel,message:'Canonical shared with ' + canonicals.get(canon)});
       canonicals.set(canon, rel);
     }
     const robots = getMeta(head, 'robots');
@@ -237,47 +253,56 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // "none" is defined as noindex,nofollow; Googlebot-specific directives
     // can override a general robots "index,follow" declaration.
     if(publicRobots.includes('noindex')||publicRobots.includes('none'))
-      errors.push({type:'unexpected_noindex',file:rel,message:'Public route contains noindex/none'});
+      emit(errors,{type:'unexpected_noindex',file:rel,message:'Public route contains noindex/none'});
     if(googlebotDirectives.some(x=>['noindex','none','nofollow'].includes(x)))
-      errors.push({type:'googlebot_indexing_blocked',file:rel,
+      emit(errors,{type:'googlebot_indexing_blocked',file:rel,
         message:'Googlebot-specific meta prevents indexation or link following'});
     if(strictPublicHead&&googlebotMeta.length>1)
-      errors.push({type:'duplicate_googlebot_meta',file:rel,
+      emit(errors,{type:'duplicate_googlebot_meta',file:rel,
         message:'Multiple Googlebot meta directives require manual review'});
     if(strictPublicHead){
       // Additional gate for curated public routes, not for arbitrary static builds.
       if(robots.length!==1||!robots[0].content?.trim()){
-        errors.push({type:'missing_robots_meta',file:rel,message:'Exactly one robots meta required'});
+        emit(errors,{type:'missing_robots_meta',file:rel,message:'Exactly one robots meta required'});
       }else if(robots[0].content.toLowerCase().replace(/\s+/g,'')!=='index,follow'){
-        errors.push({type:'wrong_robots_meta',file:rel,message:'Public route must be index,follow'});
+        emit(errors,{type:'wrong_robots_meta',file:rel,message:'Public route must be index,follow'});
       }
       const og=tags(head,'meta').map(attrs)
         .filter(x=>(x.property??'').toLowerCase()==='og:url');
       if(og.length!==1||!og[0].content?.trim()){
-        errors.push({type:'missing_og_url',file:rel,message:'Exactly one og:url required'});
+        emit(errors,{type:'missing_og_url',file:rel,message:'Exactly one og:url required'});
       }else if(og[0].content!==new URL(path,site).href){
-        errors.push({type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
+        emit(errors,{type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
       }
     }
-    if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) warnings.push({type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
+    if (!/lang=["']pt-BR["']/i.test(html.slice(0,3000))) emit(warnings,{type:'missing_ptbr_lang',file:rel,message:'Expected pt-BR language'});
 
     const scripts = [...publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
-    if (scripts.length === 0) warnings.push({type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
+    if (scripts.length === 0) emit(warnings,{type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
+    if(scripts.length>MAX_JSONLD_PER_PAGE)
+      throw Error('audit: JSON-LD script budget exceeded');
     for (const script of scripts) {
-      try { JSON.parse(script[1]); } catch { errors.push({type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
+      try { JSON.parse(script[1]); } catch { emit(errors,{type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
     }
 
     const links = [];
+    let anchorCount=0;
     for (const tag of tags(visibleBody,'a')) {
+      if(++anchorCount>MAX_ANCHORS_PER_PAGE)
+        throw Error('audit: page anchor budget exceeded');
       const href = attrs(tag).href;
       if (!href || href.startsWith('#') || /^(mailto:|tel:)/i.test(href)) continue;
       if (/^javascript:/i.test(href)) {
-        errors.push({type:'unsafe_href',file:rel,message:'JavaScript href forbidden'});
+        emit(errors,{type:'unsafe_href',file:rel,message:'JavaScript href forbidden'});
         continue;
       }
       const normalized = normalizeUrl(href, site);
-      if (normalized.invalid) errors.push({type:'invalid_internal_link',file:rel,message:'Unusable link URL'});
-      else if (!normalized.external) links.push(normalized.path);
+      if (normalized.invalid) emit(errors,{type:'invalid_internal_link',file:rel,message:'Unusable link URL'});
+      else if (!normalized.external) {
+        if(++totalNavLinks>MAX_TOTAL_NAV_LINKS)
+          throw Error('audit: total navigation budget exceeded');
+        links.push(normalized.path);
+      }
     }
     record.links = links;
     pages.push(record);
@@ -309,17 +334,17 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }
     }
   } else {
-    errors.push({type:'missing_homepage',file:'index.html',message:'Public homepage missing'});
+    emit(errors,{type:'missing_homepage',file:'index.html',message:'Public homepage missing'});
   }
   for (const page of pages) {
     if (page.path === '/') continue;
     if (inbound.get(page.path).size === 0) {
-      warnings.push({type:'orphan_page',file:page.file,message:'No inbound internal navigation link'});
+      emit(warnings,{type:'orphan_page',file:page.file,message:'No inbound internal navigation link'});
     }
     if (!distances.has(page.path)) {
-      warnings.push({type:'unreachable_page',file:page.file,message:'Not reachable from the homepage'});
+      emit(warnings,{type:'unreachable_page',file:page.file,message:'Not reachable from the homepage'});
     } else if (distances.get(page.path) > 3) {
-      warnings.push({type:'deep_page',file:page.file,
+      emit(warnings,{type:'deep_page',file:page.file,
         message:'Page needs '+distances.get(page.path)+' clicks from homepage'});
     }
   }
@@ -332,7 +357,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
 
   for (const page of pages) {
     for (const link of page.links) {
-      if (!known.has(link) && link !== '/404.html') errors.push({type:'broken_internal_link',file:page.file,message:'No built page for ' + link});
+      if (!known.has(link) && link !== '/404.html') emit(errors,{type:'broken_internal_link',file:page.file,message:'No built page for ' + link});
     }
   }
   // robots/sitemap are untrusted local artifacts too: never follow symlinks,
@@ -344,7 +369,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       if(error.code==='ENOENT')return null;
       if(error.message?.startsWith('SEO input:')) {
         const large=/size limit/.test(error.message);
-        errors.push({type:large?'oversize_site_resource':'unsafe_site_resource',
+        emit(errors,{type:large?'oversize_site_resource':'unsafe_site_resource',
           file:name,message:large?'Resource exceeds 5 MiB':'Unsafe local resource'});
         return null;
       }
@@ -353,15 +378,15 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   };
   const robotsText = await tryText('robots.txt');
   const sitemapXml = await tryText('sitemap.xml');
-  if (!robotsText) errors.push({type:'missing_robots',file:'robots.txt',message:'robots.txt missing'});
+  if (!robotsText) emit(errors,{type:'missing_robots',file:'robots.txt',message:'robots.txt missing'});
   else {
     const directives=robotsSiteDirectives(robotsText,site);
     if(directives.blocksGooglebot)
-      errors.push({type:'robots_block_all',file:'robots.txt',message:'Robots blocks Googlebot at root'});
+      emit(errors,{type:'robots_block_all',file:'robots.txt',message:'Robots blocks Googlebot at root'});
     if(!directives.sitemapDeclared)
-      warnings.push({type:'sitemap_not_in_robots',file:'robots.txt',message:'Sitemap directive absent'});
+      emit(warnings,{type:'sitemap_not_in_robots',file:'robots.txt',message:'Sitemap directive absent'});
   }
-  if (!sitemapXml) errors.push({type:'missing_sitemap',file:'sitemap.xml',message:'Sitemap missing'});
+  if (!sitemapXml) emit(errors,{type:'missing_sitemap',file:'sitemap.xml',message:'Sitemap missing'});
   else {
     // Ignore XML comments so an attacker cannot hide a fake <loc> inside
     // <!-- ... --> and make a missing public URL appear to be covered.
@@ -369,15 +394,19 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const xml=sitemapXml.replace(/<!--[\s\S]*?-->/g,'');
     if(!/<urlset(?:\s|>)/i.test(xml)||!/<\/urlset\s*>/i.test(xml)||
        /<!DOCTYPE/i.test(xml)){
-      errors.push({type:'invalid_sitemap_structure',file:'sitemap.xml',message:'Valid urlset root required'});
+      emit(errors,{type:'invalid_sitemap_structure',file:'sitemap.xml',message:'Valid urlset root required'});
     }
-    const locs=[...xml.matchAll(/<loc\s*>([^<]*)<\/loc\s*>/gi)]
-      .map(x=>x[1].trim());
+    const locs=[];
+    for(const match of xml.matchAll(/<loc\s*>([^<]*)<\/loc\s*>/gi)){
+      if(locs.length>=MAX_SITEMAP_LOCS)
+        throw Error('audit: sitemap URL budget exceeded');
+      locs.push(match[1].trim());
+    }
     if(locs.length===0)
-      errors.push({type:'missing_sitemap_urls',file:'sitemap.xml',message:'No sitemap URL entries'});
+      emit(errors,{type:'missing_sitemap_urls',file:'sitemap.xml',message:'No sitemap URL entries'});
     const locSet=new Set(locs);
     if(locSet.size!==locs.length)
-      errors.push({type:'duplicate_sitemap_url',file:'sitemap.xml',message:'Repeated URL'});
+      emit(errors,{type:'duplicate_sitemap_url',file:'sitemap.xml',message:'Repeated URL'});
     for(const loc of locs){
       const norm=normalizeUrl(loc,site);
       let fragment=false;
@@ -385,11 +414,11 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       const canonical=norm.path?new URL(norm.path,site).href:null;
       if(norm.external||norm.invalid||fragment||loc!==canonical||
          !known.has(norm.path))
-        errors.push({type:'invalid_sitemap_url',file:'sitemap.xml',message:'Sitemap entry is not an exact canonical public URL'});
+        emit(errors,{type:'invalid_sitemap_url',file:'sitemap.xml',message:'Sitemap entry is not an exact canonical public URL'});
     }
     for (const page of pages) {
       const u = new URL(page.path,site).href;
-      if (!locSet.has(u)) warnings.push({type:'page_not_in_sitemap',file:page.file,message:'Public page missing from sitemap'});
+      if (!locSet.has(u)) emit(warnings,{type:'page_not_in_sitemap',file:page.file,message:'Public page missing from sitemap'});
     }
   }
   return {
