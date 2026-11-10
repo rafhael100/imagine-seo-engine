@@ -1,3 +1,4 @@
+import {validateGscPeriod} from './gsc-period.mjs';
 /**
  * SEO-F1: análise OFFLINE de linhas já exportadas pelo usuário do Search Console.
  * Não autentica, não acessa a API Google e não inventa rankings/volumes.
@@ -13,8 +14,6 @@ const CLUSTERS = Object.freeze([
   { id:'seo', rx:/\bseo\b|\botimiza[cç][aã]o\s+(?:para\s+)?(?:o\s+)?google\b/ },
 ]);
 const PRIVATE_TERM = /@|(?:\+?\d[\d() -]{7,}\d)|(?:cpf|cnpj)\s*[:=]?\s*\d/i;
-const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
-function dateOk(v) {return typeof v === 'string' && VALID_DATE.test(v) && !Number.isNaN(Date.parse(v+'T00:00:00Z'));}
 function normalize(value) {
   return value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
@@ -36,7 +35,8 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
   if (!Array.isArray(report.dimensions) || report.dimensions.length!==1 || report.dimensions[0]!=='query') {
     throw new Error('GSC: only dimension ["query"] supported; do not guess other columns');
   }
-  if (!dateOk(report.startDate) || !dateOk(report.endDate) || report.endDate<report.startDate) throw new Error('GSC: invalid reporting dates');
+  try { validateGscPeriod(report.startDate,report.endDate); }
+  catch { throw new Error('GSC: invalid reporting dates'); }
   if (!Array.isArray(report.rows) || report.rows.length>100000) throw new Error('GSC: invalid rows');
   if (!Number.isInteger(minImpressions) || minImpressions<1) throw new Error('GSC: invalid minimum impressions');
   const buckets=new Map();
@@ -58,9 +58,14 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     const id=segment+':'+cluster;
     const prev=buckets.get(id)||{segment,cluster,rows:0,clicks:0,impressions:0,weightedPositions:0};
     prev.rows++;prev.clicks+=row.clicks;prev.impressions+=row.impressions;
+    if(!Number.isSafeInteger(prev.clicks)||!Number.isSafeInteger(prev.impressions))
+      throw new Error('GSC: counter overflow');
     prev.weightedPositions+=row.position*row.impressions;
+    if(!Number.isFinite(prev.weightedPositions)) throw new Error('GSC: weighted position overflow');
     buckets.set(id,prev);
     clicks+=row.clicks;impressions+=row.impressions;
+    if(!Number.isSafeInteger(clicks)||!Number.isSafeInteger(impressions))
+      throw new Error('GSC: counter overflow');
   }
   const clusters=[...buckets.values()].map(v=>({
     segment:v.segment, cluster:v.cluster, rows:v.rows,
