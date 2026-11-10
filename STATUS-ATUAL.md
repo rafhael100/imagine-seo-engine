@@ -127,3 +127,7 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Modo opt-in `--strict-public-head` verifica 1 meta robots publicável `index,follow` e 1 `og:url` idêntica à URL canônica em todas as rotas HTML públicas (exceto 404).
 - Compatibilidade com builds anteriores mantida sem flag; novos testes sintéticos cobrem falta, duplicação e discrepância de metadados.
 - A adoção no CI Comercial exige teste integrado e pin fixo; não há produção, Google, alteração de main ou deploy.
+
+## SEO-F26 — Metadados somente do cabeçalho real (10/11/2026)
+- O auditor agora considera `title`, `meta description`, `canonical`, `robots` e `og:url` somente em `<head>`, desconsiderando tags em comentários do cabeçalho e no corpo HTML.
+- Testes com HTML propositalmente enganoso demonstram que metadados falsos não atendem ao gate técnico; o analisador permanece heurístico, não substitui um parser HTML de navegador.
