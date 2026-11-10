@@ -63,25 +63,75 @@ export function planGscQuery({
   };
 }
 
+const REQUIRED_PLAN_FIELDS=new Set([
+  'contractVersion','tenantRef','propertyFingerprint','requiredOAuthScope',
+  'authorization','method','url','body','networkPerformed'
+]);
+const REQUIRED_BODY_FIELDS=new Set([
+  'startDate','endDate','dimensions','type','aggregationType',
+  'dataState','rowLimit','startRow'
+]);
+const exactFields=(value,allowed)=>
+  value && typeof value==='object' && !Array.isArray(value) &&
+  Object.keys(value).length===allowed.size &&
+  Object.keys(value).every(key=>allowed.has(key));
+
+/**
+ * SEO-F42 — every provider-shaped API response is analyzed only against a
+ * fully revalidated, canonical, read-only query contract. No network.
+ */
+export function validateOfflineGscQueryPlan(plan){
+  if(!exactFields(plan,REQUIRED_PLAN_FIELDS)||
+    plan.contractVersion!=='seo-gsc-readonly-plan-v1'||
+    typeof plan.tenantRef!=='string'||!TENANT.test(plan.tenantRef)||
+    typeof plan.propertyFingerprint!=='string'||
+    !/^[a-f0-9]{64}$/.test(plan.propertyFingerprint)||
+    plan.requiredOAuthScope!==REQUIRED_SCOPE||
+    plan.authorization!=='operator_declared_provider_verification_pending'||
+    plan.method!=='POST'||plan.networkPerformed!==false||
+    !exactFields(plan.body,REQUIRED_BODY_FIELDS)||
+    plan.body.type!=='web'||plan.body.dataState!=='final'||
+    plan.body.aggregationType!=='byProperty'||
+    !Array.isArray(plan.body.dimensions)||
+    plan.body.dimensions.length!==1||plan.body.dimensions[0]!=='query'||
+    !Number.isSafeInteger(plan.body.rowLimit)||plan.body.rowLimit<1||
+    plan.body.rowLimit>25000||
+    !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
+    plan.body.startRow>100000)
+    throw Error('SEO GSC plan: incompatible readonly contract');
+  if(typeof plan.url!=='string'||plan.url.length>4096)
+    throw Error('SEO GSC plan: invalid provider URL');
+  const match=plan.url.match(
+    /^https:\/\/www\.googleapis\.com\/webmasters\/v3\/sites\/([^/?#]+)\/searchAnalytics\/query$/
+  );
+  if(!match)throw Error('SEO GSC plan: invalid provider URL');
+  let property;
+  try{property=canonicalProperty(decodeURIComponent(match[1]));}
+  catch{throw Error('SEO GSC plan: invalid provider URL');}
+  if(encodeURIComponent(property)!==match[1]||
+    sha256(property)!==plan.propertyFingerprint)
+    throw Error('SEO GSC plan: property fingerprint or URL mismatch');
+  try{validateGscPeriod(plan.body.startDate,plan.body.endDate);}
+  catch{throw Error('SEO GSC plan: invalid reporting period');}
+  return {
+    tenantRef:plan.tenantRef,
+    propertyFingerprint:plan.propertyFingerprint,
+    startDate:plan.body.startDate,
+    endDate:plan.body.endDate,
+    rowLimit:plan.body.rowLimit,
+    startRow:plan.body.startRow,
+    networkPerformed:false,
+    productionReadAuthorized:false
+  };
+}
+
 /**
  * Only normalizes provider-shaped data SUPPLIED to this pure function.
  * No Google response is treated as verified without the authenticated caller.
  */
 export function analyzeGscQueryResponse(raw,plan){
-  if(!plan||plan.contractVersion!=='seo-gsc-readonly-plan-v1' ||
-    typeof plan.tenantRef!=='string'||!TENANT.test(plan.tenantRef)||
-    typeof plan.propertyFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(plan.propertyFingerprint)||
-    plan.authorization!=='operator_declared_provider_verification_pending'||
-    plan.method!=='POST'||plan.requiredOAuthScope!==REQUIRED_SCOPE ||
-    !plan.body||!Number.isSafeInteger(plan.body.rowLimit)||
-    plan.body.rowLimit<1||plan.body.rowLimit>25000||
-    !Number.isSafeInteger(plan.body.startRow)||plan.body.startRow<0||
-    plan.body.startRow>100000||
-    plan.body.aggregationType!=='byProperty'||
-    plan.body.dataState!=='final'||plan.body.type!=='web'||
-    !Array.isArray(plan.body.dimensions)||plan.body.dimensions.length!==1||
-    plan.body.dimensions[0]!=='query')
-    throw Error('SEO GSC response: compatible query plan required');
+  try { validateOfflineGscQueryPlan(plan); }
+  catch { throw Error('SEO GSC response: compatible query plan required'); }
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||
     (raw.rows!==undefined&&!Array.isArray(raw.rows)))
     throw Error('SEO GSC response: invalid response');

@@ -203,3 +203,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - O validador F40 só aceita campos conhecidos do plano e do corpo `query/web/final`, rejeitando extras que possam modificar o pedido ao provedor.
 - Datas de período são revalidadas (calendário real, ordem e limite de 92 dias) no momento do vínculo, em vez de confiar somente em um planner potencialmente alterado.
 - Metadados de propriedade incompatíveis com o inventário são bloqueados; testes sintéticos mantêm `productionReadAuthorized=false` e nenhum acesso externo.
+
+## SEO-F42 — Revalidação de planos antes da normalização de resposta (10/11/2026)
+- Respostas GSC sintéticas/API-shaped só são analisadas se o plano passar novamente por validação de URL Google oficial, fingerprint, tenant, escopo readonly, campos fechados e período válido.
+- O binding F40 reutiliza o mesmo validador de contrato, prevenindo divergência entre a pré-verificação e o processamento local da resposta. Somente totais sanitizados saem do normalizador; nenhuma fonte é tida como verificada.
+- Testes adversariais para URL/domínio adulterado, parâmetros extras, datas falsificadas e OAuth scope alterado.

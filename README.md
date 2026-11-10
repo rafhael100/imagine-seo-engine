@@ -109,3 +109,7 @@ Na auditoria estrita de sites públicos, cada URL do sitemap deve estar em um el
 ## Consulta GSC com formato restrito (SEO-F41)
 
 O vínculo offline F40 exige agora uma lista fechada de campos do plano e do corpo da consulta e revalida datas (até 92 dias), impedindo que parâmetros extras, filtros ou datas adulteradas sejam propagados por engano ao futuro backend. Permanece sem autenticação e sem acesso ao Google.
+
+## Proteção de origem de planos GSC (SEO-F42)
+
+A normalização de respostas GSC fornecidas offline revalida de forma independente URL Google oficial, fingerprint da propriedade, tenant, escopo readonly, formato fechado e datas; não confia em metadados declarados do plano. Essa conferência também é reutilizada pelo vínculo F40. Não faz chamadas Google e não comprova permissão de acesso.

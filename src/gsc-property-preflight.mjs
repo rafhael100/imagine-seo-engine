@@ -4,7 +4,7 @@
  * grants permission, reads Google, or forwards raw properties in its result.
  */
 import {createHash} from 'node:crypto';
-import {canonicalProperty} from './gsc-readonly.mjs';
+import {canonicalProperty,validateOfflineGscQueryPlan} from './gsc-readonly.mjs';
 import {validateGscPeriod} from './gsc-period.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
@@ -111,6 +111,10 @@ export function bindOfflineGscPlanToPreflight({preflight,plan}={}){
     plan.authorization!=='operator_declared_provider_verification_pending'||
     plan.requiredOAuthScope!=='https://www.googleapis.com/auth/webmasters.readonly')
     throw Error('SEO GSC binding: incompatible query plan or tenant');
+  // Revalidate the whole plan even if an offline caller already checked
+  // some of its fields: the same contract is enforced during normalization.
+  try { validateOfflineGscQueryPlan(plan); }
+  catch { throw Error('SEO GSC binding: incompatible query plan'); }
   // Pin the actual Google URL path too, not only the claimed fingerprint.
   // A tampered URL is otherwise able to point the future HTTP client at
   // another site while the fingerprint remains unchanged.
