@@ -55,3 +55,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Gate que compara relatórios de auditoria, bloqueando novos erros, avisos e quedas de número de páginas por padrão; CLI offline retorna status de falha.
 - Relatório emitido é sanitizado, sem mensagens livres de URLs; testes sintéticos garantem comportamento de política.
 - Sem integração automática no site comercial nem alteração em `main`; futura adoção exige CI validado e atualização controlada da referência pinada.
+
+## SEO-F10 — Contrato futuro de consulta read-only GSC (09/11/2026)
+- Planejador sem rede para método Search Analytics POST, escopo OAuth mínimo, período validado, limites de linhas e normalização agregada de resposta sintética.
+- Não acessa contas, não guarda tokens, não configura OAuth, não comprova propriedade nem representa tráfego real.
+- Ativação depende de autorização da propriedade/Portal autenticado, políticas LGPD e homologação protegida. Sem merge `main`/deploy.
