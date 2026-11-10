@@ -34,14 +34,39 @@ function routeFromFile(relativePath) {
 function normalizeUrl(value, site) {
   try {
     const url = new URL(value, site);
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
+      return { invalid: true };
     if (url.origin !== site.origin) return { external: true };
-    if (url.search || url.username || url.password) return { invalid: true };
+    if (url.search) return { invalid: true };
     let path = url.pathname;
     if (!path.endsWith('/') && !path.endsWith('.html')) path += '/';
     return { path };
   } catch {
     return { invalid: true };
   }
+}
+
+/**
+ * Read a local HTML file without following a symlink at the final path, and
+ * re-check the size after opening. The crawl's earlier lstat is not trusted.
+ * Parent directory races still require a trusted build workspace.
+ */
+export async function readSafeHtmlFile(file){
+  if (typeof file !== 'string' || !file) throw new Error('audit: HTML file path required');
+  // lstat also provides a fallback check on systems without O_NOFOLLOW.
+  const before=await lstat(file);
+  if (!before.isFile() || before.isSymbolicLink()) throw new Error('audit: unsafe_html_file');
+  let handle;
+  try {
+    handle=await open(file,constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    const after=await handle.stat();
+    if (!after.isFile() || after.size>HTML_MAX_BYTES)
+      throw new Error('audit: unsafe_html_file');
+    return await handle.readFile({encoding:'utf8'});
+  } catch(error){
+    if (error.code==='ELOOP') throw new Error('audit: unsafe_html_file');
+    throw error;
+  } finally { await handle?.close(); }
 }
 
 async function crawlTree(root, errors) {
@@ -91,7 +116,15 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const rel = relative(base, file);
     if (rel.startsWith('..' + sep) || rel === '..') throw new Error('audit: unsafe relative file');
     const path = routeFromFile(rel);
-    const html = await readFile(file, 'utf8');
+    let html;
+    try { html=await readSafeHtmlFile(file); }
+    catch(error) {
+      if(error.message==='audit: unsafe_html_file' || error.code==='ENOENT'){
+        errors.push({type:'unsafe_html_file',file:rel,message:'HTML file changed or is unsafe'});
+        continue;
+      }
+      throw error;
+    }
     const record = { path, file: rel };
     if (path === '/404.html') {
       // Error document: keep out of XML sitemap and public page totals.

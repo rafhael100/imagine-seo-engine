@@ -64,3 +64,8 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 ## SEO-F11 — Paginação de consultas GSC offline (09/11/2026)
 - Agrega páginas sintéticas ordenadas, bloqueia duplicatas, lacunas de offset e excedentes; saída com métricas agregadas e sinais de possível truncamento.
 - Não executa API, OAuth, consulta de contas, credenciais ou armazenamento; apenas preparação técnica de integração.
+
+## SEO-F12 — Segurança de leitura HTML e esquemas de links (09/11/2026)
+- Reabertura de arquivo HTML com O_NOFOLLOW (quando disponível) e revisão de tipo/tamanho, evitando leitura de symlink no último componente após o inventário inicial.
+- Auditor rejeita URLs de hyperlinks com protocolos data, file e vbscript e URLs com credenciais.
+- Testes sintéticos de symlink, HTML excessivo e protocolos inseguros. Ainda exige workspace de build confiável contra troca de diretórios pais.
