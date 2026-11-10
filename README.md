@@ -49,3 +49,7 @@ Adicione `--strict-public-head` ao auditor para exigir `meta robots=index,follow
 ## Verificação de head HTML (SEO-F26)
 
 Metadados técnicos indexáveis são validados somente quando localizados no `<head>` verdadeiro do arquivo HTML; comentários e tags inseridas no `<body>` não podem satisfazer os requisitos da auditoria. Os testes continuam locais e sintéticos.
+
+## Orçamento de recursos do auditor (SEO-F27)
+
+O crawler local tem orçamentos rígidos de diretórios, entradas e profundidade, além do limite de HTML. Testes podem reduzir estes limites usando `crawlLimits` (não é possível aumentá-los); os limites padrão atendem builds estáticos curados. Arquivos são inspecionados somente em workspace controlado.
