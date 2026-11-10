@@ -1,0 +1,82 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {fileURLToPath} from 'node:url';
+
+const script=name=>fileURLToPath(new URL('../scripts/'+name,import.meta.url));
+function run(name,args=[]){
+  const processResult=spawnSync(process.execPath,[script(name),...args],
+    {encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
+  if(processResult.error)throw processResult.error;
+  return processResult;
+}
+async function workspace(action){
+  const dir=await mkdtemp(join(tmpdir(),'seo-engine-smoke-'));
+  try{return await action(dir);}finally{await rm(dir,{recursive:true,force:true});}
+}
+const site='https://example.com';
+const page=(route,links=[])=>'<!doctype html><html lang="pt-BR"><head>'+
+  '<title>Unique title for '+route+'</title>'+
+  '<meta name="description" content="A public test fixture">'+
+  '<meta name="robots" content="index,follow">'+
+  '<link rel="canonical" href="'+site+route+'">'+
+  '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>'+
+  '</head><body><h1>Example fixture</h1>'+
+  links.map(url=>'<a href="'+url+'">Link</a>').join('')+'</body></html>';
+
+test('CLI audits a complete synthetic static build end to end',async()=>{
+  await workspace(async dir=>{
+    await mkdir(join(dir,'servicos'),{recursive:true});
+    await writeFile(join(dir,'index.html'),page('/', ['/servicos/']));
+    await writeFile(join(dir,'servicos/index.html'),page('/servicos/'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc><loc>'+site+'/servicos/</loc></urlset>');
+    const result=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings']);
+    assert.equal(result.status,0,result.stderr);
+    const report=JSON.parse(result.stdout);
+    assert.equal(report.summary.pages,2);
+    assert.deepEqual(report.routes,['/','/servicos/']);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+
+test('CSV report and comparison CLIs never echo supplied raw queries',async()=>{
+  await workspace(async dir=>{
+    const header='Queries,Clicks,Impressions,CTR,Position\n';
+    const sensitive='"pessoa@empresa.com",1,10,10%,3\n';
+    const before=join(dir,'before.csv'),after=join(dir,'after.csv');
+    await writeFile(before,header+'"landing pages",10,100,10%,8\n'+sensitive);
+    await writeFile(after,header+'"landing pages",5,100,5%,9\n'+sensitive);
+    const report=run('report-gsc-csv-offline.mjs',[before,'2026-10-01','2026-10-07']);
+    assert.equal(report.status,0,report.stderr);
+    assert.equal(JSON.parse(report.stdout).summary.redactedRows,1);
+    assert.doesNotMatch(report.stdout,/landing pages|pessoa@empresa.com/);
+    const compare=run('compare-gsc-csv-offline.mjs',
+      [before,'2026-10-01','2026-10-07',after,'2026-10-08','2026-10-14']);
+    assert.equal(compare.status,0,compare.stderr);
+    assert.equal(JSON.parse(compare.stdout).summary.previous.clicks,10);
+    assert.equal(JSON.parse(compare.stdout).summary.current.clicks,5);
+    assert.doesNotMatch(compare.stdout,/landing pages|pessoa@empresa.com/);
+  });
+});
+
+test('CLI regression gate fails on silently replaced public URLs',async()=>{
+  await workspace(async dir=>{
+    const before=join(dir,'before.json'),after=join(dir,'after.json');
+    const clean=routes=>({
+      summary:{pages:2,errors:0,warnings:0},routes,errors:[],warnings:[]
+    });
+    await writeFile(before,JSON.stringify(clean(['/','/servicos/'])));
+    await writeFile(after,JSON.stringify(clean(['/','/planos/'])));
+    const result=run('compare-audit-offline.mjs',[before,after]);
+    assert.equal(result.status,1);
+    const comparison=JSON.parse(result.stdout);
+    assert.equal(comparison.passed,false);
+    assert.deepEqual(comparison.removedRoutes,['/servicos/']);
+  });
+});

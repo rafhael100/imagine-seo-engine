@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "audit:dist": "node scripts/audit-dist.mjs"
+    "audit:dist": "node scripts/audit-dist.mjs",
+    "test:smoke": "node --test tests/cli-smoke.test.mjs"
   }
 }
