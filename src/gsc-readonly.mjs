@@ -132,7 +132,10 @@ export function validateOfflineGscQueryPlan(plan){
 export function analyzeGscQueryResponse(raw,plan){
   try { validateOfflineGscQueryPlan(plan); }
   catch { throw Error('SEO GSC response: compatible query plan required'); }
+  const responseFields=new Set(['rows','responseAggregationType','metadata']);
+  const rowFields=new Set(['keys','clicks','impressions','ctr','position']);
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||
+    Object.keys(raw).some(k=>!responseFields.has(k))||
     (raw.rows!==undefined&&!Array.isArray(raw.rows)))
     throw Error('SEO GSC response: invalid response');
   if(raw.responseAggregationType!==undefined &&
@@ -151,6 +154,8 @@ export function analyzeGscQueryResponse(raw,plan){
   const seen=new Set();
   for(const row of rows){
     if(!row||typeof row!=='object'||Array.isArray(row)||
+      Object.keys(row).length!==rowFields.size||
+      Object.keys(row).some(k=>!rowFields.has(k))||
       !Array.isArray(row.keys)||row.keys.length!==1||
       typeof row.keys[0]!=='string'||!Number.isSafeInteger(row.clicks)||
       row.clicks<0||row.clicks>previousClicks)
