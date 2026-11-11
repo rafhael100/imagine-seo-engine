@@ -75,3 +75,33 @@ test('rejects mixed aggregation and incomplete provider metadata across pages',(
       metadata:{first_incomplete_date:'2026-10-01'}}
   ],plan()),/incomplete metadata/);
 });
+
+test('F48 rejects forged pagination fields, row grants and incomplete metadata markers',()=>{
+  const valid=row('seo');
+  for(const supplied of [
+    {startRow:0,rows:[valid],oauthVerified:true},
+    {startRow:0,rows:[valid],tenantRef:'another'},
+    {startRow:0,rows:[{...valid,authorization:'APPROVED'}]},
+    {startRow:0,rows:[{...valid,position:undefined}]},
+    {startRow:0,rows:[valid],metadata:{first_incomplete_date:null}},
+    {startRow:0,rows:[valid],metadata:{first_incomplete_hour:false}},
+    {startRow:0,rows:[valid],metadata:{oauthVerified:true}}
+  ])assert.throws(()=>analyzeGscPaginatedResponses([supplied],plan()),
+    /invalid page|expected one query key|metadata/);
+  assert.equal(analyzeGscPaginatedResponses([
+    {startRow:0,rows:[valid],metadata:{}}
+  ],plan()).pagination.rowsReceived,1);
+});
+test('F48 rejects hidden and inherited pagination metadata',()=>{
+  const hidden={startRow:0,rows:[row('seo')]};
+  Object.defineProperty(hidden,'oauthVerified',{value:true});
+  const inherited=Object.assign(Object.create({oauthVerified:true}),{
+    startRow:0,rows:[row('seo')]
+  });
+  const getter={startRow:0,rows:[row('seo')]};
+  Object.defineProperty(getter,'metadata',{enumerable:true,get(){
+    throw Error('untrusted accessor must not run');
+  }});
+  for(const supplied of [hidden,inherited,getter])
+    assert.throws(()=>analyzeGscPaginatedResponses([supplied],plan()),/invalid page/);
+});
