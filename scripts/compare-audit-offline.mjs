@@ -1,11 +1,11 @@
 import {safeCliDiagnostic,parseSafeJson} from '../src/cli-diagnostics.mjs';
 import {readBoundedLocalText} from '../src/local-input.mjs';
 import {compareStaticAuditReports} from '../src/audit-regression.mjs';
-const [before,after]=process.argv.slice(2);
+const [before,after,...extra]=process.argv.slice(2);
 async function safeJson(path){
   return parseSafeJson(await readBoundedLocalText(path,{maxBytes:5*1024*1024}));
 }
-if(!before||!after){
+if(!before||!after||extra.length){
   console.error('Usage: node scripts/compare-audit-offline.mjs previous.json current.json');
   process.exitCode=2;
 }else try{

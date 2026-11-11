@@ -7,6 +7,7 @@ const LIMITS=Object.freeze({
   maxErrors:0,maxWarnings:0,maxNewErrors:0,maxNewWarnings:0,blockPageLoss:true,blockRouteLoss:true
 });
 const integer=(value,max=200000)=>Number.isSafeInteger(value)&&value>=0&&value<=max;
+const POLICY_FIELDS=new Set(Object.keys(LIMITS));
 
 function validateReport(report){
   if(!report||typeof report!=='object'||Array.isArray(report)||
@@ -49,9 +50,34 @@ function validateReport(report){
 }
 const key=issue=>issue.severity+':'+issue.type+':'+issue.file;
 const compareKey=(a,b)=>key(a).localeCompare(key(b));
+// A single page may have multiple broken links or duplicate findings with
+// identical severity, type and file. Counting only unique keys would conceal
+// an increasing number of errors within that same page.
+function countOccurrences(issues){
+  const counts=new Map();
+  for(const item of issues){
+    const id=key(item);
+    const current=counts.get(id);
+    if(current)current.count++;
+    else counts.set(id,{item,count:1});
+  }
+  return counts;
+}
+function changedOccurrences(candidate,baseline){
+  const out=[];
+  for(const [id,entry] of candidate){
+    const delta=entry.count-(baseline.get(id)?.count??0);
+    for(let n=0;n<delta;n++)out.push(entry.item);
+  }
+  return out.sort(compareKey);
+}
 
 export function compareStaticAuditReports(previousRaw,currentRaw,options={}){
-  if(!options||typeof options!=='object'||Array.isArray(options))
+  if(!options||typeof options!=='object'||Array.isArray(options)||
+    ![Object.prototype,null].includes(Object.getPrototypeOf(options))||
+    Reflect.ownKeys(options).some(k=>typeof k!=='string'||
+      !POLICY_FIELDS.has(k)||
+      !Object.hasOwn(Object.getOwnPropertyDescriptor(options,k),'value')))
     throw Error('SEO audit gate: invalid policy');
   const policy={...LIMITS,...options};
   if(!['maxErrors','maxWarnings','maxNewErrors','maxNewWarnings','blockPageLoss','blockRouteLoss'].every(k=>Object.hasOwn(policy,k)) ||
@@ -59,10 +85,9 @@ export function compareStaticAuditReports(previousRaw,currentRaw,options={}){
     (typeof policy.blockPageLoss!=='boolean'||typeof policy.blockRouteLoss!=='boolean'))
     throw Error('SEO audit gate: invalid policy');
   const previous=validateReport(previousRaw),current=validateReport(currentRaw);
-  const prev=new Map(previous.issues.map(x=>[key(x),x]));
-  const now=new Map(current.issues.map(x=>[key(x),x]));
-  const introduced=[...now.entries()].filter(([id])=>!prev.has(id)).map(([,v])=>v).sort(compareKey);
-  const resolved=[...prev.entries()].filter(([id])=>!now.has(id)).map(([,v])=>v).sort(compareKey);
+  const prev=countOccurrences(previous.issues),now=countOccurrences(current.issues);
+  const introduced=changedOccurrences(now,prev);
+  const resolved=changedOccurrences(prev,now);
   const newErrors=introduced.filter(x=>x.severity==='error').length;
   const newWarnings=introduced.filter(x=>x.severity==='warning').length;
   const removedPageCount=Math.max(0,previous.summary.pages-current.summary.pages);
@@ -90,7 +115,7 @@ export function compareStaticAuditReports(previousRaw,currentRaw,options={}){
     removedRoutes,addedRoutes,introduced,resolved,
     limitations:[
       'The offline comparison only checks submitted local build reports.',
-      'The same issue type and file is treated as an unchanged issue even if its message changes.',
+      'Repeated issues of the same type and file are counted as occurrences; free-text messages are ignored.',
       'Route loss can only be compared when both reports contain a valid route inventory.',
       'No live crawl, ranking measurement, publication, or production confirmation is performed.'
     ]

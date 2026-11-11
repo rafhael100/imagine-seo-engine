@@ -71,3 +71,72 @@ test('rejects manipulated route inventories and illegal route names',()=>{
   assert.throws(()=>compareStaticAuditReports(report(1),{...report(1),routes:['/../private']}),/invalid route inventory/);
   assert.throws(()=>compareStaticAuditReports(report(1),{...report(1),routes:['/index?secret=1']}),/invalid route inventory/);
 });
+
+
+test('F81 counts increased duplicate findings on the same file as new occurrences',()=>{
+  const a=issue('broken_internal_link','index.html');
+  const before=report(2,[],[a]);
+  const after=report(2,[],[a,a,a]);
+  const failed=compareStaticAuditReports(before,after,{
+    maxWarnings:3,maxNewWarnings:1
+  });
+  assert.equal(failed.passed,false);
+  assert.equal(failed.changes.newWarnings,2);
+  assert.deepEqual(failed.introduced,[
+    {severity:'warning',type:'broken_internal_link',file:'index.html'},
+    {severity:'warning',type:'broken_internal_link',file:'index.html'}
+  ]);
+  assert.equal(compareStaticAuditReports(before,after,{
+    maxWarnings:3,maxNewWarnings:2
+  }).passed,true);
+  assert.doesNotMatch(JSON.stringify(failed),
+    /Sensitive URL or content must never be emitted/);
+});
+
+test('F81 reports resolved duplicate occurrences without dropping other instances',()=>{
+  const a=issue('wrong_canonical','index.html');
+  const before=report(2,[a,a,a]);
+  const current=report(2,[a]);
+  const out=compareStaticAuditReports(before,current,{
+    maxErrors:1
+  });
+  assert.equal(out.changes.newErrors,0);
+  assert.equal(out.changes.resolvedIssues,2);
+  assert.equal(out.resolved.length,2);
+  assert.deepEqual(out.resolved[0],
+    {severity:'error',type:'wrong_canonical',file:'index.html'});
+});
+
+test('F81 counts same identifier under distinct severities independently',()=>{
+  const a=issue('canonical_conflict','index.html');
+  const old=report(2,[],[a]);
+  const now=report(2,[a,a],[a,a]);
+  const out=compareStaticAuditReports(old,now,{
+    maxErrors:2,maxWarnings:2,maxNewErrors:1,maxNewWarnings:1
+  });
+  assert.equal(out.passed,false);
+  assert.equal(out.changes.newErrors,2);
+  assert.equal(out.changes.newWarnings,1);
+});
+
+test('F81 rejects unknown, accessor and inherited policy options',()=>{
+  const clean=report(2);
+  assert.throws(()=>compareStaticAuditReports(clean,clean,{
+    maxErrors:0,approvalOverride:true
+  }),/invalid policy/);
+  const accessor={};
+  Object.defineProperty(accessor,'maxErrors',{
+    enumerable:true,get(){throw Error('PRIVATE-F81-GETTER');}
+  });
+  assert.throws(()=>compareStaticAuditReports(clean,clean,accessor),
+    /invalid policy/);
+  const forged=Object.create({maxWarnings:50});
+  assert.throws(()=>compareStaticAuditReports(clean,clean,forged),
+    /invalid policy/);
+  const symbol=Symbol('private');
+  assert.throws(()=>compareStaticAuditReports(clean,clean,{
+    [symbol]:'secret'
+  }),/invalid policy/);
+  assert.equal(compareStaticAuditReports(clean,clean,
+    {maxErrors:0,maxWarnings:0}).passed,true);
+});
