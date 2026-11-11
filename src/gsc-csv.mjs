@@ -84,7 +84,10 @@ export function importGscQueriesCsv(contents,{startDate,endDate}={}){
   validateGscPeriod(startDate,endDate);
   const body=contents.replace(/^\uFEFF/,'');
   // CSV PT-BR pode usar ";" para permitir número decimal com vírgula.
-  const first=body.split(/\r?\n/,1)[0];
+  // Header is the first physical line, whether LF, CRLF or legacy CR-only.
+  // Do not inspect later query values when detecting delimiter: a quoted
+  // semicolon in a comma-separated QUERY must not flip the whole parser.
+  const first=body.split(/\r\n|\n|\r/,1)[0];
   const separator=first.includes(';')?';':',';
   const records=readRows(body,separator);
   if(records.length<1)throw Error('GSC CSV: missing header');
