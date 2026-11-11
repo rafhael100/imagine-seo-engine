@@ -31,10 +31,17 @@ export function canonicalProperty(siteUrl){
  * Returns a request description, NEVER an authenticated client.
  * No bearer token or Google secret is used or stored here.
  */
-export function planGscQuery({
-  tenantRef,siteUrl,startDate,endDate,authorizationConfirmed,
-  rowLimit=1000,startRow=0
-}={}){
+const PLAN_INPUT_FIELDS=new Set([
+  'tenantRef','siteUrl','startDate','endDate','authorizationConfirmed',
+  'rowLimit','startRow'
+]);
+
+export function planGscQuery(input={}){
+  if(!input || typeof input!=='object' || Array.isArray(input) ||
+    Object.keys(input).some(key=>!PLAN_INPUT_FIELDS.has(key)))
+    throw Error('SEO GSC plan: unsupported planner input');
+  const {tenantRef,siteUrl,startDate,endDate,authorizationConfirmed,
+    rowLimit=1000,startRow=0}=input;
   if(typeof tenantRef!=='string'||!TENANT.test(tenantRef))
     throw Error('SEO GSC plan: invalid tenant reference');
   if(authorizationConfirmed!==true)
