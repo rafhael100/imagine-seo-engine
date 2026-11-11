@@ -187,3 +187,30 @@ test('F43 rejects extra keys in operator-provided property listings',()=>{
   assert.equal(valid.declaredReadPermissionEligible,true);
   assert.equal(valid.productionReadAuthorized,false);
 });
+
+test('F49 rejects hidden, inherited, accessor and symbol property entries',()=>{
+  const normal=mk(requestedProperty);
+  const hidden={...normal};
+  Object.defineProperty(hidden,'oauthVerified',{value:true});
+  const inherited=Object.assign(Object.create({siteUrl:'sc-domain:unrelated.example'}),{
+    permissionLevel:'siteOwner'
+  });
+  const access={...normal};
+  Object.defineProperty(access,'permissionLevel',{enumerable:true,get(){
+    throw Error('untrusted getter executed');
+  }});
+  const symbol={...normal,[Symbol('grant')]:true};
+  for(const entry of [hidden,inherited,access,symbol])
+    assert.throws(()=>review(scope([entry])),/malformed property listing/);
+  const safe=Object.assign(Object.create(null),normal);
+  assert.equal(review(scope([safe])).productionReadAuthorized,false);
+});
+test('F49 strict binding rejects inherited and hidden readonly request fields',()=>{
+  const preflight=review(scope([mk(requestedProperty)]));
+  const plan=planFor();
+  const hidden={...plan};
+  Object.defineProperty(hidden,'oauthVerified',{value:true});
+  const inherited=Object.assign(Object.create({oauthVerified:true}),plan);
+  for(const badPlan of [hidden,inherited])
+    assert.throws(()=>bind({preflight,plan:badPlan}),/SEO GSC binding:/);
+});
