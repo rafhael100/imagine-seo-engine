@@ -38,7 +38,12 @@ const PLAN_INPUT_FIELDS=new Set([
 
 export function planGscQuery(input={}){
   if(!input || typeof input!=='object' || Array.isArray(input) ||
-    Object.keys(input).some(key=>!PLAN_INPUT_FIELDS.has(key)))
+    ![Object.prototype,null].includes(Object.getPrototypeOf(input)) ||
+    Reflect.ownKeys(input).some(key=>{
+      if(typeof key!=='string'||!PLAN_INPUT_FIELDS.has(key))return true;
+      const descriptor=Object.getOwnPropertyDescriptor(input,key);
+      return !descriptor || !Object.hasOwn(descriptor,'value');
+    }))
     throw Error('SEO GSC plan: unsupported planner input');
   const {tenantRef,siteUrl,startDate,endDate,authorizationConfirmed,
     rowLimit=1000,startRow=0}=input;
