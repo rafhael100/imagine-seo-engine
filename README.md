@@ -1,10 +1,29 @@
 # Imagine SEO Engine
 
+## Estado vigente — 11/11/2026
+
+- **RC31 (F0–F76)**: [PR #110](https://github.com/rafhael100/imagine-seo-engine/pull/110), validação sintética Node 22/24 aprovada. Sem merge em `main`, sem deploy e sem publicação de SEO.
+- **F77**: [PR #111](https://github.com/rafhael100/imagine-seo-engine/pull/111), verificador CI para evitar a introdução acidental de rede em módulos offline.
+- **F78**: atualização operacional da documentação; não altera as APIs.
+- O trabalho permanece **P1**, enquanto o Imagine Comercial é **P0**. O Search Console real ainda depende de OAuth/consentimento, autorização por empresa e propriedade, segurança LGPD, revisão externa e integração autenticada ao Portal.
+- IDs de empresa, SHA e fingerprints **não autenticam usuários**. Testes sintéticos não provam ranking, indexação, tráfego ou conformidade de produção.
+
+### Comandos recentes (somente uso local)
+
+```bash
+npm test
+node scripts/compare-gsc-overlap-offline.mjs dois-periodos.json
+node scripts/review-gsc-planned-query-page-offline.mjs plano-e-paginas.json
+node scripts/prepare-portal-query-page-review-offline.mjs evidencia.json
+```
+
+Não adicione exports reais, tokens ou arquivos privados ao Git/CI. Os resultados agregados são apenas para revisão, sem permissão de exibição ao cliente. Consulte [RC31](docs/SEO-RC31-RELEASE-REVIEW.md) e [contrato F72](docs/SEO-F72-QUERY-PAGE-PLAN-BINDING.md).
+
 Motor de auditoria técnica e análise SEO **offline**, sem conexão com contas de clientes nem publicação automática.
 
-## Estado técnico em 09/11/2026
+## Histórico técnico de 09/11/2026
 - Etapas SEO-F0…F14 implementadas em PRs de desenvolvimento, com 78 testes Node aprovados na ponta F14: https://github.com/rafhael100/imagine-seo-engine/pull/17
-- Esta branch adiciona testes de ponta a ponta para os CLIs (SEO-F15).
+- Naquele marco, F15 adicionava testes de ponta a ponta dos CLIs.
 - `main` permanece sem merge. O código **não é uma operação SaaS habilitada**; todas as fontes GSC são exportações manuais ou respostas fornecidas offline.
 - Imagine Comercial permanece prioridade P0, SEO Engine P1.
 
