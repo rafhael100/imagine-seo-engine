@@ -7,6 +7,7 @@
 import {createHash} from 'node:crypto';
 import {canonicalProperty} from './gsc-readonly.mjs';
 import {validateGscPeriod} from './gsc-period.mjs';
+import {isStrictDataArray} from './gsc-strict-arrays.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
 const HEX=/^[0-9a-f]{64}$/;
@@ -40,7 +41,7 @@ function propertyPageAllowed(value,property){
 
 export function reviewOfflineGscQueryPageOverlap(response,scope){
   if(!keys(scope,CONFIG)||!keys(response,RESPONSE)||
-    !Object.hasOwn(response,'rows')||!Array.isArray(response.rows))
+    !Object.hasOwn(response,'rows')||!isStrictDataArray(response.rows,4000))
     throw Error('SEO GSC overlap: unsupported input');
   const {tenantRef,siteUrl,propertyFingerprint,startDate,endDate,rowLimit=1000}=scope;
   if(typeof tenantRef!=='string'||!TENANT.test(tenantRef)||
@@ -65,7 +66,7 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
   const buckets=new Map();
   let redactedRows=0,validRows=0,previousClicks=Infinity;
   for(const row of response.rows){
-    if(!keys(row,ROW,true)||!Array.isArray(row.keys)||row.keys.length!==2||
+    if(!keys(row,ROW,true)||!isStrictDataArray(row.keys,2)||row.keys.length!==2||
       typeof row.keys[0]!=='string'||typeof row.keys[1]!=='string'||
       !propertyPageAllowed(row.keys[1],property)||
       !Number.isSafeInteger(row.clicks)||row.clicks<0||
