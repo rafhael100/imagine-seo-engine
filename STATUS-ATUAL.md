@@ -223,3 +223,10 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Relatórios permanecem **HOLD**; dados parciais ou linhas omitidas não produzem sinais automáticos para o futuro Portal.
 - CLI e leitor locais não acessam Google nem produzem credenciais. Testes CI de RC31 e revisão externa são obrigatórios antes da homologação, sem deploy/merge `main`.
 - Checklist: docs/SEO-RC31-RELEASE-REVIEW.md.
+
+
+## RC32 — F77–F78 (11/11/2026)
+- A release draft RC32 consolida RC31 com o gate offline de regressão de rede (F77) e atualização operacional do README (F78). O gate é heurístico, não comprova isolamento de rede.
+- Testes de features F77 e F78 aprovados em CI Node 22/24. CI independente da RC32 e revisão externa são gates adicionais.
+- Integração do Portal segue somente em revisão; não há OAuth real, permissão de cliente, Google HTTP, dados de produção, deploy ou merge main.
+- Checklist: docs/SEO-RC32-RELEASE-REVIEW.md.
