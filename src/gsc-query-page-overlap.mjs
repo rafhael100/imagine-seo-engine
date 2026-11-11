@@ -106,13 +106,16 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
       propertyPageClassification(row.keys[1],property)==='REDACTED_VARIANT'){
       redactedRows++;continue;
     }
-    const pair=JSON.stringify([query.toLocaleLowerCase('pt-BR'),row.keys[1]]);
+    // GSC URL hosts are case-insensitive; use canonical WHATWG URL identity
+    // after strict raw-path validation to avoid false overlap positives.
+    const pageIdentity=new URL(row.keys[1]).href;
+    const pair=JSON.stringify([query.toLocaleLowerCase('pt-BR'),pageIdentity]);
     if(seenPairs.has(pair))throw Error('SEO GSC overlap: duplicated query/page pair');
     seenPairs.add(pair);
     validRows++;
     const key=query.toLocaleLowerCase('pt-BR');
     const prior=buckets.get(key)||{pages:new Set(),impressions:0,clicks:0};
-    prior.pages.add(row.keys[1]);
+    prior.pages.add(pageIdentity);
     prior.impressions+=row.impressions;
     prior.clicks+=row.clicks;
     if(!Number.isSafeInteger(prior.impressions)||!Number.isSafeInteger(prior.clicks))
