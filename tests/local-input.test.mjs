@@ -39,3 +39,25 @@ test('requires a bounded positive byte maximum',async()=>{
     await assert.rejects(readBoundedLocalText(path,{maxBytes:20*1024*1024}),/invalid local file/);
   });
 });
+
+test('F76 refuses malformed UTF-8 bytes instead of silently replacing them',async()=>{
+  await withFile(async dir=>{
+    for(const [name,bytes] of [
+      ['truncated.txt',Buffer.from([0x41,0xc3])],
+      ['bad-continuation.txt',Buffer.from([0x41,0xc3,0x28])],
+      ['overlong.txt',Buffer.from([0xc0,0xaf])]
+    ]){
+      const path=join(dir,name);
+      await writeFile(path,bytes);
+      await assert.rejects(readBoundedLocalText(path),/SEO input: invalid UTF-8/);
+    }
+  });
+});
+test('F76 decodes UTF-8 safely even across an internal read boundary',async()=>{
+  await withFile(async dir=>{
+    const path=join(dir,'unicode-boundary.txt');
+    const original='a'.repeat(65535)+'ç'+'fim';
+    await writeFile(path,original,'utf8');
+    assert.equal(await readBoundedLocalText(path),original);
+  });
+});
