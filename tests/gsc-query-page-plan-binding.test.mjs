@@ -34,7 +34,7 @@ test('F72 refuses forged plan grants, endpoint, and shape',()=>{
   const variants=[
     {...original,oauthVerified:true},
     {...original,customerDisplayAuthorized:true},
-    {...original,tenantRef:'other-tenant'},
+    {...original,tenantRef:'other tenant'},
     {...original,url:'https://evil.invalid/webmasters/query'},
     {...original,propertyFingerprint:'a'.repeat(64)},
     {...original,body:{...original.body,aggregationType:'byProperty'}},
@@ -51,4 +51,13 @@ test('F72 refuses extra envelope flags and pagination tampering',()=>{
   invalid[1].startRow=4;
   assert.throws(()=>review({plan,pages:invalid}));
   assert.throws(()=>review({plan,pages:pages(),authorized:true}));
+});
+
+test('F72 cannot authenticate an otherwise valid tenant identifier offline',()=>{
+  const plan=planOfflineGscQueryPage({...config,tenantRef:'other-tenant'});
+  const report=review({plan,pages:pages()});
+  assert.equal(report.tenantRef,'other-tenant');
+  assert.equal(report.tenantGrantVerified,false);
+  assert.equal(report.customerDisplayAuthorized,false);
+  assert.equal(report.productionReadAuthorized,false);
 });
