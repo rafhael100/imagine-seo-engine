@@ -41,7 +41,9 @@ export function compareOfflineGscQueryPageOverlapPeriods(input){
   const a=previous.summary,b=current.summary;
   const aRate=ratio(a.queriesOnMultiplePages,a.distinctQueries);
   const bRate=ratio(b.queriesOnMultiplePages,b.distinctQueries);
-  const complete=!a.possibleTruncation&&!b.possibleTruncation;
+  // Redacted rows may hide overlaps and distort either denominator. Fail closed.
+  const complete=!a.possibleTruncation&&!b.possibleTruncation&&
+    a.redactedRows===0&&b.redactedRows===0;
   const delta=aRate!==null&&bRate!==null?difference(aRate,bRate):null;
   const signals=[];
   if(complete&&delta!==null&&a.distinctQueries>=10&&
@@ -55,7 +57,9 @@ export function compareOfflineGscQueryPageOverlapPeriods(input){
     propertyFingerprint:previous.propertyFingerprint,
     periods:{previous:p,current:c},
     comparisonDays:pDays,
-    coverageStatus:complete?'COMPLETE_SUPPLIED_BATCHES':'PARTIAL_GSC_BATCHES_NO_SIGNALS',
+    coverageStatus:complete?'COMPLETE_SUPPLIED_BATCHES':
+      (a.redactedRows>0||b.redactedRows>0?
+        'REDACTED_GSC_ROWS_NO_SIGNALS':'PARTIAL_GSC_BATCHES_NO_SIGNALS'),
     coverageComplete:complete,
     previous:{
       receivedRows:a.receivedRows,
@@ -82,6 +86,7 @@ export function compareOfflineGscQueryPageOverlapPeriods(input){
     caveats:[
       'Increased overlap share is an editorial review indicator, never proof of SEO cannibalization.',
       'Date and batch coverage only describe supplied rows; Google can omit or anonymize queries.',
+      'Any redacted query/page row suppresses trend deltas and review signals.',
       'No terms, URLs or reversible query identities are returned.'
     ]
   };
