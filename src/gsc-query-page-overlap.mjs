@@ -39,6 +39,8 @@ function propertyPageClassification(value,property){
     raw[1].includes('\\')||raw[2].length>1024||
     raw[2].includes('\\')||raw[2].includes('//')||
     /%(?:2e|2f|5c)/i.test(raw[2])||
+    // Encoded control bytes and '%' enable unsafe/double-decoded aliases.
+    /%(?:0[0-9a-f]|1[0-9a-f]|7f|25)/i.test(raw[2])||
     raw[2].split('/').some(segment=>segment==='.'||segment==='..')||
     /%(?![0-9a-fA-F]{2})/.test(raw[2]))
     return 'INVALID';

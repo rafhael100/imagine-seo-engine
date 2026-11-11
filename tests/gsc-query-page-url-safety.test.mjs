@@ -61,3 +61,25 @@ test('F62 preserves URL-prefix matching semantics without allowing foreign host'
   assert.throws(()=>review({rows:[line('https://example.com/blogs/post')]},scoped),
     /invalid query\/page row/);
 });
+
+test('F69 rejects percent-encoded control characters and double encoding',()=>{
+  for(const url of [
+    'https://example.com/a%00b',
+    'https://example.com/a%0ab',
+    'https://example.com/a%1fb',
+    'https://example.com/a%7fb',
+    'https://example.com/a%252fb',
+    'https://example.com/a%252e%252e/b',
+    'https://example.com/a%25b',
+    'https://example.com/a%00b?token=private'
+  ]){
+    assert.throws(()=>review({rows:[line(url)]},scope),/invalid query\/page row/);
+    assert.throws(()=>pages([{startRow:0,rows:[line(url)]}],scope),
+      /invalid query\/page row/);
+  }
+});
+test('F69 keeps safe percent-encoded spaces in same-property paths',()=>{
+  const result=review({rows:[line('https://example.com/a%20b')]},scope);
+  assert.equal(result.summary.analyzedRows,1);
+  assert.equal(result.summary.redactedRows,0);
+});
