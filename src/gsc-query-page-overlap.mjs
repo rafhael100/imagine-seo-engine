@@ -28,6 +28,17 @@ const keys=(value,allowed,required=false)=>{
 function propertyPageAllowed(value,property){
   if(typeof value!=='string'||value.length>2048||/[\r\n\0]/.test(value))
     return false;
+  // WHATWG URL can normalize dot segments, backslashes and default ports.
+  // Reject ambiguous raw spellings before constructing the URL, so a
+  // provider-shaped payload cannot silently alias a different source.
+  const raw=/^https:\/\/([^/?#]+)(\/[^?#]*)$/.exec(value);
+  if(!raw||raw[1].includes('@')||raw[1].includes(':')||
+    raw[1].includes('\\')||raw[2].length>1024||
+    raw[2].includes('\\')||raw[2].includes('//')||
+    /%(?:2e|2f|5c)/i.test(raw[2])||
+    raw[2].split('/').some(segment=>segment==='.'||segment==='..')||
+    /%(?![0-9a-fA-F]{2})/.test(raw[2]))
+    return false;
   let url;
   try {url=new URL(value);}catch{return false;}
   if(url.protocol!=='https:'||url.username||url.password||url.hash||url.search||
