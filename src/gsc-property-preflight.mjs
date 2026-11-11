@@ -25,8 +25,11 @@ const PLAN_FIELDS=new Set([
 ]);
 const exactFields=(record,fields)=>
   record&&typeof record==='object'&&!Array.isArray(record)&&
-  Object.keys(record).length===fields.size&&
-  Object.keys(record).every(k=>fields.has(k));
+  [Object.prototype,null].includes(Object.getPrototypeOf(record))&&
+  Reflect.ownKeys(record).length===fields.size&&
+  Reflect.ownKeys(record).every(key=>
+    typeof key==='string'&&fields.has(key)&&
+    Object.hasOwn(Object.getOwnPropertyDescriptor(record,key),'value'));
 
 export function reviewOfflineGscPropertyPreflight({
   tenantRef,requestedProperty,listedProperties
