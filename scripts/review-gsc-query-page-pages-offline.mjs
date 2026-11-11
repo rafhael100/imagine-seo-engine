@@ -11,7 +11,7 @@ if(!file || rest.length){
   console.error('Usage: node scripts/review-gsc-query-page-pages-offline.mjs <private-ordered-pages.json>');
   process.exitCode=2;
 }else try{
-  const data=parseSafeJson(await readBoundedLocalText(file,{maxBytes:16*1024*1024}));
+  const data=parseSafeJson(await readBoundedLocalText(file,{maxBytes:10*1024*1024}));
   if(!data||typeof data!=='object'||Array.isArray(data)||
     ![Object.prototype,null].includes(Object.getPrototypeOf(data))||
     Reflect.ownKeys(data).length!==2||
