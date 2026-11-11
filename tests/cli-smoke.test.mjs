@@ -232,3 +232,24 @@ test('auditor CLI accepts flags before or after optional site origin',async()=>{
     assert.deepEqual(JSON.parse(a.stdout).summary,JSON.parse(b.stdout).summary);
   });
 });
+
+
+test('F81 audit comparison CLI rejects extra policy-bypass flags',async()=>{
+  await workspace(async dir=>{
+    const before=join(dir,'SECRET-F81-before.json');
+    const after=join(dir,'SECRET-F81-after.json');
+    const clean={
+      summary:{pages:1,errors:0,warnings:0},
+      errors:[],warnings:[],routes:['/']
+    };
+    await writeFile(before,JSON.stringify(clean));
+    await writeFile(after,JSON.stringify(clean));
+    const valid=run('compare-audit-offline.mjs',[before,after]);
+    assert.equal(valid.status,0,valid.stderr);
+    const bad=run('compare-audit-offline.mjs',
+      [before,after,'--allow-new-issues']);
+    assert.equal(bad.status,2);
+    assert.equal(bad.stdout,'');
+    assert.doesNotMatch(bad.stderr,/SECRET-F81|\/tmp\//);
+  });
+});
