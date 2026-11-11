@@ -55,10 +55,12 @@ export function reviewOfflineGscQueryPagePagination(pages,scope){
       'POSSIBLE_QUERY_PAGE_OVERLAP_REVIEW':'NO_OVERLAP_IN_SUPPLIED_ROWS';
   return {
     ...normalized,
-    contractVersion:'seo-gsc-query-page-pagination-offline-v1',
+    contractVersion:'seo-gsc-query-page-pagination-offline-v2',
     sourceType:'operator_supplied_paginated_query_page_not_verified',
     pagination:{
       pagesReceived:pages.length,
+      pageSize,
+      lastPageRows:pages[pages.length-1].rows.length,
       rowsReceived:rows.length,
       mayHaveMore,
       maxPagesReached:pages.length===4,
