@@ -98,3 +98,28 @@ test('F65 refuses personal page params without leaking token or blocking safe ro
   assert.doesNotMatch(JSON.stringify(result),new RegExp(marker));
   assert.equal(result.productionReadAuthorized,false);
 });
+
+test('F67 suppresses trend deltas and signals when current rows are redacted',()=>{
+  const input=fixture();
+  const secret='SENSITIVE-F67-SECRET';
+  input.current.response.rows[1].keys[1]=
+    'https://example.com/private?token='+secret;
+  const result=compare(input);
+  assert.equal(result.current.redactedRows,1);
+  assert.equal(result.coverageComplete,false);
+  assert.equal(result.coverageStatus,'REDACTED_GSC_ROWS_NO_SIGNALS');
+  assert.equal(result.overlapShareChange,null);
+  assert.deepEqual(result.reviewSignals,[]);
+  assert.doesNotMatch(JSON.stringify(result),new RegExp(secret));
+});
+test('F67 suppresses trend signals when previous rows are redacted',()=>{
+  const input=fixture();
+  input.previous.response.rows[1].keys[1]=
+    'https://example.com/private?session=REDACTED-PRIOR';
+  const result=compare(input);
+  assert.equal(result.previous.redactedRows,1);
+  assert.equal(result.coverageComplete,false);
+  assert.equal(result.overlapShareChange,null);
+  assert.deepEqual(result.reviewSignals,[]);
+  assert.doesNotMatch(JSON.stringify(result),/REDACTED-PRIOR/);
+});
