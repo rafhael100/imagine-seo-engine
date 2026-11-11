@@ -1,4 +1,5 @@
 import {validateGscPeriod} from './gsc-period.mjs';
+import {isSensitiveGscQuery} from './gsc-private-query.mjs';
 /**
  * SEO-F1: análise OFFLINE de linhas já exportadas pelo usuário do Search Console.
  * Não autentica, não acessa a API Google e não inventa rankings/volumes.
@@ -13,7 +14,7 @@ const CLUSTERS = Object.freeze([
   { id:'criacao-de-sites', rx:/\bsite(?:s)?\b|\bwebsite(?:s)?\b|\bdesenvolvimento\s+web\b/ },
   { id:'seo', rx:/\bseo\b|\botimiza[cç][aã]o\s+(?:para\s+)?(?:o\s+)?google\b/ },
 ]);
-const PRIVATE_TERM = /@|(?:\+?\d[\d() -]{7,}\d)|(?:cpf|cnpj)\s*[:=]?\s*\d/i;
+
 function normalize(value) {
   return value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
@@ -58,7 +59,7 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     if((row.impressions===0 && row.ctr!==0) ||
       (row.impressions>0 && Math.abs(row.ctr-row.clicks/row.impressions)>0.02)) throw new Error('GSC: inconsistent CTR at row '+index);
     totalRows++;
-    if(PRIVATE_TERM.test(query)) {redactedRows++;continue;}
+    if(isSensitiveGscQuery(query)) {redactedRows++;continue;}
     const segment=/\bimagine\b/.test(normalize(query)) ? 'branded' : 'nonbranded';
     const cluster=clusterOf(query);
     const id=segment+':'+cluster;
