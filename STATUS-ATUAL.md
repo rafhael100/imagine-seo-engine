@@ -208,3 +208,10 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Respostas GSC sintéticas/API-shaped só são analisadas se o plano passar novamente por validação de URL Google oficial, fingerprint, tenant, escopo readonly, campos fechados e período válido.
 - O binding F40 reutiliza o mesmo validador de contrato, prevenindo divergência entre a pré-verificação e o processamento local da resposta. Somente totais sanitizados saem do normalizador; nenhuma fonte é tida como verificada.
 - Testes adversariais para URL/domínio adulterado, parâmetros extras, datas falsificadas e OAuth scope alterado.
+
+
+## RC30 — F67–F72 (11/11/2026)
+- Branch release/seo-offline-rc30-2026-11-11 consolida RC29 + F67/F68/F69/F70/F71/F72; veja docs/SEO-RC30-RELEASE-REVIEW.md.
+- Privacidade GSC: tendências com linhas ocultadas não geram sinais; host canônico evita dupla contagem; URLs codificadas ambíguas são bloqueadas; CPF/CNPJ pontuados sem rótulo são suprimidos.
+- Integração Portal preparada apenas como contrato local query/page read-only e validador de planos/páginas, com permissões explicitamente falsas. **Não executa HTTP/OAuth, não confirma acesso ao GSC nem fornece dados para clientes.**
+- PR RC30 draft, sem deploy ou merge main; CI da release e revisão externa são gates obrigatórios antes de qualquer homologação.
