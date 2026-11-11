@@ -230,3 +230,12 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Testes de features F77 e F78 aprovados em CI Node 22/24. CI independente da RC32 e revisão externa são gates adicionais.
 - Integração do Portal segue somente em revisão; não há OAuth real, permissão de cliente, Google HTTP, dados de produção, deploy ou merge main.
 - Checklist: docs/SEO-RC32-RELEASE-REVIEW.md.
+
+
+## SEO-F79/F80 + RC33 — 11/11/2026
+
+- SEO-F79 [#114](https://github.com/rafhael100/imagine-seo-engine/pull/114) inclui modelo interno de apresentação com indicadores de consulta `null` quando a amostra está incompleta ou tem linhas omitidas por privacidade. Matriz de CI Node22/24 **aprovada** (execução [#43112932875](https://github.com/rafhael100/imagine-seo-engine/actions/runs/43112932875)).
+- SEO-F80 [#115](https://github.com/rafhael100/imagine-seo-engine/pull/115) disponibiliza CLI protegido para evidências originais (até 10 MiB, UTF-8 estrito, sem symlink final e sem parâmetros não previstos). CI Node22/24 **aprovada** (execução [#43113181654](https://github.com/rafhael100/imagine-seo-engine/actions/runs/43113181654)).
+- A candidata RC33 agrega a RC32 + F79 + F80; permanece sem merge em `main`, sem publicação e sem conexão OAuth/Google real.
+- O Portal [PR #408](https://github.com/rafhael100/imagine-portal/pull/408) está com diff consolidado de laboratório A–E contra `dev`, incluindo prova de privacidade F79↔HTML PHP, mas **não** é autenticação de clientes ou liberação operacional.
+- **NO-GO** até revisão AppSec/DBA/LGPD independente, grants reais tenant/propriedade, OAuth consentido, MFA, staging, retenção e aprovação específica de release. Os flags de cliente, produção e rede permanecem falsos.
