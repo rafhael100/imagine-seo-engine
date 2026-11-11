@@ -103,3 +103,15 @@ test('F68 still counts genuinely distinct pages and separate hosts',()=>{
   assert.equal(result.summary.queriesOnMultiplePages,1);
   assert.equal(result.summary.totalPagesAcrossOverlappingQueries,3);
 });
+
+test('F70 redacts bare formatted CPF and CNPJ queries before overlap counts',()=>{
+  const result=review({rows:[
+    row('123.456.789-09','/cpf',5),
+    row('12.345.678/0001-90','/cnpj',4),
+    row('seo','/safe',3)
+  ]},scope);
+  assert.equal(result.summary.redactedRows,2);
+  assert.equal(result.summary.analyzedRows,1);
+  assert.equal(result.summary.distinctQueries,1);
+  assert.doesNotMatch(JSON.stringify(result),/123\.456|12\.345|\/cpf|\/cnpj/);
+});
