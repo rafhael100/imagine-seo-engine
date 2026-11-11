@@ -2,6 +2,7 @@
  * SEO-F57 — Review competing query/page matches in offline GSC exports.
  * No raw query, URL, search term hash, account or token is ever emitted.
  * Multiple pages per query are evidence of overlap, NOT proof of a problem.
+ * F59 allows up to 4,000 rows for a bounded four-page offline batch.
  */
 import {createHash} from 'node:crypto';
 import {canonicalProperty} from './gsc-readonly.mjs';
@@ -44,7 +45,7 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
   const {tenantRef,siteUrl,propertyFingerprint,startDate,endDate,rowLimit=1000}=scope;
   if(typeof tenantRef!=='string'||!TENANT.test(tenantRef)||
     typeof propertyFingerprint!=='string'||!HEX.test(propertyFingerprint)||
-    !Number.isSafeInteger(rowLimit)||rowLimit<1||rowLimit>1000)
+    !Number.isSafeInteger(rowLimit)||rowLimit<1||rowLimit>4000)
     throw Error('SEO GSC overlap: invalid operator scope');
   let property;
   try {property=canonicalProperty(siteUrl);validateGscPeriod(startDate,endDate);}
