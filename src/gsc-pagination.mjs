@@ -19,11 +19,17 @@ export function analyzeGscPaginatedResponses(pages,plan,{maxPages=4,maxRows=5000
     throw Error('SEO GSC pagination: complete query assembly must start at zero');
   if(pages.length>maxPages)
     throw Error('SEO GSC pagination: too many response pages');
+  const allowedPageFields=new Set(['startRow','rows','responseAggregationType','metadata']);
+  const allowedRowFields=new Set(['keys','clicks','impressions','ctr','position']);
   const merged=[],queries=new Set();
   let previousClicks=Infinity;
   for(const [index,page] of pages.entries()){
     const expectedOffset=index*rowLimit;
     if(!page||typeof page!=='object'||Array.isArray(page)||
+      ![Object.prototype,null].includes(Object.getPrototypeOf(page))||
+      Reflect.ownKeys(page).some(key=>typeof key!=='string'||
+        !allowedPageFields.has(key)||
+        !Object.hasOwn(Object.getOwnPropertyDescriptor(page,key),'value'))||
       page.startRow!==expectedOffset||!Array.isArray(page.rows)||
       page.rows.length>rowLimit)
       throw Error('SEO GSC pagination: invalid page order, offset or size');
@@ -33,11 +39,17 @@ export function analyzeGscPaginatedResponses(pages,plan,{maxPages=4,maxRows=5000
       page.responseAggregationType!=='byProperty')
       throw Error('SEO GSC pagination: unexpected aggregation type');
     if(page.metadata!==undefined &&
-      (!page.metadata || typeof page.metadata!=='object' ||
-        page.metadata.first_incomplete_date || page.metadata.first_incomplete_hour))
+      (!page.metadata || typeof page.metadata!=='object'||Array.isArray(page.metadata)||
+        Reflect.ownKeys(page.metadata).length!==0))
       throw Error('SEO GSC pagination: unexpected or incomplete metadata');
     for(const row of page.rows){
-      if(!row||!Array.isArray(row.keys)||row.keys.length!==1||
+      if(!row||typeof row!=='object'||Array.isArray(row)||
+        ![Object.prototype,null].includes(Object.getPrototypeOf(row))||
+        Reflect.ownKeys(row).length!==allowedRowFields.size||
+        Reflect.ownKeys(row).some(key=>typeof key!=='string'||
+          !allowedRowFields.has(key)||
+          !Object.hasOwn(Object.getOwnPropertyDescriptor(row,key),'value'))||
+        !Array.isArray(row.keys)||row.keys.length!==1||
         typeof row.keys[0]!=='string'||row.keys[0].length>500)
         throw Error('SEO GSC pagination: expected one query key');
       if(!Number.isSafeInteger(row.clicks)||row.clicks<0||row.clicks>previousClicks)
