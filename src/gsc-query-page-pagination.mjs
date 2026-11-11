@@ -5,6 +5,7 @@
  * No network, OAuth, tokens, persistence or customer-facing identities.
  */
 import {reviewOfflineGscQueryPageOverlap} from './gsc-query-page-overlap.mjs';
+import {isStrictDataArray} from './gsc-strict-arrays.mjs';
 
 const PAGE_FIELDS=new Set(['startRow','rows','responseAggregationType','metadata']);
 const SCOPE_FIELDS=new Set(['tenantRef','siteUrl','propertyFingerprint',
@@ -16,7 +17,7 @@ const dataOnly=(obj,allowed)=>plain(obj)&&Reflect.ownKeys(obj).every(key=>
   Object.hasOwn(Object.getOwnPropertyDescriptor(obj,key),'value'));
 
 export function reviewOfflineGscQueryPagePagination(pages,scope){
-  if(!Array.isArray(pages)||pages.length===0||pages.length>4||
+  if(!isStrictDataArray(pages,4)||pages.length===0||
     !dataOnly(scope,SCOPE_FIELDS))
     throw Error('SEO GSC overlap pagination: bounded pages and scope required');
   const pageSize=scope.rowLimit??1000;
@@ -28,7 +29,7 @@ export function reviewOfflineGscQueryPagePagination(pages,scope){
       !Object.hasOwn(page,'startRow')||
       !Object.hasOwn(page,'rows')||
       page.startRow!==index*pageSize||
-      !Array.isArray(page.rows)||page.rows.length>pageSize)
+      !isStrictDataArray(page.rows,pageSize))
       throw Error('SEO GSC overlap pagination: invalid offset or response');
     if(index<pages.length-1&&page.rows.length!==pageSize)
       throw Error('SEO GSC overlap pagination: intermediate page must be full');
