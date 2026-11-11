@@ -215,3 +215,11 @@ Esta seção é o **estado atualizado**; indicadores de testes acima são regist
 - Privacidade GSC: tendências com linhas ocultadas não geram sinais; host canônico evita dupla contagem; URLs codificadas ambíguas são bloqueadas; CPF/CNPJ pontuados sem rótulo são suprimidos.
 - Integração Portal preparada apenas como contrato local query/page read-only e validador de planos/páginas, com permissões explicitamente falsas. **Não executa HTTP/OAuth, não confirma acesso ao GSC nem fornece dados para clientes.**
 - PR RC30 draft, sem deploy ou merge main; CI da release e revisão externa são gates obrigatórios antes de qualquer homologação.
+
+
+## RC31 — F73–F76 (11/11/2026)
+- Release draft `release/seo-offline-rc31-2026-11-11`: RC30 F0–F72 acrescida de CLI de lote GSC F73, envelope de revisão restrito F74, CLI de handoff F75 e validação UTF-8 rigorosa F76.
+- Dados de consultas/pages são recalculados de lotes originais, sem repassar consultas/URLs ou inferir autenticação/consentimento no Portal.
+- Relatórios permanecem **HOLD**; dados parciais ou linhas omitidas não produzem sinais automáticos para o futuro Portal.
+- CLI e leitor locais não acessam Google nem produzem credenciais. Testes CI de RC31 e revisão externa são obrigatórios antes da homologação, sem deploy/merge `main`.
+- Checklist: docs/SEO-RC31-RELEASE-REVIEW.md.
