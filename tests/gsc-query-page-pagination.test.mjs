@@ -18,8 +18,10 @@ const valid=()=>[
 ];
 test('F59 detects query/page overlap across page boundary, without leaking source',()=>{
   const result=analyze(valid(),scope);
-  assert.equal(result.contractVersion,'seo-gsc-query-page-pagination-offline-v1');
+  assert.equal(result.contractVersion,'seo-gsc-query-page-pagination-offline-v2');
   assert.equal(result.pagination.pagesReceived,2);
+  assert.equal(result.pagination.pageSize,2);
+  assert.equal(result.pagination.lastPageRows,1);
   assert.equal(result.pagination.rowsReceived,3);
   assert.equal(result.pagination.mayHaveMore,false);
   assert.equal(result.pagination.nextStartRow,null);
@@ -37,6 +39,8 @@ test('F59 treats full final page as possible continuation, not complete evidence
   const report=analyze(pages,scope);
   assert.equal(report.pagination.mayHaveMore,true);
   assert.equal(report.pagination.nextStartRow,2);
+  assert.equal(report.pagination.pageSize,2);
+  assert.equal(report.pagination.lastPageRows,2);
   assert.equal(report.summary.possibleTruncation,true);
   assert.equal(report.reviewStatus,'PARTIAL_COVERAGE_REVIEW_ONLY');
   assert.equal(report.releaseStatus,'HOLD_EXTERNAL_BACKEND_VERIFICATION');
@@ -90,6 +94,8 @@ test('F59 correctly handles four bounded pages, without treating batch as provid
   ];
   const result=analyze(pages,scope);
   assert.equal(result.pagination.maxPagesReached,true);
+  assert.equal(result.pagination.pageSize,2);
+  assert.equal(result.pagination.lastPageRows,2);
   assert.equal(result.pagination.mayHaveMore,true);
   assert.equal(result.pagination.nextStartRow,8);
   assert.equal(result.summary.queriesOnMultiplePages,1);
