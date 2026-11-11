@@ -157,3 +157,19 @@ test('F45 rejects unknown and falsy incomplete metadata markers',()=>{
     /unexpected or incomplete metadata/);
   assert.equal(analyzeGscQueryResponse({rows:[],metadata:{}},make()).summary.analyzedRows,0);
 });
+
+test('F46 planner rejects unknown input properties and forged authorization hints',()=>{
+  const valid=make();
+  for(const unsafe of [
+    {...base,oauthVerified:true},
+    {...base,networkPerformed:true},
+    {...base,tenantGrant:'admin'},
+    {...base,scope:'https://www.googleapis.com/auth/webmasters'},
+    {...base,dimensionFilterGroups:[]},
+    {...base,searchType:'image'},
+    {...base,siteUrl:'https://example.com/',extra:undefined},
+    null,[], 'not-an-object'
+  ])assert.throws(()=>planGscQuery(unsafe),/unsupported planner input/);
+  assert.equal(planGscQuery({...base,rowLimit:25,startRow:1}).body.rowLimit,25);
+  assert.equal(valid.networkPerformed,false);
+});
