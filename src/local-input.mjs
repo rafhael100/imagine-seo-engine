@@ -37,7 +37,11 @@ export async function readBoundedLocalText(path,{maxBytes=10*1024*1024}={}){
         throw Error('SEO input: file exceeds size limit');
       chunks.push(buffer.subarray(0,bytesRead));
     }
-    return Buffer.concat(chunks,position).toString('utf8');
+    // Reject malformed UTF-8 rather than silently replacing invalid bytes.
+    // Decode after joining chunks so a valid character can span read bounds.
+    const bytes=Buffer.concat(chunks,position);
+    try{return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}
+    catch{throw Error('SEO input: invalid UTF-8');}
   }catch(error){
     if(error.code==='ELOOP')throw Error('SEO input: symbolic link refused');
     throw error;
