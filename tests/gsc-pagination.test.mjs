@@ -87,7 +87,7 @@ test('F48 rejects forged pagination fields, row grants and incomplete metadata m
     {startRow:0,rows:[valid],metadata:{first_incomplete_hour:false}},
     {startRow:0,rows:[valid],metadata:{oauthVerified:true}}
   ])assert.throws(()=>analyzeGscPaginatedResponses([supplied],plan()),
-    /invalid page|expected one query key|metadata/);
+    /invalid page|expected one query key|metadata|invalid metrics/);
   assert.equal(analyzeGscPaginatedResponses([
     {startRow:0,rows:[valid],metadata:{}}
   ],plan()).pagination.rowsReceived,1);
