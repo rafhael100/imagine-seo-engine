@@ -123,3 +123,13 @@ test('F67 suppresses trend signals when previous rows are redacted',()=>{
   assert.deepEqual(result.reviewSignals,[]);
   assert.doesNotMatch(JSON.stringify(result),/REDACTED-PRIOR/);
 });
+
+test('F70 a formatted identity query in either period suppresses signals',()=>{
+  const input=fixture();
+  input.current.response.rows[1].keys[0]='123.456.789-09';
+  const result=compare(input);
+  assert.equal(result.current.redactedRows,1);
+  assert.equal(result.coverageComplete,false);
+  assert.equal(result.overlapShareChange,null);
+  assert.deepEqual(result.reviewSignals,[]);
+});
