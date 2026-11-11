@@ -17,7 +17,7 @@ const CONFIG=new Set(['tenantRef','siteUrl','propertyFingerprint',
   'startDate','endDate','rowLimit']);
 const RESPONSE=new Set(['rows','responseAggregationType','metadata']);
 const ROW=new Set(['keys','clicks','impressions','ctr','position']);
-const privateQuery=/@|(?:\+?\d[\d() -]{7,}\d)|(?:cpf|cnpj)\s*[:=]?\s*\d/i;
+const privateQuery=/@|(?:\+?\d[\d() -]{7,}\d)|(?:cpf|cnpj)\s*[:=]?\s*\d|\b\d{3}\.\d{3}\.\d{3}[- ]?\d{2}\b|\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/i;
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&
   [Object.prototype,null].includes(Object.getPrototypeOf(value));
 const keys=(value,allowed,required=false)=>{
