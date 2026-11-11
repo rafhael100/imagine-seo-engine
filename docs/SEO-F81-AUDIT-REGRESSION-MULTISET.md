@@ -16,3 +16,7 @@ A comparação `compareStaticAuditReports` convertia observações em `Map(key �
 Casos de duplicatas crescentes e resolvidas, mistura entre erro/aviso com mesmo identificador, bypass de política com `approvalOverride`/getter/Symbol, ausência de vazamento de mensagens privadas e preservação de políticas legítimas.
 
 **Sem deploy nem acesso a dados reais.** Esta alteração é candidata a integrar o auditor estático do Imagine Comercial por atualização explícita do SHA pinado após passar em CI e revisão. Não mesclar em `main` ou aplicar no Comercial em produção automaticamente.
+
+## CLI endurecida
+
+O comando `compare-audit-offline.mjs` agora rejeita qualquer terceiro argumento em vez de ignorar flags extras como `--allow-new-issues`. O teste smoke invoca o CLI com relatórios válidos e uma flag falsa, exigindo erro sem imprimir caminhos privados. Essa correção preserva o contrato de dois arquivos obrigatórios e evita que um operador suponha ter usado uma opção não suportada.
