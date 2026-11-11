@@ -3,8 +3,8 @@ import {readBoundedLocalText} from '../src/local-input.mjs';
 import {importGscQueriesCsv} from '../src/gsc-csv.mjs';
 import {analyzeQueryExport} from '../src/opportunities.mjs';
 
-const [file,startDate,endDate]=process.argv.slice(2);
-if(!file||!startDate||!endDate){
+const [file,startDate,endDate,...extra]=process.argv.slice(2);
+if(!file||!startDate||!endDate||extra.length){
   console.error('Usage: node scripts/report-gsc-csv-offline.mjs export.csv 2026-11-01 2026-11-08');
   process.exitCode=2;
 }else try{

@@ -84,7 +84,10 @@ export function importGscQueriesCsv(contents,{startDate,endDate}={}){
   validateGscPeriod(startDate,endDate);
   const body=contents.replace(/^\uFEFF/,'');
   // CSV PT-BR pode usar ";" para permitir número decimal com vírgula.
-  const first=body.split(/\r?\n/,1)[0];
+  // Header is the first physical line, whether LF, CRLF or legacy CR-only.
+  // Do not inspect later query values when detecting delimiter: a quoted
+  // semicolon in a comma-separated QUERY must not flip the whole parser.
+  const first=body.split(/\r\n|\n|\r/,1)[0];
   const separator=first.includes(';')?';':',';
   const records=readRows(body,separator);
   if(records.length<1)throw Error('GSC CSV: missing header');
@@ -97,11 +100,16 @@ export function importGscQueriesCsv(contents,{startDate,endDate}={}){
     map[name]=found[0];
   }
   const rows=[];
+  const seenQueries=new Set();
   for(const [i,record] of records.slice(1).entries()){
     const index=i+2;
     if(record.length!==5)throw Error('GSC CSV: wrong number of columns row '+index);
     const query=record[map.query];
     if(query.trim()===''||query.length>500)throw Error('GSC CSV: invalid query row '+index);
+    // A query-only Search Console export has a single row per exact query.
+    // Duplicates would inflate totals; do not echo the query on error.
+    if(seenQueries.has(query))throw Error('GSC CSV: duplicate query row '+index);
+    seenQueries.add(query);
     const clicks=integer(record[map.clicks],'clicks',index);
     const impressions=integer(record[map.impressions],'impressions',index);
     const ctr=ctrValue(record[map.ctr],index);

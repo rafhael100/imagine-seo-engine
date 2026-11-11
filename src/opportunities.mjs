@@ -40,6 +40,7 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
   if (!Array.isArray(report.rows) || report.rows.length>100000) throw new Error('GSC: invalid rows');
   if (!Number.isSafeInteger(minImpressions) || minImpressions<1) throw new Error('GSC: invalid minimum impressions');
   const buckets=new Map();
+  const seenQueries=new Set();
   let redactedRows=0;
   let totalRows=0;
   let impressions=0,clicks=0;
@@ -47,6 +48,10 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     if (!row || typeof row!=='object' || !Array.isArray(row.keys) || row.keys.length!==1) throw new Error('GSC: invalid query dimension at row '+index);
     const query=row.keys[0];
     if(typeof query!=='string' || query.trim().length===0 || query.length>500) throw new Error('GSC: invalid query at row '+index);
+    // GSC query-only rows must be unique; duplicates cannot be summed safely.
+    // Apply before privacy filtering so repeated sensitive queries are refused.
+    if(seenQueries.has(query))throw new Error('GSC: duplicate query row '+index);
+    seenQueries.add(query);
     if(!Number.isSafeInteger(row.clicks) || row.clicks<0 || !Number.isSafeInteger(row.impressions) || row.impressions<0 ||
       row.clicks>row.impressions || typeof row.ctr!=='number' || !Number.isFinite(row.ctr) || row.ctr<0 || row.ctr>1 ||
       typeof row.position!=='number' || !Number.isFinite(row.position) || row.position<1) throw new Error('GSC: invalid metrics at row '+index);
