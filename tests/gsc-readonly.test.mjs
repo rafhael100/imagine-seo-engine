@@ -173,3 +173,20 @@ test('F46 planner rejects unknown input properties and forged authorization hint
   assert.equal(planGscQuery({...base,rowLimit:25,startRow:1}).body.rowLimit,25);
   assert.equal(valid.networkPerformed,false);
 });
+
+test('F47 planner rejects inherited fields, getters and hidden keys',()=>{
+  const inherited=Object.create({...base});
+  const getter={...base};
+  Object.defineProperty(getter,'authorizationConfirmed',{enumerable:true,get(){
+    throw Error('sensitive getter must not execute');
+  }});
+  const hidden={...base};
+  Object.defineProperty(hidden,'oauthVerified',{value:true,enumerable:false});
+  const symbol={...base,[Symbol('operatorGrant')]:true};
+  const special=Object.create({unknown:true});
+  Object.assign(special,base);
+  for(const unsafe of [inherited,getter,hidden,symbol,special])
+    assert.throws(()=>planGscQuery(unsafe),/unsupported planner input/);
+  const nullProto=Object.assign(Object.create(null),base);
+  assert.equal(planGscQuery(nullProto).networkPerformed,false);
+});
