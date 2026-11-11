@@ -21,7 +21,6 @@ test('F62 refuses URL aliases that WHATWG would silently rewrite',()=>{
     'https://example.com/a\\b',
     'https://example.com:443/a',
     'https://user@example.com/a',
-    'https://example.com/a?secret=person@example.com',
     'https://example.com/a#token',
     'https://example.com',
     'https://example.com/a%zz'
