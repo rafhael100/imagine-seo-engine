@@ -10,6 +10,7 @@ import {createHash} from 'node:crypto';
 import {canonicalProperty} from './gsc-readonly.mjs';
 import {validateGscPeriod} from './gsc-period.mjs';
 import {isStrictDataArray} from './gsc-strict-arrays.mjs';
+import {isSensitiveGscQuery} from './gsc-private-query.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
 const HEX=/^[0-9a-f]{64}$/;
@@ -17,7 +18,7 @@ const CONFIG=new Set(['tenantRef','siteUrl','propertyFingerprint',
   'startDate','endDate','rowLimit']);
 const RESPONSE=new Set(['rows','responseAggregationType','metadata']);
 const ROW=new Set(['keys','clicks','impressions','ctr','position']);
-const privateQuery=/@|(?:\+?\d[\d() -]{7,}\d)|(?:cpf|cnpj)\s*[:=]?\s*\d|\b\d{3}\.\d{3}\.\d{3}[- ]?\d{2}\b|\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/i;
+
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)&&
   [Object.prototype,null].includes(Object.getPrototypeOf(value));
 const keys=(value,allowed,required=false)=>{
@@ -104,7 +105,7 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
     const query=row.keys[0].trim();
     if(!query||query.length>500)
       throw Error('SEO GSC overlap: invalid query');
-    if(privateQuery.test(query)||
+    if(isSensitiveGscQuery(query)||
       propertyPageClassification(row.keys[1],property)==='REDACTED_VARIANT'){
       redactedRows++;continue;
     }
