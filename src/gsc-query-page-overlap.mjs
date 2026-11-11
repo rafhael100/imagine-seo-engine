@@ -3,6 +3,8 @@
  * No raw query, URL, search term hash, account or token is ever emitted.
  * Multiple pages per query are evidence of overlap, NOT proof of a problem.
  * F59 allows up to 4,000 rows for a bounded four-page offline batch.
+ * F64 redacts same-property pages with URL query parameters instead of
+ * rejecting a full provider report, while rejecting foreign/unsafe URLs.
  */
 import {createHash} from 'node:crypto';
 import {canonicalProperty} from './gsc-readonly.mjs';
@@ -25,29 +27,35 @@ const keys=(value,allowed,required=false)=>{
     typeof k==='string'&&allowed.has(k)&&
     Object.hasOwn(Object.getOwnPropertyDescriptor(value,k),'value'));
 };
-function propertyPageAllowed(value,property){
-  if(typeof value!=='string'||value.length>2048||/[\r\n\0]/.test(value))
-    return false;
-  // WHATWG URL can normalize dot segments, backslashes and default ports.
-  // Reject ambiguous raw spellings before constructing the URL, so a
-  // provider-shaped payload cannot silently alias a different source.
-  const raw=/^https:\/\/([^/?#]+)(\/[^?#]*)$/.exec(value);
+function propertyPageClassification(value,property){
+  if(typeof value!=='string'||value.length>2048||/[\r\n\0\x00-\x1f\x7f]/.test(value))
+    return 'INVALID';
+  // Query parameters can carry session identifiers and PII. Accept the
+  // provider-shaped row only long enough to count it as redacted; NEVER
+  // normalize it into a public page or include it in overlap metrics.
+  // The hostname/path still have to match the exact trusted property.
+  const raw=/^https:\/\/([^/?#]+)(\/[^?#]*)(\?[^#]*)?$/.exec(value);
   if(!raw||raw[1].includes('@')||raw[1].includes(':')||
     raw[1].includes('\\')||raw[2].length>1024||
     raw[2].includes('\\')||raw[2].includes('//')||
     /%(?:2e|2f|5c)/i.test(raw[2])||
     raw[2].split('/').some(segment=>segment==='.'||segment==='..')||
     /%(?![0-9a-fA-F]{2})/.test(raw[2]))
-    return false;
+    return 'INVALID';
   let url;
-  try {url=new URL(value);}catch{return false;}
-  if(url.protocol!=='https:'||url.username||url.password||url.hash||url.search||
-    url.port || !/^[a-z0-9.-]+$/i.test(url.hostname))return false;
+  try {url=new URL(value);}catch{return 'INVALID';}
+  if(url.protocol!=='https:'||url.username||url.password||url.hash||
+    url.port || !/^[a-z0-9.-]+$/i.test(url.hostname))
+    return 'INVALID';
+  let matches=false;
   if(property.startsWith('sc-domain:')){
     const domain=property.slice('sc-domain:'.length);
-    return url.hostname===domain||url.hostname.endsWith('.'+domain);
+    matches=url.hostname===domain||url.hostname.endsWith('.'+domain);
+  }else{
+    matches=(url.origin+url.pathname).startsWith(property);
   }
-  return url.href.startsWith(property);
+  if(!matches)return 'INVALID';
+  return raw[3]!==undefined?'REDACTED_VARIANT':'CANONICAL';
 }
 
 export function reviewOfflineGscQueryPageOverlap(response,scope){
@@ -79,7 +87,7 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
   for(const row of response.rows){
     if(!keys(row,ROW,true)||!isStrictDataArray(row.keys,2)||row.keys.length!==2||
       typeof row.keys[0]!=='string'||typeof row.keys[1]!=='string'||
-      !propertyPageAllowed(row.keys[1],property)||
+      propertyPageClassification(row.keys[1],property)==='INVALID'||
       !Number.isSafeInteger(row.clicks)||row.clicks<0||
       !Number.isSafeInteger(row.impressions)||row.impressions<0||
       row.clicks>row.impressions||row.clicks>previousClicks||
@@ -94,7 +102,10 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
     const query=row.keys[0].trim();
     if(!query||query.length>500)
       throw Error('SEO GSC overlap: invalid query');
-    if(privateQuery.test(query)){redactedRows++;continue;}
+    if(privateQuery.test(query)||
+      propertyPageClassification(row.keys[1],property)==='REDACTED_VARIANT'){
+      redactedRows++;continue;
+    }
     const pair=JSON.stringify([query.toLocaleLowerCase('pt-BR'),row.keys[1]]);
     if(seenPairs.has(pair))throw Error('SEO GSC overlap: duplicated query/page pair');
     seenPairs.add(pair);

@@ -36,7 +36,6 @@ test('F57 recognizes full domain property but rejects external/subdomain spoofin
     'https://evil.test/a',
     'http://example.com/a',
     'https://x@example.com/a',
-    'https://example.com/a?token=private',
     'https://example.com/a#secret'
   ]){
     const bad={...row('site','/a'),keys:['site',page]};
