@@ -4,6 +4,6 @@
 
 Exige lote começando em offset zero e encaminha até quatro páginas originais à F59/F63, que revê offsets, consistência, duplicatas, métricas e truncamento. A saída mantém somente indicadores, sem strings brutas de consultas, páginas, URLs ou credenciais. Todas as permissões continuam negadas.
 
-**Não comprova propriedade, usuário ou OAuth.** A identidade do tenant é declarada no arquivo offline e terá que ser vinculada pelo backend autenticado do Portal antes de qualquer consumo real.
+**Não comprova propriedade, usuário, autorização por empresa ou OAuth.** Um tenantRef sintaticamente válido diferente pode produzir outro plano igualmente válido; por isso a comparação com a identidade da sessão autenticada é uma obrigação externa e obrigatória no Portal. A identidade do tenant é declarada no arquivo offline e terá que ser vinculada pelo backend autenticado do Portal antes de qualquer consumo real.
 
 Testes sintéticos cobrem plano válido, duas páginas, adulteração de URL, campos de autorização, dimensões e offsets. Sem HTTP, dados de clientes em Git/CI, deploy, DNS ou merge `main`.
