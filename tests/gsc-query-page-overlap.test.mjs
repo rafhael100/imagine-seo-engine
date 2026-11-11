@@ -87,3 +87,19 @@ test('F57 no overlap in supplied pages is not proof of site-wide uniqueness',()=
   assert.equal(output.reviewStatus,'NO_OVERLAP_IN_SUPPLIED_ROWS');
   assert.equal(output.releaseStatus,'HOLD_EXTERNAL_BACKEND_VERIFICATION');
 });
+
+test('F68 rejects the same query/page disguised by mixed-case host aliases',()=>{
+  const first=row('seo','/case',5);
+  const alias={...row('seo','/case',4),keys:['seo','https://WWW.EXAMPLE.COM/case']};
+  assert.throws(()=>review({rows:[first,alias]},scope),
+    /duplicated query\/page pair/);
+});
+test('F68 still counts genuinely distinct pages and separate hosts',()=>{
+  const result=review({rows:[
+    row('seo','/a',5),
+    {...row('seo','/b',4),keys:['seo','https://WWW.EXAMPLE.COM/b']},
+    {...row('seo','/a',3),keys:['seo','https://example.com/a']}
+  ]},scope);
+  assert.equal(result.summary.queriesOnMultiplePages,1);
+  assert.equal(result.summary.totalPagesAcrossOverlappingQueries,3);
+});
