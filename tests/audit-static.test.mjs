@@ -742,3 +742,29 @@ test('F91 valid static anchors and semantic dynamic fragments do not create nois
     assert.equal(result.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
   });
 });
+
+test('F92 identifies repeated static HTML IDs that make fragment/ARIA targets ambiguous',async()=>{
+  const home=makePage('/',{links:['#detalhes','/servicos/']})
+    .replace('<h1>','<section id="detalhes"><h1>')
+    .replace('</body>','<aside id="detalhes">Texto adicional</aside></section></body>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    const duplicates=report.warnings.filter(x=>x.type==='duplicate_html_id');
+    assert.equal(duplicates.length,1);
+    assert.equal(duplicates[0].file,'index.html');
+    assert.equal(report.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
+    assert.doesNotMatch(JSON.stringify(report),/Texto adicional/);
+  });
+});
+test('F92 repeated IDs inside HTML comments and inactive templates are not rendered duplicates',async()=>{
+  const home=makePage('/',{links:['#detalhes','/servicos/']})
+    .replace('<h1>','<section id="detalhes"><h1>')
+    .replace('</body>',
+      '<!-- <aside id="detalhes">Invisível</aside> -->'+
+      '<template><aside id="detalhes">Inativo</aside></template></section></body>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.warnings.filter(x=>x.type==='duplicate_html_id').length,0);
+    assert.equal(report.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
+  });
+});
