@@ -359,7 +359,12 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     for(const match of visibleBody.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)){
       if(++inspectedTags>50000)throw Error('audit: HTML tag budget exceeded');
       const id=attrs(match[0]).id;
-      if(typeof id==='string')localIds.add(id);
+      if(typeof id==='string'&&id){
+        if(localIds.has(id))
+          emit(warnings,{type:'duplicate_html_id',file:rel,
+            message:'Duplicate static HTML ID may make links and ARIA targets ambiguous'});
+        else localIds.add(id);
+      }
     }
     const links = [];
     let anchorCount=0;
