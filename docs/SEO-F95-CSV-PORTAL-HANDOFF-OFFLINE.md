@@ -36,6 +36,10 @@ Position e linhas com métricas coerentes. **F96 exige arquivos no mesmo diretó
 do manifesto, referenciados somente por nomes de arquivo** com extensão .json
 (auditoria) ou .csv (exportações). Caminhos absolutos, aninhados, com `..` ou
 para outro diretório são recusados antes de abrir a entrada.
+**F97 valida todos os nomes dos arquivos antes de ler qualquer evidência.**
+O CSV do período anterior e o CSV do período atual devem ter nomes diferentes
+(incluindo diferença apenas de maiúsculas/minúsculas). Dois arquivos distintos
+podem, legitimamente, conter métricas iguais; o motor não inventa mudanças.
 Use somente um diretório privado com ancestrais confiáveis.
 
 ```bash

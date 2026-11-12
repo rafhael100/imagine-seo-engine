@@ -149,3 +149,52 @@ test('F96 rejects absolute, parent and nested paths from supplied manifests',()=
     }
   });
 });
+
+test('F97 refuses a self-compared CSV file even under case-insensitive aliases',()=>{
+  withFixture(({path,manifest})=>{
+    for(const sameFile of ['before.csv','BEFORE.CSV']){
+      writeFileSync(path,JSON.stringify({
+        ...manifest,current:{...manifest.current,file:sameFile}
+      }));
+      const out=run(path);
+      assert.equal(out.status,2);
+      assert.equal(out.stdout,'');
+      assert.match(out.stderr,/distinct CSV handoff files required/);
+      noLeaks(out);
+    }
+  });
+});
+test('F97 validates all input references before opening even the audit file',()=>{
+  withFixture(({path,manifest})=>{
+    writeFileSync(path,JSON.stringify({
+      ...manifest,auditFile:'nonexistent-audit.json',
+      current:{...manifest.current,file:'../sensitive.csv'}
+    }));
+    const out=run(path);
+    assert.equal(out.status,2);
+    assert.equal(out.stdout,'');
+    assert.match(out.stderr,/invalid CSV handoff file/);
+    noLeaks(out);
+    writeFileSync(path,JSON.stringify({
+      ...manifest,auditFile:'nonexistent-audit.json',
+      current:{...manifest.current,file:'before.csv'}
+    }));
+    const same=run(path);
+    assert.equal(same.status,2);
+    assert.match(same.stderr,/distinct CSV handoff files required/);
+    noLeaks(same);
+  });
+});
+test('F97 permits legitimately identical CSV contents when period files differ',()=>{
+  withFixture(({path,dir})=>{
+    writeFileSync(join(dir,'after.csv'),baseHeader+
+      '"landing pages profissionais",30,300,10%,8\n');
+    const out=run(path);
+    assert.equal(out.status,0,out.stderr);
+    noLeaks(out);
+    const result=JSON.parse(out.stdout);
+    assert.equal(result.handoff.organic.previous.clicks,30);
+    assert.equal(result.handoff.organic.current.clicks,30);
+    assert.equal(result.publicationAuthorized,false);
+  });
+});

@@ -49,18 +49,27 @@ if(!file||extra.length){
       throw Error('SEO input: invalid CSV handoff file');
     return name;
   };
-  const load=(name,extension,limit)=>readBoundedLocalText(
-    resolve(root,localName(name,extension)),{maxBytes:limit}
+  // F97: validate EVERY manifest file reference before reading any private
+  // evidence. Keep the previous/current source files distinct even on
+  // case-insensitive filesystems, avoiding a silently self-compared export.
+  const auditName=localName(manifest.auditFile,'.json');
+  const previousName=localName(manifest.previous.file,'.csv');
+  const currentName=localName(manifest.current.file,'.csv');
+  if(previousName.toLocaleLowerCase('pt-BR')===
+     currentName.toLocaleLowerCase('pt-BR'))
+    throw Error('SEO input: distinct CSV handoff files required');
+  const load=(name,limit)=>readBoundedLocalText(
+    resolve(root,name),{maxBytes:limit}
   );
   // Never parse CSV columns as precomputed organic summaries.
-  const audit=parseSafeJson(await load(manifest.auditFile,'.json',2*1024*1024));
+  const audit=parseSafeJson(await load(auditName,2*1024*1024));
   const previous=importGscQueriesCsv(
-    await load(manifest.previous.file,'.csv',10*1024*1024),{
+    await load(previousName,10*1024*1024),{
       startDate:manifest.previous.startDate,
       endDate:manifest.previous.endDate
     });
   const current=importGscQueriesCsv(
-    await load(manifest.current.file,'.csv',10*1024*1024),{
+    await load(currentName,10*1024*1024),{
       startDate:manifest.current.startDate,
       endDate:manifest.current.endDate
     });
