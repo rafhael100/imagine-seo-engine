@@ -76,12 +76,17 @@ function organicReport(trend){
     trend.dataSource!=='two_user_provided_search_analytics_exports_not_verified'||
     !trend.summary||!Array.isArray(trend.changes)||trend.changes.length>1000)
     throw Error('SEO brief: compatible offline trend required');
-  const {days,previous,current}=trend.summary;
-  if(!validCount(days,92)||days<1||!previous||!current||
+  const {days,previous,current,redactedRows}=trend.summary;
+  if(!validCount(days,92)||days<1||!validCount(redactedRows,200000)||
+    !previous||!current||
     !validCount(previous.clicks)||!validCount(current.clicks)||
     !validCount(previous.impressions)||!validCount(current.impressions)||
     previous.clicks>previous.impressions||current.clicks>current.impressions)
     throw Error('SEO brief: invalid trend summary');
+  // The technical report may remain useful, but when even a single query
+  // was redacted neither observed organic totals nor trend signals should
+  // be promoted into the executive brief or Portal handoff.
+  if(redactedRows>0)return {suppressed:true,days,actions:[]};
   const counts=new Map();
   for(const change of trend.changes){
     if(!change||typeof change!=='object'||!Array.isArray(change.signals)||
@@ -105,6 +110,7 @@ function organicReport(trend){
 }
 export function buildOfflineSeoBrief({audit,trend=null}={}){
   const technical=technicalReport(audit),organic=organicReport(trend);
+  const organicSuppressed=organic?.suppressed===true;
   const actions=[...technical.actions,...(organic?.actions??[])].sort((a,b)=>
     PRIORITY[a.priority]-PRIORITY[b.priority]||b.count-a.count||
     a.code.localeCompare(b.code));
@@ -115,7 +121,7 @@ export function buildOfflineSeoBrief({audit,trend=null}={}){
       status:technical.status,
       pages:technical.pages,errors:technical.errors,warnings:technical.warnings
     },
-    organic:organic?{
+    organic:organic&&!organicSuppressed?{
       days:organic.days,previous:organic.previous,current:organic.current,
       clicksChangeFraction:organic.clicksChangeFraction,
       impressionsChangeFraction:organic.impressionsChangeFraction
@@ -124,7 +130,10 @@ export function buildOfflineSeoBrief({audit,trend=null}={}){
     limitations:[
       'These inputs were supplied locally; neither the audit nor the GSC trend is independently authenticated.',
       'Recommendations are review candidates, not proof of cause, conversion, ranking or indexing.',
-      'Raw queries, page paths, user-provided messages and property URLs are omitted from this response.'
+      'Raw queries, page paths, user-provided messages and property URLs are omitted from this response.',
+      ...(organicSuppressed?[
+        'Organic comparisons and actions were withheld because original trend evidence contains redacted query rows.'
+      ]:[])
     ]
   };
 }
