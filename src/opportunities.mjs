@@ -1,5 +1,6 @@
 import {validateGscPeriod} from './gsc-period.mjs';
 import {isSensitiveGscQuery} from './gsc-private-query.mjs';
+import {gscQueryIdentity} from './gsc-query-identity.mjs';
 /**
  * SEO-F1: análise OFFLINE de linhas já exportadas pelo usuário do Search Console.
  * Não autentica, não acessa a API Google e não inventa rankings/volumes.
@@ -51,8 +52,10 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     if(typeof query!=='string' || query.trim().length===0 || query.length>500) throw new Error('GSC: invalid query at row '+index);
     // GSC query-only rows must be unique; duplicates cannot be summed safely.
     // Apply before privacy filtering so repeated sensitive queries are refused.
-    if(seenQueries.has(query))throw new Error('GSC: duplicate query row '+index);
-    seenQueries.add(query);
+    const identity=gscQueryIdentity(query);
+    if(!identity)throw new Error('GSC: invalid query at row '+index);
+    if(seenQueries.has(identity))throw new Error('GSC: duplicate query row '+index);
+    seenQueries.add(identity);
     if(!Number.isSafeInteger(row.clicks) || row.clicks<0 || !Number.isSafeInteger(row.impressions) || row.impressions<0 ||
       row.clicks>row.impressions || typeof row.ctr!=='number' || !Number.isFinite(row.ctr) || row.ctr<0 || row.ctr>1 ||
       typeof row.position!=='number' || !Number.isFinite(row.position) || row.position<1) throw new Error('GSC: invalid metrics at row '+index);
