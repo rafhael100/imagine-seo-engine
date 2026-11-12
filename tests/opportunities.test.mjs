@@ -61,3 +61,42 @@ test('refuses zero-impression rows with nonzero CTR rather than reporting incons
 test('minimum-impression threshold must be an integer safe to compare',()=>{
   assert.throws(()=>analyzeQueryExport(report(),{minImpressions:Number.MAX_SAFE_INTEGER+1}),/minimum impressions/);
 });
+
+test('F90 normalizes visually equivalent Unicode queries before counting metrics',()=>{
+  const equivalents=[
+    ['google ads para negócios','ｇｏｏｇｌｅ ａｄｓ para negócios'],
+    ['criação de sites','cri\u0061\u0327\u0061\u0303o de sites'],
+    ['landing pages','land\u200bing pages'],
+    ['Meta Ads','meta ads'],
+    ['site por assinatura',' site por assinatura ']
+  ];
+  for(const [a,b] of equivalents){
+    const submitted=report([
+      make(a,5,200,8),
+      make(b,7,300,7)
+    ]);
+    assert.throws(()=>analyzeQueryExport(submitted),/duplicate query row 1/);
+  }
+});
+test('F90 a rejected duplicate never echoes private query content',()=>{
+  const privateValue='pessoa＠empresa.com';
+  const duplicate='pessoa@empresa.com';
+  assert.throws(()=>analyzeQueryExport(report([
+    make(privateValue,1,100,7),
+    make(duplicate,1,200,8)
+  ])),error=>{
+    assert.match(error.message,/duplicate query row 1/);
+    assert.ok(!error.message.includes(privateValue));
+    assert.ok(!error.message.includes(duplicate));
+    return true;
+  });
+});
+test('F90 legitimate distinct queries still produce separate metrics',()=>{
+  const a=analyzeQueryExport(report([
+    make('Google Ads para empresas',5,200,7),
+    make('Meta Ads para empresas',3,150,9)
+  ]));
+  assert.equal(a.summary.analyzedRows,2);
+  assert.equal(a.summary.clicks,8);
+  assert.equal(a.summary.impressions,350);
+});
