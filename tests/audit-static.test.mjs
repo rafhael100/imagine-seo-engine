@@ -8,7 +8,7 @@ import { auditStaticSite, readSafeHtmlFile } from '../src/audit-static.mjs';
 const origin='https://imaginecomunicacao.com.br';
 function makePage(route, overrides={}) {
   const { title='Título exclusivo: ' + route, canonical=origin+route,
-    description='Conteúdo comercial original para empresas interessadas em serviços digitais.',
+    description='Conteúdo comercial original para empresas interessadas em serviços digitais. Rota: '+route,
     h1='Conheça os serviços da Imagine', noindex=false, links=[] }=overrides;
   return '<!doctype html><html lang="pt-BR"><head><title>'+title+'</title>'+
     '<meta name="description" content="'+description+'">'+
@@ -620,7 +620,7 @@ test('JS strings containing template syntax are not treated as real inert markup
 test('head script strings cannot fake title, description, canonical or robots tags',async()=>{
   const fake=makePage('/',{links:['/servicos/']})
     .replace(/<title>[\s\S]*?<\/title>/,'')
-    .replace('<meta name="description" content="Conteúdo comercial original para empresas interessadas em serviços digitais.">','')
+    .replace(/<meta name="description" content="[^"]+">/,'')
     .replace('<link rel="canonical" href="'+origin+'/">','')
     .replace('<meta name="robots" content="index,follow">','')
     .replace('</head>','<script>const template = '+
@@ -695,5 +695,76 @@ test('strict sitemap bounds even empty URL entries without a full array allocati
   await withSite({sitemap},async root=>{
     await assert.rejects(auditStaticSite(root,{strictPublicHead:true}),
       /sitemap entry budget exceeded/);
+  });
+});
+
+test('F90 detects normalized duplicate meta descriptions across any public pages',async()=>{
+  const common='Soluções digitais para empresas com planejamento profissional, conteúdo, SEO e comunicação comercial.';
+  const home=makePage('/',{description:common,links:['/servicos/']});
+  const service=makePage('/servicos/',{description:'  '+common.toLocaleUpperCase('pt-BR')+'  '});
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.errors.length,0);
+    const duplicated=report.warnings.filter(x=>x.type==='duplicate_description');
+    assert.equal(duplicated.length,1);
+    assert.equal(duplicated[0].file,'servicos/index.html');
+    assert.match(duplicated[0].message,/index.html/);
+    assert.doesNotMatch(JSON.stringify(report),/Soluções digitais para empresas|SOLUÇÕES DIGITAIS PARA EMPRESAS/);
+  });
+});
+test('F90 different editorial meta descriptions do not yield false duplicate findings',async()=>{
+  await withSite({},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.warnings.filter(x=>x.type==='duplicate_description').length,0);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+
+test('F91 warns on broken local FAQ/skip fragments without leaking targets',async()=>{
+  const home=makePage('/',{links:['#faq-respostas','#privado-oculto','/servicos/']})
+    .replace('<h1>','<section id="faq-respostas"><h1>');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.length,0);
+    const broken=result.warnings.filter(x=>x.type==='broken_local_fragment');
+    assert.equal(broken.length,1);
+    assert.equal(broken[0].file,'index.html');
+    assert.doesNotMatch(JSON.stringify(result),/privado-oculto/);
+  });
+});
+test('F91 valid static anchors and semantic dynamic fragments do not create noise',async()=>{
+  const home=makePage('/',{links:['#conteudo','#topo','/servicos/']})
+    .replace('<h1>','<main id="conteudo"><div id="topo"><h1>');
+  const service=makePage('/servicos/',{links:['#', '#comparar:onepage:landing-pages']});
+  await withSite({home,service},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.length,0);
+    assert.equal(result.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
+  });
+});
+
+test('F92 identifies repeated static HTML IDs that make fragment/ARIA targets ambiguous',async()=>{
+  const home=makePage('/',{links:['#detalhes','/servicos/']})
+    .replace('<h1>','<section id="detalhes"><h1>')
+    .replace('</body>','<aside id="detalhes">Texto adicional</aside></section></body>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    const duplicates=report.warnings.filter(x=>x.type==='duplicate_html_id');
+    assert.equal(duplicates.length,1);
+    assert.equal(duplicates[0].file,'index.html');
+    assert.equal(report.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
+    assert.doesNotMatch(JSON.stringify(report),/Texto adicional/);
+  });
+});
+test('F92 repeated IDs inside HTML comments and inactive templates are not rendered duplicates',async()=>{
+  const home=makePage('/',{links:['#detalhes','/servicos/']})
+    .replace('<h1>','<section id="detalhes"><h1>')
+    .replace('</body>',
+      '<!-- <aside id="detalhes">Invisível</aside> -->'+
+      '<template><aside id="detalhes">Inativo</aside></template></section></body>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.warnings.filter(x=>x.type==='duplicate_html_id').length,0);
+    assert.equal(report.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
   });
 });

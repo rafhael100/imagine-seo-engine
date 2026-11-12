@@ -125,3 +125,22 @@ test('F86 supports empty supplied periods without fabricated rankings',()=>{
   assert.deepEqual(a.changes,[]);
   noAuthority(a);
 });
+
+test('F89 Unicode disguised personal queries withhold all display metrics',()=>{
+  for(const query of [
+    '１２３．４５６．７８９－０９',
+    'CPF\u200b 12345678909',
+    'pessoa＠exemplo.com'
+  ]){
+    const input=fixture();
+    input.previous.rows.push(make(query,1,100));
+    const summary=view(input);
+    assert.equal(summary.metricsWithheld,true);
+    assert.equal(summary.summary.redactedRows,1);
+    assert.equal(summary.summary.previous,null);
+    assert.equal(summary.summary.current,null);
+    assert.deepEqual(summary.changes,[]);
+    assert.ok(!JSON.stringify(summary).includes(query));
+    noAuthority(summary);
+  }
+});

@@ -190,3 +190,80 @@ test('F47 planner rejects inherited fields, getters and hidden keys',()=>{
   const nullProto=Object.assign(Object.create(null),base);
   assert.equal(planGscQuery(nullProto).networkPerformed,false);
 });
+
+test('F94 rejects mutated plans before invoking private getters',()=>{
+  let called=0;
+  const getter=make();
+  Object.defineProperty(getter,'networkPerformed',{enumerable:true,get(){
+    called++;throw Error('private-plan-getter');
+  }});
+  const bodyGetter=make();
+  // Planner freezes its generated body; clone to model a forged mutable input.
+  bodyGetter.body={...bodyGetter.body};
+  Object.defineProperty(bodyGetter.body,'rowLimit',{enumerable:true,get(){
+    called++;throw Error('private-body-getter');
+  }});
+  const hidden=make();
+  Object.defineProperty(hidden,'oauthVerified',{value:true});
+  const symbol={...make(),[Symbol('grant')]:true};
+  const inherited=Object.assign(Object.create({oauthVerified:true}),make());
+  for(const plan of [getter,bodyGetter,hidden,symbol,inherited])
+    assert.throws(()=>analyzeGscQueryResponse({rows:[]},plan),
+      /compatible query plan/);
+  assert.equal(called,0);
+});
+test('F94 response and metadata reject accessors, hidden grants and custom prototypes',()=>{
+  let called=0;
+  const getter={};
+  Object.defineProperty(getter,'rows',{enumerable:true,get(){
+    called++;throw Error('private-response-getter');
+  }});
+  const metadata={};
+  Object.defineProperty(metadata,'oauthVerified',{value:true});
+  const metaGetter={};
+  Object.defineProperty(metaGetter,'first_incomplete_date',{enumerable:true,get(){
+    called++;throw Error('private-metadata-getter');
+  }});
+  const hidden={rows:[]};
+  Object.defineProperty(hidden,'tenantRef',{value:'forged'});
+  const symbol={rows:[],[Symbol('oauth')]:true};
+  const inherited=Object.assign(Object.create({networkPerformed:true}),{rows:[]});
+  for(const value of [getter,hidden,symbol,inherited])
+    assert.throws(()=>analyzeGscQueryResponse(value,make()),/invalid response/);
+  for(const value of [metadata,metaGetter])
+    assert.throws(()=>analyzeGscQueryResponse({rows:[],metadata:value},make()),
+      /unexpected or incomplete metadata/);
+  assert.equal(called,0);
+});
+test('F94 response rejects sparse and accessor-backed rows and keys without invoking them',()=>{
+  let called=0;
+  const row=()=>({keys:['seo'],clicks:2,impressions:20,ctr:.1,position:8});
+  const sparse=new Array(1);
+  const rows=[row()];
+  Object.defineProperty(rows,'0',{enumerable:true,get(){
+    called++;throw Error('private-row-getter');
+  }});
+  const keysRow=row();
+  Object.defineProperty(keysRow.keys,'0',{enumerable:true,get(){
+    called++;throw Error('private-key-getter');
+  }});
+  const rowGetter=row();
+  Object.defineProperty(rowGetter,'clicks',{enumerable:true,get(){
+    called++;throw Error('private-clicks-getter');
+  }});
+  const mutated=[row()];
+  mutated[Symbol.iterator]=()=>[];
+  for(const payload of [
+    {rows:sparse},{rows},{rows:mutated},{rows:[keysRow]},{rows:[rowGetter]}
+  ])assert.throws(()=>analyzeGscQueryResponse(payload,make()),
+    /invalid response|invalid query order or key/);
+  assert.equal(called,0);
+});
+test('F94 still accepts regular JSON-style data with empty metadata',()=>{
+  const item={keys:['landing page para negócios'],clicks:3,
+    impressions:60,ctr:.05,position:9};
+  const result=analyzeGscQueryResponse({rows:[item],metadata:{}},make());
+  assert.equal(result.summary.clicks,3);
+  assert.equal(result.networkPerformed,undefined);
+  assert.doesNotMatch(JSON.stringify(result),/landing page para negócios/);
+});

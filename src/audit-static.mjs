@@ -226,7 +226,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   };
   let totalNavLinks=0,totalAnchors=0;
   const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits),emit);
-  const known = new Map(), titles = new Map(), canonicals = new Map();
+  const known = new Map(), titles = new Map(), descriptions = new Map(), canonicals = new Map();
 
   for (const file of htmlFiles.sort()) {
     const rel = relative(base, file);
@@ -269,7 +269,19 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     else titles.set(title, rel);
 
     const description = getMeta(head,'description');
-    if (description.length !== 1 || !description[0].content?.trim()) emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
+    if (description.length !== 1 || !description[0].content?.trim()) {
+      emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
+    } else {
+      // F90: detect page-level SEO collisions across ALL public routes,
+      // including unchanged articles and dynamically published services.
+      // Never include editorial text in findings or report diagnostics.
+      const normalized=description[0].content.normalize('NFKC')
+        .replace(/\s+/g,' ').trim().toLocaleLowerCase('pt-BR');
+      if(descriptions.has(normalized))
+        emit(warnings,{type:'duplicate_description',file:rel,
+          message:'Same meta description as '+descriptions.get(normalized)});
+      else descriptions.set(normalized,rel);
+    }
 
     const headings = tags(visibleBody, 'h1');
     if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
@@ -339,6 +351,21 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
 
     if(jsonldCount===0)
       emit(warnings,{type:'missing_jsonld',file:rel,message:'No JSON-LD (not always necessary)'});
+    // F91: validate simple static in-page fragments, including no-JS
+    // summaries, FAQ anchors and skip links. A generic auditor does not
+    // interpret dynamic hash-based UI states such as "#comparar:a:b".
+    const localIds=new Set();
+    let inspectedTags=0;
+    for(const match of visibleBody.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)){
+      if(++inspectedTags>50000)throw Error('audit: HTML tag budget exceeded');
+      const id=attrs(match[0]).id;
+      if(typeof id==='string'&&id){
+        if(localIds.has(id))
+          emit(warnings,{type:'duplicate_html_id',file:rel,
+            message:'Duplicate static HTML ID may make links and ARIA targets ambiguous'});
+        else localIds.add(id);
+      }
+    }
     const links = [];
     let anchorCount=0;
     for (const tag of tagIterator(visibleBody,'a')) {
@@ -347,7 +374,17 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       if(++anchorCount>MAX_ANCHORS_PER_PAGE)
         throw Error('audit: page anchor budget exceeded');
       const href = attrs(tag).href;
-      if (!href || href.startsWith('#') || /^(mailto:|tel:)/i.test(href)) continue;
+      if (!href)continue;
+      if(href.startsWith('#')){
+        // Only simple literal ASCII hash links can be checked confidently
+        // in static markup. Encoded/semantic fragments need browser review.
+        const id=href.slice(1);
+        if(/^[a-z0-9][a-z0-9_-]{0,79}$/i.test(id)&&!localIds.has(id))
+          emit(warnings,{type:'broken_local_fragment',file:rel,
+            message:'In-page fragment target missing from static HTML'});
+        continue;
+      }
+      if(/^(mailto:|tel:)/i.test(href))continue;
       if (/^javascript:/i.test(href)) {
         emit(errors,{type:'unsafe_href',file:rel,message:'JavaScript href forbidden'});
         continue;

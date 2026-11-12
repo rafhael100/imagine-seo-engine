@@ -9,7 +9,7 @@
 import {lstat,open} from 'node:fs/promises';
 import {constants} from 'node:fs';
 
-export async function readBoundedLocalText(path,{maxBytes=10*1024*1024}={}){
+export async function readBoundedLocalText(path,{maxBytes=10*1024*1024,withIdentity=false}={}){
   if(typeof path!=='string'||path.length===0||
     !Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>10*1024*1024)
     throw Error('SEO input: invalid local file or byte limit');
@@ -40,8 +40,18 @@ export async function readBoundedLocalText(path,{maxBytes=10*1024*1024}={}){
     // Reject malformed UTF-8 rather than silently replacing invalid bytes.
     // Decode after joining chunks so a valid character can span read bounds.
     const bytes=Buffer.concat(chunks,position);
-    try{return new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);}
-    catch{throw Error('SEO input: invalid UTF-8');}
+    try{
+      const text=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
+      // F98: inode metadata comes from the SAME open descriptor as the data,
+      // so two aliases cannot pretend to be independent GSC period exports.
+      if(withIdentity===true)return Object.freeze({
+        text,device:actual.dev,inode:actual.ino
+      });
+      return text;
+    }catch(error){
+      if(error instanceof TypeError)throw Error('SEO input: invalid UTF-8');
+      throw error;
+    }
   }catch(error){
     if(error.code==='ELOOP')throw Error('SEO input: symbolic link refused');
     throw error;

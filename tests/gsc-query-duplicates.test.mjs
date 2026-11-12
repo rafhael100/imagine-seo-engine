@@ -63,10 +63,44 @@ test('F83 different query strings in the same bucket remain additive',()=>{
   assert.equal(out.summary.clicks,7);
   assert.equal(out.summary.redactedRows,0);
 });
-test('F83 exact comparison does not collapse distinct query spelling or cases',()=>{
+test('F90 case-insensitive duplicate is rejected consistently in CSV and JSON',()=>{
   const csv=csvHeader+
     '"SEO",5,100,5%,8\n'+
     '"seo",2,50,4%,9\n';
+  mustNotLeak(()=>importGscQueriesCsv(csv,period),/duplicate query row 3/);
+  mustNotLeak(()=>analyzeQueryExport(report(period,[
+    make('SEO',5,100),make('seo',2,50)
+  ])),/duplicate query row 1/);
+});
+test('F90 CSV and JSON both block compatibility and invisible Unicode repeats',()=>{
+  const alternatives=[
+    ['google ads','ｇｏｏｇｌｅ ads'],
+    ['criação de sites','criac\u0327a\u0303o de sites'],
+    ['landing page','land\u200bing page'],
+    ['pessoa@exemplo.com','pessoa＠exemplo.com']
+  ];
+  for(const [a,b] of alternatives){
+    const csv=csvHeader+
+      JSON.stringify(a)+',1,100,1%,8\n'+
+      JSON.stringify(b)+',2,100,2%,8\n';
+    mustNotLeak(()=>importGscQueriesCsv(csv,period),/duplicate query row 3/);
+    mustNotLeak(()=>analyzeQueryExport(report(period,[
+      make(a,1,100),make(b,2,100)
+    ])),/duplicate query row 1/);
+  }
+});
+test('F90 empty after Unicode controls is rejected without emitting the query',()=>{
+  const onlyInvisible='\u200b\u2060';
+  mustNotLeak(()=>importGscQueriesCsv(csvHeader+
+    JSON.stringify(onlyInvisible)+',1,100,1%,8\n',period),/invalid query row 2/);
+  mustNotLeak(()=>analyzeQueryExport(report(period,[
+    make(onlyInvisible,1,100)
+  ])),/invalid query at row 0/);
+});
+test('F90 distinct commercial search terms are still independent',()=>{
+  const csv=csvHeader+
+    '"SEO para sites",5,100,5%,8\n'+
+    '"SEO para lojas",2,50,4%,9\n';
   const out=importGscQueriesCsv(csv,period);
   assert.equal(out.rows.length,2);
   assert.equal(analyzeQueryExport(out).summary.impressions,150);
