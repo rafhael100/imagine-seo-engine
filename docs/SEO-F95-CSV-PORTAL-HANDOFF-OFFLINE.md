@@ -32,8 +32,11 @@ Salve `private-manifest.json` ao lado dos CSVs e da auditoria:
 
 A auditoria `audit.json` deve ser relatório válido emitido pelo auditor
 estático. Os CSVs precisam ter cinco colunas de Consultas/Clicks/Impressions/CTR/
-Position e linhas com métricas coerentes. O comando resolve caminhos em relação
-ao diretório do manifesto. Não usar diretórios pais manipuláveis por terceiros.
+Position e linhas com métricas coerentes. **F96 exige arquivos no mesmo diretório
+do manifesto, referenciados somente por nomes de arquivo** com extensão .json
+(auditoria) ou .csv (exportações). Caminhos absolutos, aninhados, com `..` ou
+para outro diretório são recusados antes de abrir a entrada.
+Use somente um diretório privado com ancestrais confiáveis.
 
 ```bash
 node scripts/prepare-portal-gsc-csv-handoff-offline.mjs private-manifest.json

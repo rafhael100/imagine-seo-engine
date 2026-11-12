@@ -1,23 +1,29 @@
 # Imagine SEO Engine
 
-## Estado vigente — 11/11/2026
+## Estado vigente — 12/11/2026
 
-- **RC31 (F0–F76)**: [PR #110](https://github.com/rafhael100/imagine-seo-engine/pull/110), validação sintética Node 22/24 aprovada. Sem merge em `main`, sem deploy e sem publicação de SEO.
-- **F77**: [PR #111](https://github.com/rafhael100/imagine-seo-engine/pull/111), verificador CI para evitar a introdução acidental de rede em módulos offline.
-- **F78**: atualização operacional da documentação; não altera as APIs.
-- O trabalho permanece **P1**, enquanto o Imagine Comercial é **P0**. O Search Console real ainda depende de OAuth/consentimento, autorização por empresa e propriedade, segurança LGPD, revisão externa e integração autenticada ao Portal.
-- IDs de empresa, SHA e fingerprints **não autenticam usuários**. Testes sintéticos não provam ranking, indexação, tráfego ou conformidade de produção.
+- **RC38 de desenvolvimento**: [PR #129](https://github.com/rafhael100/imagine-seo-engine/pull/129), evoluída de F88 até F96; release ainda **DRAFT/NO-GO** sem merge na `main` ou deploy.
+- **F93**: deduplicação conservadora de consultas equivalentes Unicode nos fluxos CSV e JSON, evitando contagens orgânicas infladas ([PR #135](https://github.com/rafhael100/imagine-seo-engine/pull/135)).
+- **F94**: rejeição de dados GSC falsificados por getters, chaves ocultas, símbolos, protótipos inesperados e arrays não densos ([PR #136](https://github.com/rafhael100/imagine-seo-engine/pull/136)).
+- **F95/F96**: importação local de dois CSVs manuais e auditoria para revisão do Portal, usando manifesto com entradas protegidas e caminhos restritos à mesma pasta ([F95 #137](https://github.com/rafhael100/imagine-seo-engine/pull/137)).
+- A última suíte cumulativa confirmada para o código **F0–F95** passou em Node 22/24 no [CI da RC38](https://github.com/rafhael100/imagine-seo-engine/actions/runs/43235419350); F96 exige validação independente adicional.
+- Prioridade **P1**: Imagine Comercial continua **P0**. Não há OAuth Google, autenticação/autorizações reais do Portal, leitura de Search Console ao vivo ou dados de clientes em execução neste motor. Tokens e fingerprints declarados não demonstram autorização.
 
-### Comandos recentes (somente uso local)
+### Operação local (somente dados autorizados e ambiente privado)
 
 ```bash
 npm test
-node scripts/compare-gsc-overlap-offline.mjs dois-periodos.json
-node scripts/review-gsc-planned-query-page-offline.mjs plano-e-paginas.json
-node scripts/prepare-portal-query-page-review-offline.mjs evidencia.json
+node scripts/audit-dist.mjs dist https://example.com/ --fail-on-warnings
+node scripts/prepare-portal-original-gsc-handoff-offline.mjs evidencia-original.json
+node scripts/prepare-portal-gsc-csv-handoff-offline.mjs private-manifest.json
 ```
 
-Não adicione exports reais, tokens ou arquivos privados ao Git/CI. Os resultados agregados são apenas para revisão, sem permissão de exibição ao cliente. Consulte [RC31](docs/SEO-RC31-RELEASE-REVIEW.md) e [contrato F72](docs/SEO-F72-QUERY-PAGE-PLAN-BINDING.md).
+O fluxo CSV da F95 é descrito em [manual F95/F96](docs/SEO-F95-CSV-PORTAL-HANDOFF-OFFLINE.md).
+Todos os comandos são offline, com revisão humana. O resultado não autoriza
+exibição ao cliente, publicação, redirecionamentos 301 ou cobrança.
+Não commitar CSVs reais, documentos privados, credenciais ou tokens no Git.
+A integração efetiva com o Portal exige grants comprovados por empresa e
+propriedade, OAuth readonly consentido, revisão AppSec/LGPD/DBA, staging e rollback.
 
 Motor de auditoria técnica e análise SEO **offline**, sem conexão com contas de clientes nem publicação automática.
 

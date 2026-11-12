@@ -126,3 +126,26 @@ test('F95 refuses oversized, malformed UTF-8 and symlinked CSV input',()=>{
     noLeaks(out);
   });
 });
+
+test('F96 rejects absolute, parent and nested paths from supplied manifests',()=>{
+  withFixture(({path,manifest})=>{
+    for(const candidate of [
+      '../before.csv','nested/before.csv','/etc/passwd','C:\\\\Secrets\\\\gsc.csv',
+      'https://example.com/gsc.csv','.env','not-a-csv.txt',' before.csv '
+    ]){
+      const copy={...manifest,previous:{...manifest.previous,file:candidate}};
+      writeFileSync(path,JSON.stringify(copy));
+      const out=run(path);
+      assert.equal(out.status,2);
+      assert.equal(out.stdout,'');
+      noLeaks(out);
+    }
+    for(const candidate of ['../audit.json','nested/audit.json','.env','audit.txt']){
+      writeFileSync(path,JSON.stringify({...manifest,auditFile:candidate}));
+      const out=run(path);
+      assert.equal(out.status,2);
+      assert.equal(out.stdout,'');
+      noLeaks(out);
+    }
+  });
+});
