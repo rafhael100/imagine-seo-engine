@@ -226,7 +226,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   };
   let totalNavLinks=0,totalAnchors=0;
   const htmlFiles = await crawlTree(base, errors, crawlBudget(crawlLimits),emit);
-  const known = new Map(), titles = new Map(), canonicals = new Map();
+  const known = new Map(), titles = new Map(), descriptions = new Map(), canonicals = new Map();
 
   for (const file of htmlFiles.sort()) {
     const rel = relative(base, file);
@@ -269,7 +269,19 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     else titles.set(title, rel);
 
     const description = getMeta(head,'description');
-    if (description.length !== 1 || !description[0].content?.trim()) emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
+    if (description.length !== 1 || !description[0].content?.trim()) {
+      emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
+    } else {
+      // F90: detect page-level SEO collisions across ALL public routes,
+      // including unchanged articles and dynamically published services.
+      // Never include editorial text in findings or report diagnostics.
+      const normalized=description[0].content.normalize('NFKC')
+        .replace(/\s+/g,' ').trim().toLocaleLowerCase('pt-BR');
+      if(descriptions.has(normalized))
+        emit(warnings,{type:'duplicate_description',file:rel,
+          message:'Same meta description as '+descriptions.get(normalized)});
+      else descriptions.set(normalized,rel);
+    }
 
     const headings = tags(visibleBody, 'h1');
     if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});

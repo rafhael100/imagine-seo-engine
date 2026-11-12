@@ -20,7 +20,7 @@ async function workspace(action){
 const site='https://example.com';
 const page=(route,links=[])=>'<!doctype html><html lang="pt-BR"><head>'+
   '<title>Unique title for '+route+'</title>'+
-  '<meta name="description" content="A public test fixture">'+
+  '<meta name="description" content="A public test fixture for '+route+'">'+
   '<meta name="robots" content="index,follow">'+
   '<link rel="canonical" href="'+site+route+'">'+
   '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>'+
