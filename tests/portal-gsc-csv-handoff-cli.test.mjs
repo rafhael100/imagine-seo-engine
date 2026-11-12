@@ -188,7 +188,7 @@ test('F97 validates all input references before opening even the audit file',()=
 test('F97 permits legitimately identical CSV contents when period files differ',()=>{
   withFixture(({path,dir})=>{
     writeFileSync(join(dir,'after.csv'),baseHeader+
-      '"landing pages profissionais",30,300,10%,8\\n');
+      '"landing pages profissionais",30,300,10%,8\n');
     const out=run(path);
     assert.equal(out.status,0,out.stderr);
     noLeaks(out);
