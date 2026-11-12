@@ -123,3 +123,28 @@ test('F88 handles zero GSC rows without inventing organic changes',()=>{
   assert.deepEqual(out.handoff.suggestedReviews.map(x=>x.code),['repair_canonical']);
   safe(out);
 });
+
+test('F89 Unicode disguised identifiers suppress original GSC trends and Portal handoff',()=>{
+  const disguised=[
+    '１２３．４５６．７８９－０９',
+    'CPF\u200b 12345678909',
+    '123.\u2060456.789-09',
+    'pessoa＠exemplo.com',
+    '１２．３４５．６７８／０００１－９０'
+  ];
+  for(const query of disguised)
+  for(const period of ['previous','current']){
+    const input=fixture();
+    input[period].rows.push(row(query,1,100));
+    const result=prepare(input);
+    assert.equal(result.coverage.metricsWithheld,true);
+    assert.equal(result.coverage.reason,'PRIVACY_REDACTION');
+    assert.equal(result.coverage.redactedRows,1);
+    assert.equal(result.brief.organic,null);
+    assert.equal(result.handoff.organic,null);
+    assert.deepEqual(result.handoff.suggestedReviews.map(x=>x.code),
+      ['repair_canonical']);
+    assert.ok(!JSON.stringify(result).includes(query));
+    safe(result);
+  }
+});
