@@ -8,7 +8,7 @@ import { auditStaticSite, readSafeHtmlFile } from '../src/audit-static.mjs';
 const origin='https://imaginecomunicacao.com.br';
 function makePage(route, overrides={}) {
   const { title='Título exclusivo: ' + route, canonical=origin+route,
-    description='Conteúdo comercial original para empresas interessadas em serviços digitais.',
+    description='Conteúdo comercial original para empresas interessadas em serviços digitais. Rota: '+route,
     h1='Conheça os serviços da Imagine', noindex=false, links=[] }=overrides;
   return '<!doctype html><html lang="pt-BR"><head><title>'+title+'</title>'+
     '<meta name="description" content="'+description+'">'+
@@ -620,7 +620,7 @@ test('JS strings containing template syntax are not treated as real inert markup
 test('head script strings cannot fake title, description, canonical or robots tags',async()=>{
   const fake=makePage('/',{links:['/servicos/']})
     .replace(/<title>[\s\S]*?<\/title>/,'')
-    .replace('<meta name="description" content="Conteúdo comercial original para empresas interessadas em serviços digitais.">','')
+    .replace(/<meta name="description" content="[^"]+">/,'')
     .replace('<link rel="canonical" href="'+origin+'/">','')
     .replace('<meta name="robots" content="index,follow">','')
     .replace('</head>','<script>const template = '+
@@ -695,5 +695,27 @@ test('strict sitemap bounds even empty URL entries without a full array allocati
   await withSite({sitemap},async root=>{
     await assert.rejects(auditStaticSite(root,{strictPublicHead:true}),
       /sitemap entry budget exceeded/);
+  });
+});
+
+test('F90 detects normalized duplicate meta descriptions across any public pages',async()=>{
+  const common='Soluções digitais para empresas com planejamento profissional, conteúdo, SEO e comunicação comercial.';
+  const home=makePage('/',{description:common,links:['/servicos/']});
+  const service=makePage('/servicos/',{description:'  '+common.toLocaleUpperCase('pt-BR')+'  '});
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.errors.length,0);
+    const duplicated=report.warnings.filter(x=>x.type==='duplicate_description');
+    assert.equal(duplicated.length,1);
+    assert.equal(duplicated[0].file,'servicos/index.html');
+    assert.match(duplicated[0].message,/index.html/);
+    assert.doesNotMatch(JSON.stringify(report),/Soluções digitais para empresas|SOLUÇÕES DIGITAIS PARA EMPRESAS/);
+  });
+});
+test('F90 different editorial meta descriptions do not yield false duplicate findings',async()=>{
+  await withSite({},async root=>{
+    const report=await auditStaticSite(root);
+    assert.equal(report.warnings.filter(x=>x.type==='duplicate_description').length,0);
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
