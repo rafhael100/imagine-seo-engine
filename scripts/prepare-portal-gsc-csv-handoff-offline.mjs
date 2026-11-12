@@ -36,9 +36,15 @@ if(!file||extra.length){
   // Reject absolute, nested and parent-relative paths before touching files.
   // This prevents an imported manifest from selecting unrelated local files.
   const localName=(name,extension)=>{
+    const badSeparator=typeof name==='string'&&
+      (name.includes('/')||name.includes(String.fromCharCode(92))||
+       name.includes(':'));
+    const badControl=typeof name==='string'&&[...name].some(char=>{
+      const code=char.charCodeAt(0);
+      return code<32||code===127;
+    });
     if(typeof name!=='string'||name.length>128||name.length<=extension.length||
-      name[0]==='.'||name.trim()!==name||
-      /[\\/\\\\:]/u.test(name)||/[\\u0000-\\u001f\\u007f]/u.test(name)||
+      name[0]==='.'||name.trim()!==name||badSeparator||badControl||
       !name.toLowerCase().endsWith(extension))
       throw Error('SEO input: invalid CSV handoff file');
     return name;
