@@ -125,3 +125,9 @@ test('F86 supports empty supplied periods without fabricated rankings',()=>{
   assert.deepEqual(a.changes,[]);
   noAuthority(a);
 });
+
+test('F90 duplicate query variants cannot inflate two-period executive trend',()=>{
+  const sample=fixture();
+  sample.current.rows.push(make('ｓｉｔｅｓ profissionais',2,100));
+  assert.throws(()=>view(sample),/duplicate query row/);
+});
