@@ -32,20 +32,35 @@ if(!file||extra.length){
     !isFields(manifest.scope,['tenantRef','propertyFingerprint','sourceRevision']))
     throw Error('SEO input: invalid CSV handoff manifest');
   const root=dirname(resolve(file));
-  const load=(name,limit)=>{
-    if(typeof name!=='string'||!name||name.length>2048)
+  // F96: manifest references must be basenames alongside the manifest.
+  // Reject absolute, nested and parent-relative paths before touching files.
+  // This prevents an imported manifest from selecting unrelated local files.
+  const localName=(name,extension)=>{
+    const badSeparator=typeof name==='string'&&
+      (name.includes('/')||name.includes(String.fromCharCode(92))||
+       name.includes(':'));
+    const badControl=typeof name==='string'&&[...name].some(char=>{
+      const code=char.charCodeAt(0);
+      return code<32||code===127;
+    });
+    if(typeof name!=='string'||name.length>128||name.length<=extension.length||
+      name[0]==='.'||name.trim()!==name||badSeparator||badControl||
+      !name.toLowerCase().endsWith(extension))
       throw Error('SEO input: invalid CSV handoff file');
-    return readBoundedLocalText(resolve(root,name),{maxBytes:limit});
+    return name;
   };
+  const load=(name,extension,limit)=>readBoundedLocalText(
+    resolve(root,localName(name,extension)),{maxBytes:limit}
+  );
   // Never parse CSV columns as precomputed organic summaries.
-  const audit=parseSafeJson(await load(manifest.auditFile,2*1024*1024));
+  const audit=parseSafeJson(await load(manifest.auditFile,'.json',2*1024*1024));
   const previous=importGscQueriesCsv(
-    await load(manifest.previous.file,10*1024*1024),{
+    await load(manifest.previous.file,'.csv',10*1024*1024),{
       startDate:manifest.previous.startDate,
       endDate:manifest.previous.endDate
     });
   const current=importGscQueriesCsv(
-    await load(manifest.current.file,10*1024*1024),{
+    await load(manifest.current.file,'.csv',10*1024*1024),{
       startDate:manifest.current.startDate,
       endDate:manifest.current.endDate
     });
