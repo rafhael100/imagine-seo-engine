@@ -1,4 +1,5 @@
 import {validateGscPeriod} from './gsc-period.mjs';
+import {gscQueryIdentity} from './gsc-query-identity.mjs';
 /**
  * SEO-F5 — Importa somente a tabela de CONSULTAS do CSV padrão
  * exportado manualmente pelo Google Search Console, em PT-BR ou EN.
@@ -106,10 +107,12 @@ export function importGscQueriesCsv(contents,{startDate,endDate}={}){
     if(record.length!==5)throw Error('GSC CSV: wrong number of columns row '+index);
     const query=record[map.query];
     if(query.trim()===''||query.length>500)throw Error('GSC CSV: invalid query row '+index);
-    // A query-only Search Console export has a single row per exact query.
-    // Duplicates would inflate totals; do not echo the query on error.
-    if(seenQueries.has(query))throw Error('GSC CSV: duplicate query row '+index);
-    seenQueries.add(query);
+    // Use the same privacy-preserving duplicate identity as JSON reports.
+    // Reject before adding metrics, and never echo private search text.
+    const identity=gscQueryIdentity(query);
+    if(!identity)throw Error('GSC CSV: invalid query row '+index);
+    if(seenQueries.has(identity))throw Error('GSC CSV: duplicate query row '+index);
+    seenQueries.add(identity);
     const clicks=integer(record[map.clicks],'clicks',index);
     const impressions=integer(record[map.impressions],'impressions',index);
     const ctr=ctrValue(record[map.ctr],index);

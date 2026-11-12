@@ -1,5 +1,6 @@
 import {validateGscPeriod} from './gsc-period.mjs';
 import {isSensitiveGscQuery} from './gsc-private-query.mjs';
+import {gscQueryIdentity} from './gsc-query-identity.mjs';
 /**
  * SEO-F1: análise OFFLINE de linhas já exportadas pelo usuário do Search Console.
  * Não autentica, não acessa a API Google e não inventa rankings/volumes.
@@ -18,14 +19,6 @@ const CLUSTERS = Object.freeze([
 function normalize(value) {
   return value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
-// F90: comparisons must not count the same visually equivalent query
-// twice just because an export uses Unicode compatibility characters or
-// invisible format controls. Keys never leave this in-memory Set.
-const DUPLICATE_FORMAT_CONTROLS=
-  /[\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/gu;
-const queryIdentity=query=>query.normalize('NFKC')
-  .replace(DUPLICATE_FORMAT_CONTROLS,'').trim().toLocaleLowerCase('pt-BR');
-
 function clusterOf(query) {
   const phrase=normalize(query);
   for (const c of CLUSTERS) {
@@ -59,7 +52,8 @@ export function analyzeQueryExport(report, {minImpressions=100}={}) {
     if(typeof query!=='string' || query.trim().length===0 || query.length>500) throw new Error('GSC: invalid query at row '+index);
     // GSC query-only rows must be unique; duplicates cannot be summed safely.
     // Apply before privacy filtering so repeated sensitive queries are refused.
-    const identity=queryIdentity(query);
+    const identity=gscQueryIdentity(query);
+    if(!identity)throw new Error('GSC: invalid query at row '+index);
     if(seenQueries.has(identity))throw new Error('GSC: duplicate query row '+index);
     seenQueries.add(identity);
     if(!Number.isSafeInteger(row.clicks) || row.clicks<0 || !Number.isSafeInteger(row.impressions) || row.impressions<0 ||
