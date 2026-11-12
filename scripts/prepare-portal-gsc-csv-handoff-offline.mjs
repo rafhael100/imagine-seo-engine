@@ -63,16 +63,24 @@ if(!file||extra.length){
   );
   // Never parse CSV columns as precomputed organic summaries.
   const audit=parseSafeJson(await load(auditName,2*1024*1024));
-  const previous=importGscQueriesCsv(
-    await load(previousName,10*1024*1024),{
-      startDate:manifest.previous.startDate,
-      endDate:manifest.previous.endDate
-    });
-  const current=importGscQueriesCsv(
-    await load(currentName,10*1024*1024),{
-      startDate:manifest.current.startDate,
-      endDate:manifest.current.endDate
-    });
+  // F98: distinct filenames must also be distinct opened files. Two
+  // hardlinks to the same inode would fabricate an independent comparison.
+  const before=await readBoundedLocalText(resolve(root,previousName),{
+    maxBytes:10*1024*1024,withIdentity:true
+  });
+  const after=await readBoundedLocalText(resolve(root,currentName),{
+    maxBytes:10*1024*1024,withIdentity:true
+  });
+  if(before.device===after.device&&before.inode===after.inode)
+    throw Error('SEO input: same physical CSV used for two periods');
+  const previous=importGscQueriesCsv(before.text,{
+    startDate:manifest.previous.startDate,
+    endDate:manifest.previous.endDate
+  });
+  const current=importGscQueriesCsv(after.text,{
+    startDate:manifest.current.startDate,
+    endDate:manifest.current.endDate
+  });
   const result=prepareOfflinePortalSeoFromOriginalGsc({
     audit,previous,current,scope:manifest.scope
   });
