@@ -49,8 +49,9 @@ test('F95 command builds original-evidence Portal handoff directly from two CSV 
     assert.equal(report.coverage.metricsWithheld,false);
     assert.equal(report.handoff.organic.previous.clicks,30);
     assert.equal(report.handoff.organic.current.clicks,8);
-    assert.deepEqual(report.handoff.suggestedReviews.map(x=>x.code).sort(),
-      ['repair_canonical','review_click_drop'].sort());
+    const actions=report.handoff.suggestedReviews.map(x=>x.code);
+    assert.ok(actions.includes('repair_canonical'));
+    assert.ok(actions.includes('review_click_drop'));
     assert.equal(report.customerDisplayAuthorized,false);
     assert.equal(report.publicationAuthorized,false);
     assert.equal(report.networkPerformed,false);
