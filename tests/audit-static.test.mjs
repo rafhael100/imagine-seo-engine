@@ -719,3 +719,26 @@ test('F90 different editorial meta descriptions do not yield false duplicate fin
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
 });
+
+test('F91 warns on broken local FAQ/skip fragments without leaking targets',async()=>{
+  const home=makePage('/',{links:['#faq-respostas','#privado-oculto','/servicos/']})
+    .replace('<h1>','<section id="faq-respostas"><h1>');
+  await withSite({home},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.length,0);
+    const broken=result.warnings.filter(x=>x.type==='broken_local_fragment');
+    assert.equal(broken.length,1);
+    assert.equal(broken[0].file,'index.html');
+    assert.doesNotMatch(JSON.stringify(result),/privado-oculto/);
+  });
+});
+test('F91 valid static anchors and semantic dynamic fragments do not create noise',async()=>{
+  const home=makePage('/',{links:['#conteudo','#topo','/servicos/']})
+    .replace('<h1>','<main id="conteudo"><div id="topo"><h1>');
+  const service=makePage('/servicos/',{links:['#', '#comparar:onepage:landing-pages']});
+  await withSite({home,service},async root=>{
+    const result=await auditStaticSite(root);
+    assert.equal(result.errors.length,0);
+    assert.equal(result.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
+  });
+});
