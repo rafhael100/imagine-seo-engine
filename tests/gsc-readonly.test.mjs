@@ -198,6 +198,8 @@ test('F94 rejects mutated plans before invoking private getters',()=>{
     called++;throw Error('private-plan-getter');
   }});
   const bodyGetter=make();
+  // Planner freezes its generated body; clone to model a forged mutable input.
+  bodyGetter.body={...bodyGetter.body};
   Object.defineProperty(bodyGetter.body,'rowLimit',{enumerable:true,get(){
     called++;throw Error('private-body-getter');
   }});
