@@ -162,7 +162,7 @@ export function analyzeGscQueryResponse(raw,plan){
   const rowFields=new Set(['keys','clicks','impressions','ctr','position']);
   if(!ownDataFields(raw,responseFields)||
     (Object.hasOwn(raw,'rows')&&
-      !isStrictDataArray(raw.rows,plan.body.rowLimit)))
+      !isStrictDataArray(raw.rows,25000)))
     throw Error('SEO GSC response: invalid response');
   if(raw.responseAggregationType!==undefined &&
     raw.responseAggregationType!==plan.body.aggregationType)
