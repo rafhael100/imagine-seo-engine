@@ -65,7 +65,7 @@ test('minimum-impression threshold must be an integer safe to compare',()=>{
 test('F90 normalizes visually equivalent Unicode queries before counting metrics',()=>{
   const equivalents=[
     ['google ads para negócios','ｇｏｏｇｌｅ ａｄｓ para negócios'],
-    ['criação de sites','cri\u0061\u0327\u0061\u0303o de sites'],
+    ['criação de sites','criac\u0327a\u0303o de sites'],
     ['landing pages','land\u200bing pages'],
     ['Meta Ads','meta ads'],
     ['site por assinatura',' site por assinatura ']
