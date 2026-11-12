@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtempSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,symlinkSync,rmSync,linkSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -196,5 +196,34 @@ test('F97 permits legitimately identical CSV contents when period files differ',
     assert.equal(result.handoff.organic.previous.clicks,30);
     assert.equal(result.handoff.organic.current.clicks,30);
     assert.equal(result.publicationAuthorized,false);
+  });
+});
+
+test('F98 rejects distinct names that alias one GSC CSV inode via hardlink',()=>{
+  if(process.platform==='win32')return;
+  withFixture(({dir,path,manifest})=>{
+    const source=join(dir,'before.csv');
+    const second=join(dir,'alias-period.csv');
+    linkSync(source,second);
+    writeFileSync(path,JSON.stringify({...manifest,
+      current:{...manifest.current,file:'alias-period.csv'}
+    }));
+    const out=run(path);
+    assert.equal(out.status,2);
+    assert.equal(out.stdout,'');
+    assert.match(out.stderr,/same physical CSV used for two periods/);
+    noLeaks(out);
+  });
+});
+test('F98 equal CSV contents from genuinely different files remain admissible',()=>{
+  withFixture(({dir,path})=>{
+    writeFileSync(join(dir,'after.csv'),readFileSync(join(dir,'before.csv')));
+    const out=run(path);
+    assert.equal(out.status,0,out.stderr);
+    const parsed=JSON.parse(out.stdout);
+    assert.equal(parsed.handoff.organic.previous.clicks,
+      parsed.handoff.organic.current.clicks);
+    assert.equal(parsed.releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
+    noLeaks(out);
   });
 });
