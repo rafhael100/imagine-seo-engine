@@ -5,6 +5,7 @@
 import {createHash} from 'node:crypto';
 import {validateGscPeriod} from './gsc-period.mjs';
 import {analyzeQueryExport} from './opportunities.mjs';
+import {isStrictDataArray} from './gsc-strict-arrays.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
 const DOMAIN=/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
@@ -83,10 +84,23 @@ const REQUIRED_BODY_FIELDS=new Set([
   'startDate','endDate','dimensions','type','aggregationType',
   'dataState','rowLimit','startRow'
 ]);
-const exactFields=(value,allowed)=>
-  value && typeof value==='object' && !Array.isArray(value) &&
-  Object.keys(value).length===allowed.size &&
-  Object.keys(value).every(key=>allowed.has(key));
+// F94: external JSON-style evidence must have only ordinary own data fields.
+ // Accessors, symbols, hidden grants and inherited fields cannot be used to
+ // smuggle authorization or trigger private reads while validating evidence.
+const ownDataFields=(value,allowed,requireAll=false)=>{
+  if(!value||typeof value!=='object'||Array.isArray(value)||
+    ![Object.prototype,null].includes(Object.getPrototypeOf(value)))return false;
+  const keys=Reflect.ownKeys(value);
+  if(requireAll&&keys.length!==allowed.size)return false;
+  for(const key of keys){
+    if(typeof key!=='string'||!allowed.has(key))return false;
+    const descriptor=Object.getOwnPropertyDescriptor(value,key);
+    if(!descriptor||!Object.hasOwn(descriptor,'value')||!descriptor.enumerable)
+      return false;
+  }
+  return true;
+};
+const exactFields=(value,allowed)=>ownDataFields(value,allowed,true);
 
 /**
  * SEO-F42 — every provider-shaped API response is analyzed only against a
@@ -104,7 +118,7 @@ export function validateOfflineGscQueryPlan(plan){
     !exactFields(plan.body,REQUIRED_BODY_FIELDS)||
     plan.body.type!=='web'||plan.body.dataState!=='final'||
     plan.body.aggregationType!=='byProperty'||
-    !Array.isArray(plan.body.dimensions)||
+    !isStrictDataArray(plan.body.dimensions,1)||
     plan.body.dimensions.length!==1||plan.body.dimensions[0]!=='query'||
     !Number.isSafeInteger(plan.body.rowLimit)||plan.body.rowLimit<1||
     plan.body.rowLimit>25000||
@@ -146,9 +160,9 @@ export function analyzeGscQueryResponse(raw,plan){
   catch { throw Error('SEO GSC response: compatible query plan required'); }
   const responseFields=new Set(['rows','responseAggregationType','metadata']);
   const rowFields=new Set(['keys','clicks','impressions','ctr','position']);
-  if(!raw||typeof raw!=='object'||Array.isArray(raw)||
-    Object.keys(raw).some(k=>!responseFields.has(k))||
-    (raw.rows!==undefined&&!Array.isArray(raw.rows)))
+  if(!ownDataFields(raw,responseFields)||
+    (Object.hasOwn(raw,'rows')&&
+      !isStrictDataArray(raw.rows,plan.body.rowLimit)))
     throw Error('SEO GSC response: invalid response');
   if(raw.responseAggregationType!==undefined &&
     raw.responseAggregationType!==plan.body.aggregationType)
@@ -157,9 +171,8 @@ export function analyzeGscQueryResponse(raw,plan){
   // Presence of either signal means a final-data report cannot be trusted,
   // even if an adversarial fixture supplies an empty or null value.
   const metadataFields=new Set(['first_incomplete_date','first_incomplete_hour']);
-  if(raw.metadata!==undefined &&
-    (!raw.metadata || typeof raw.metadata!=='object' || Array.isArray(raw.metadata) ||
-      Object.keys(raw.metadata).some(k=>!metadataFields.has(k)) ||
+  if(Object.hasOwn(raw,'metadata') &&
+    (!ownDataFields(raw.metadata,metadataFields) ||
       Object.hasOwn(raw.metadata,'first_incomplete_date') ||
       Object.hasOwn(raw.metadata,'first_incomplete_hour')))
     throw Error('SEO GSC response: unexpected or incomplete metadata');
@@ -171,10 +184,8 @@ export function analyzeGscQueryResponse(raw,plan){
   let previousClicks=Infinity;
   const seen=new Set();
   for(const row of rows){
-    if(!row||typeof row!=='object'||Array.isArray(row)||
-      Object.keys(row).length!==rowFields.size||
-      Object.keys(row).some(k=>!rowFields.has(k))||
-      !Array.isArray(row.keys)||row.keys.length!==1||
+    if(!exactFields(row,rowFields)||
+      !isStrictDataArray(row.keys,1)||row.keys.length!==1||
       typeof row.keys[0]!=='string'||!Number.isSafeInteger(row.clicks)||
       row.clicks<0||row.clicks>previousClicks)
       throw Error('SEO GSC response: invalid query order or key');
