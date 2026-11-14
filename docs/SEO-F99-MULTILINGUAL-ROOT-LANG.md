@@ -3,7 +3,7 @@
 ## Objetivo
 
 Compatibilidade com a futura navegação multilíngue do Imagine Comercial:
-português brasileiro, inglês dos Estados Unidos e espanhol da Espanha.
+português brasileiro, inglês e espanhol; as bandeiras dos Estados Unidos e da Espanha são elementos visuais, não códigos obrigatoriamente regionais de HTML.
 **Nenhuma tradução, troca de idioma ou publicação é implementada aqui.**
 
 ## Regras
@@ -12,7 +12,7 @@ português brasileiro, inglês dos Estados Unidos e espanhol da Espanha.
   `<html lang="pt-BR">` e mantém o diagnóstico histórico
   `missing_ptbr_lang` para builds legados.
 - `node scripts/audit-dist.mjs dist https://imaginecomunicacao.com.br/ --multilingual --fail-on-warnings`
-  habilita somente `pt-BR`, `en-US` e `es-ES` no atributo `lang` da raiz.
+  habilita somente `pt-BR`, `en`, `es`, `en-US` e `es-ES` no atributo `lang` da raiz. O Imagine Comercial #383 usa os códigos genéricos `en` e `es` em seus documentos; as variantes regionais continuam aceitas para compatibilidade futura.
 - Uma tag raiz sem `lang`, com dois atributos `lang` ou com idioma fora da
   lista gera o warning `invalid_root_lang`. O `--fail-on-warnings` faz o
   comando sair com código 1 nesse caso.
