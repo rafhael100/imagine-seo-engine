@@ -30,7 +30,8 @@ function exactData(value,keys){
 function strictArray(list,max){
   return Array.isArray(list)&&Object.getPrototypeOf(list)===Array.prototype&&
     list.length<=max&&Object.keys(list).length===list.length&&
-    Object.keys(list).every(k=>/^(?:0|[1-9]\d*)$/.test(k))&&
+    Object.keys(list).every(k=>/^(?:0|[1-9]\d*)$/.test(k)&&
+      Object.hasOwn(Object.getOwnPropertyDescriptor(list,k),'value'))&&
     Reflect.ownKeys(list).length===list.length+1;
 }
 
