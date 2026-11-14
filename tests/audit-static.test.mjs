@@ -566,6 +566,37 @@ test('multiple root language attributes are not silently accepted',async()=>{
     assert.ok(report.warnings.some(x=>x.type==='missing_ptbr_lang'&&x.file==='index.html'));
   });
 });
+test('multilingual audit accepts EN-US and ES-ES root languages only when enabled',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html lang="en-US">');
+  const spanish=makePage('/servicos/')
+    .replace('<html lang="pt-BR">','<html lang="es-ES">');
+  await withSite({home,service:spanish},async root=>{
+    const legacy=await auditStaticSite(root);
+    assert.equal(legacy.warnings.filter(x=>x.type==='missing_ptbr_lang').length,2);
+    const multi=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES']});
+    assert.deepEqual(multi.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('multilingual root-language gate rejects missing, unapproved and duplicate lang',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html lang="fr-FR" lang="en-US">');
+  const service=makePage('/servicos/')
+    .replace('<html lang="pt-BR">','<html>')
+    .replace('</head>','<script>const fake="lang=\\"es-ES\\"";</script></head>');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES']});
+    assert.equal(report.warnings.filter(x=>x.type==='invalid_root_lang').length,2);
+  });
+});
+test('audit rejects invalid or repeated multilingual policy before filesystem read',async()=>{
+  for(const allowedLanguages of [[],['en-US','en-US'],['fr-FR'],
+    ['pt-BR','en-US','es-ES','fr-FR'],'pt-BR',[null],['pt-br']]){
+    await assert.rejects(auditStaticSite('/not-present',{allowedLanguages}),
+      /audit: invalid allowedLanguages/);
+  }
+});
+
 test('a case variant of pt-BR on the root html tag remains valid',async()=>{
   const home=makePage('/',{links:['/servicos/']})
     .replace('<html lang="pt-BR">','<html LANG="PT-br">');
