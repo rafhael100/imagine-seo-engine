@@ -1,8 +1,16 @@
 # Imagine SEO Engine
 
+## RC39 multilíngue — candidata de revisão (NO-GO)
+
+F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt-BR`, `en`, `es`, variantes regionais e auditoria dos grupos `hreflang`. A [checklist RC39](docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md) documenta CI, paridade com o Comercial e bloqueios de liberação. **Sem merge `main`, deploy, OAuth/GSC real ou publicação.**
+
 ## Estado vigente — 12/11/2026
 
 - **RC38 de desenvolvimento**: [PR #129](https://github.com/rafhael100/imagine-seo-engine/pull/129), evoluída de F88 até F96; release ainda **DRAFT/NO-GO** sem merge na `main` ou deploy.
+- **F99 (proposta em revisão)**: auditor de idioma HTML com modo explícito `--multilingual` (`pt-BR`, `en`, `es`, `en-US`, `es-ES`), mantendo o padrão `pt-BR`; não traduz páginas nem valida `hreflang`. [Manual F99](docs/SEO-F99-MULTILINGUAL-ROOT-LANG.md).
+- **F100 (proposta em revisão)**: checagem opt-in de destinos canônicos, idioma do alvo e retorno recíproco via `--multilingual --check-hreflang` em builds sintéticos locais. [Manual F100](docs/SEO-F100-HREFLANG-OFFLINE.md).
+- **F101 (proposta em revisão)**: valida que cada página traduzida de um grupo `hreflang` anuncia o mesmo conjunto de alternates, inclusive `x-default`, sem criar traduções automaticamente. [Manual F101](docs/SEO-F101-HREFLANG-CLUSTER-INTEGRITY.md).
+- **F102 (proposta em revisão)**: bloqueia atributos hreflang/href/rel duplicados e valores sem aspas em links de idioma, para evitar interpretação ambígua entre navegador e auditor. [Manual F102](docs/SEO-F102-HREFLANG-ATTRIBUTES.md).
 - **F93**: deduplicação conservadora de consultas equivalentes Unicode nos fluxos CSV e JSON, evitando contagens orgânicas infladas ([PR #135](https://github.com/rafhael100/imagine-seo-engine/pull/135)).
 - **F94**: rejeição de dados GSC falsificados por getters, chaves ocultas, símbolos, protótipos inesperados e arrays não densos ([PR #136](https://github.com/rafhael100/imagine-seo-engine/pull/136)).
 - **F95/F96**: importação local de dois CSVs manuais e auditoria para revisão do Portal, usando manifesto com entradas protegidas e caminhos restritos à mesma pasta ([F95 #137](https://github.com/rafhael100/imagine-seo-engine/pull/137)).

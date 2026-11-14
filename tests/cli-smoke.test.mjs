@@ -45,6 +45,52 @@ test('CLI audits a complete synthetic static build end to end',async()=>{
   });
 });
 
+test('CLI multilingual flag permits only supported public HTML root languages',async()=>{
+  await workspace(async dir=>{
+    await mkdir(join(dir,'servicos'),{recursive:true});
+    await writeFile(join(dir,'index.html'),page('/', ['/servicos/'])
+      .replace('<html lang="pt-BR">','<html lang="en">'));
+    await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
+      .replace('<html lang="pt-BR">','<html lang="es">'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc><loc>'+site+'/servicos/</loc></urlset>');
+    const legacy=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings']);
+    assert.equal(legacy.status,1);
+    assert.equal(JSON.parse(legacy.stdout).warnings
+      .filter(x=>x.type==='missing_ptbr_lang').length,2);
+    const multilingual=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings','--multilingual']);
+    assert.equal(multilingual.status,0,multilingual.stderr);
+    assert.deepEqual(JSON.parse(multilingual.stdout).summary,
+      {pages:2,errors:0,warnings:0});
+  });
+});
+
+test('F100 CLI verifies reciprocal hreflang only with explicit flag',async()=>{
+  await workspace(async dir=>{
+    await mkdir(join(dir,'servicos'),{recursive:true});
+    const pair='<link rel="alternate" hreflang="pt-BR" href="'+site+'/">'+
+      '<link rel="alternate" hreflang="en" href="'+site+'/servicos/">';
+    await writeFile(join(dir,'index.html'),page('/', ['/servicos/'])
+      .replace('</head>',pair+'</head>'));
+    await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
+      .replace('<html lang="pt-BR">','<html lang="en">')
+      .replace('</head>',pair+'</head>'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc><loc>'+site+'/servicos/</loc></urlset>');
+    const good=run('audit-dist.mjs',[dir,site+'/','--multilingual',
+      '--check-hreflang','--fail-on-warnings']);
+    assert.equal(good.status,0,good.stderr);
+    assert.deepEqual(JSON.parse(good.stdout).summary,{pages:2,errors:0,warnings:0});
+    const missingFlag=run('audit-dist.mjs',[dir,site+'/','--check-hreflang']);
+    assert.equal(missingFlag.status,1);
+    assert.equal(missingFlag.stdout,'');
+  });
+});
+
 test('CSV report and comparison CLIs never echo supplied raw queries',async()=>{
   await workspace(async dir=>{
     const header='Queries,Clicks,Impressions,CTR,Position\n';

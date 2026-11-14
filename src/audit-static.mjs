@@ -15,10 +15,22 @@ const MAX_ANCHORS_PER_PAGE = 1000;
 const MAX_TOTAL_ANCHORS = 200000;
 const MAX_TOTAL_NAV_LINKS = 100000;
 const MAX_JSONLD_PER_PAGE = 128;
+const MAX_HREFLANG_PER_PAGE = 16;
 const MAX_ROBOTS_LINES = 10000;
 const MAX_SITEMAP_LOCS = MAX_PAGES;
 const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
+// Locales enabled only by an explicit operator option. This prevents
+// accidental acceptance of an unrelated language in a pt-BR-only build.
+const SUPPORTED_HTML_LANGUAGES=Object.freeze(['pt-BR','en','es','en-US','es-ES']);
+function validateAllowedLanguages(input){
+  if(!Array.isArray(input)||input.length<1||input.length>SUPPORTED_HTML_LANGUAGES.length||
+    input.some((value,index)=>typeof value!=='string'||
+      !SUPPORTED_HTML_LANGUAGES.includes(value)||input.indexOf(value)!==index))
+    throw Error('audit: invalid allowedLanguages');
+  return new Set(input.map(value=>value.toLowerCase()));
+}
+
 
 /**
  * Offline robots summary for the general Google web crawler. This interprets
@@ -75,6 +87,29 @@ function attrs(markup) {
     result[match[1].toLowerCase()] = match[3];
   }
   return result;
+}
+
+/**
+ * F102: the normal lightweight attribute helper keeps the last value.
+ * That is not safe for <link hreflang>, where browsers can interpret the
+ * first occurrence of a duplicate attribute. Reject ambiguous or unquoted
+ * rel, href, and hreflang rather than silently trusting a different value.
+ * Other links (RSS, stylesheets, canonical) retain legacy behavior.
+ */
+function strictHreflangLink(markup){
+  const required=['rel','hreflang','href'];
+  const matches=[...markup.matchAll(ATTR)];
+  // Raw name detection also catches unquoted hreflang declarations which
+  // ATTR intentionally does not parse; never silently ignore those tags.
+  const candidate=/(?:\s)hreflang\s*=/i.test(markup)||
+    matches.some(x=>x[1].toLowerCase()==='hreflang');
+  if(!candidate)return {candidate:false};
+  for(const name of required){
+    const parsed=matches.filter(x=>x[1].toLowerCase()===name).length;
+    const raw=[...markup.matchAll(new RegExp('\\s'+name+'\\s*=','gi'))].length;
+    if(parsed!==1||raw!==1)return {candidate:true,invalid:true};
+  }
+  return {candidate:true,invalid:false,link:attrs(markup)};
 }
 /**
  * Omit inactive <template> subtrees from static SEO evidence. Handle nested
@@ -206,9 +241,12 @@ async function crawlTree(root,errors,limits,emit){
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={} } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'], checkHreflang=false } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
+  const acceptedLanguages=validateAllowedLanguages(allowedLanguages);
+  if(typeof checkHreflang!=='boolean'||(checkHreflang&&acceptedLanguages.size<2))
+    throw Error('audit: invalid checkHreflang option');
   const site = new URL(siteUrl);
   if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
     site.username || site.password || site.port) {
@@ -333,14 +371,58 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         emit(errors,{type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
       }
     }
-    // Do not let a lang=pt-BR string inside scripts, comments, or body
-    // spoof the document's actual root <html lang="..."> attribute.
+    // Only the real root <html> lang is evidence. Body markup, scripts,
+    // comments and multiple lang attributes must not spoof its locale.
     const htmlTag=publicHtml.match(/<html\b[^>]*>/i)?.[0]??'';
     const rootLanguages=[...htmlTag.matchAll(ATTR)]
       .filter(x=>x[1].toLowerCase()==='lang').map(x=>x[3].trim());
-    if(rootLanguages.length!==1 || rootLanguages[0].toLowerCase()!=='pt-br')
-      emit(warnings,{type:'missing_ptbr_lang',file:rel,
-        message:'Exactly one pt-BR language on root html required'});
+    if(rootLanguages.length!==1 || !acceptedLanguages.has(rootLanguages[0].toLowerCase()))
+      emit(warnings,{type:acceptedLanguages.size===1?'missing_ptbr_lang':'invalid_root_lang',
+        file:rel,message:acceptedLanguages.size===1
+          ?'Exactly one pt-BR language on root html required'
+          :'Exactly one approved language on root html required'});
+
+    if(checkHreflang){
+      record.language=rootLanguages.length===1&&
+        acceptedLanguages.has(rootLanguages[0].toLowerCase())
+        ?rootLanguages[0].toLowerCase():null;
+      const alternateLanguages=new Map();
+      let alternateCount=0;
+      for(const markup of tags(head,'link')){
+        const checked=strictHreflangLink(markup);
+        // An alternate without hreflang can be RSS; it is not a translation.
+        if(!checked.candidate)continue;
+        if(++alternateCount>MAX_HREFLANG_PER_PAGE)
+          throw Error('audit: hreflang link budget exceeded');
+        if(checked.invalid){
+          emit(errors,{type:'invalid_hreflang_attributes',file:rel,
+            message:'Hreflang link has ambiguous, duplicate or unquoted required attributes'});
+          continue;
+        }
+        const link=checked.link;
+        const alternate=link.rel.toLowerCase().split(/\s+/).includes('alternate');
+        const language=link.hreflang.trim().toLowerCase();
+        if(!alternate||(!acceptedLanguages.has(language)&&language!=='x-default')){
+          emit(errors,{type:'invalid_hreflang',file:rel,
+            message:'Alternate language must use approved hreflang and rel'});
+          continue;
+        }
+        if(alternateLanguages.has(language)){
+          emit(errors,{type:'duplicate_hreflang',file:rel,
+            message:'Duplicate hreflang locale on one page'});
+          continue;
+        }
+        const normalized=typeof link.href==='string'?normalizeUrl(link.href,site):{invalid:true};
+        const canonical=normalized.path?new URL(normalized.path,site).href:null;
+        if(normalized.invalid||normalized.external||link.href!==canonical){
+          emit(errors,{type:'invalid_hreflang_url',file:rel,
+            message:'Hreflang requires an exact same-origin public canonical URL'});
+          continue;
+        }
+        alternateLanguages.set(language,normalized.path);
+      }
+      record.alternates=alternateLanguages;
+    }
 
     let jsonldCount=0;
     for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
@@ -400,6 +482,50 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     record.links = links;
     pages.push(record);
     known.set(path, rel);
+  }
+
+  // F100: check exact local canonical destinations, language consistency
+  // and return links. This is intentionally offline and opt-in.
+  if(checkHreflang){
+    const byPath=new Map(pages.map(page=>[page.path,page]));
+    for(const page of pages){
+      const alt=page.alternates;
+      if(!alt?.size)continue;
+      if(!page.language||alt.get(page.language)!==page.path)
+        emit(errors,{type:'hreflang_missing_self',file:page.file,
+          message:'Page with alternate languages requires a matching self-reference'});
+      for(const [language,targetPath] of alt){
+        const target=byPath.get(targetPath);
+        if(!target){
+          emit(errors,{type:'hreflang_missing_target',file:page.file,
+            message:'Hreflang target is not part of this local build'});
+          continue;
+        }
+        if(language==='x-default')continue;
+        if(target.language!==language)
+          emit(errors,{type:'hreflang_language_mismatch',file:page.file,
+            message:'Hreflang locale does not match target HTML root language'});
+        if(!page.language||target.alternates?.get(page.language)!==page.path)
+          emit(errors,{type:'hreflang_missing_return',file:page.file,
+            message:'Hreflang target does not return a link to the source locale'});
+
+        // F101: a reciprocal pair is not enough for a multilingual cluster.
+        // Every linked translation must declare the SAME reviewed set of
+        // canonical locale targets (including optional x-default). Without
+        // this, PT<->EN and EN<->ES can look healthy while PT omits ES.
+        // Keep at most one generic finding per relationship; never copy
+        // source URLs or locale-provided markup into diagnostics.
+        const targetAlternates=target.alternates;
+        if(targetAlternates?.size){
+          const sameSize=targetAlternates.size===alt.size;
+          const sameTargets=sameSize&&[...alt].every(([locale,canonicalPath])=>
+            targetAlternates.get(locale)===canonicalPath);
+          if(!sameTargets)
+            emit(errors,{type:'hreflang_cluster_inconsistent',file:page.file,
+              message:'Linked translated pages disagree about their hreflang cluster'});
+        }
+      }
+    }
   }
 
   // Grafo local de navegação: encontrar páginas sem entrada e URLs não
