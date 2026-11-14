@@ -8,9 +8,9 @@ test('valid options preserve strict flags independently of argument order',()=>{
   assert.equal(parse(['--fail-on-warnings']).strict,true);
   assert.equal(parse([]).target,'dist');
   assert.deepEqual(parse(['--multilingual','dist']).allowedLanguages,
-    ['pt-BR','en-US','es-ES']);
+    ['pt-BR','en','es','en-US','es-ES']);
   assert.deepEqual(parse(['dist','--multilingual','https://example.com/']).allowedLanguages,
-    ['pt-BR','en-US','es-ES']);
+    ['pt-BR','en','es','en-US','es-ES']);
 });
 test('unknown, repeated and surplus flags are rejected before any audit',()=>{
   for(const args of [
