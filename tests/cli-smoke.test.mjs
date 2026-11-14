@@ -49,9 +49,9 @@ test('CLI multilingual flag permits only supported public HTML root languages',a
   await workspace(async dir=>{
     await mkdir(join(dir,'servicos'),{recursive:true});
     await writeFile(join(dir,'index.html'),page('/', ['/servicos/'])
-      .replace('<html lang="pt-BR">','<html lang="en-US">'));
+      .replace('<html lang="pt-BR">','<html lang="en">'));
     await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
-      .replace('<html lang="pt-BR">','<html lang="es-ES">'));
+      .replace('<html lang="pt-BR">','<html lang="es">'));
     await writeFile(join(dir,'robots.txt'),
       'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
     await writeFile(join(dir,'sitemap.xml'),
@@ -71,11 +71,11 @@ test('F100 CLI verifies reciprocal hreflang only with explicit flag',async()=>{
   await workspace(async dir=>{
     await mkdir(join(dir,'servicos'),{recursive:true});
     const pair='<link rel="alternate" hreflang="pt-BR" href="'+site+'/">'+
-      '<link rel="alternate" hreflang="en-US" href="'+site+'/servicos/">';
+      '<link rel="alternate" hreflang="en" href="'+site+'/servicos/">';
     await writeFile(join(dir,'index.html'),page('/', ['/servicos/'])
       .replace('</head>',pair+'</head>'));
     await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
-      .replace('<html lang="pt-BR">','<html lang="en-US">')
+      .replace('<html lang="pt-BR">','<html lang="en">')
       .replace('</head>',pair+'</head>'));
     await writeFile(join(dir,'robots.txt'),
       'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
