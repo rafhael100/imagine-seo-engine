@@ -4,6 +4,7 @@
 
 - **RC38 de desenvolvimento**: [PR #129](https://github.com/rafhael100/imagine-seo-engine/pull/129), evoluída de F88 até F96; release ainda **DRAFT/NO-GO** sem merge na `main` ou deploy.
 - **F99 (proposta em revisão)**: auditor de idioma HTML com modo explícito `--multilingual` (`pt-BR`, `en`, `es`, `en-US`, `es-ES`), mantendo o padrão `pt-BR`; não traduz páginas nem valida `hreflang`. [Manual F99](docs/SEO-F99-MULTILINGUAL-ROOT-LANG.md).
+- **F100 (proposta em revisão)**: checagem opt-in de destinos canônicos, idioma do alvo e retorno recíproco via `--multilingual --check-hreflang` em builds sintéticos locais. [Manual F100](docs/SEO-F100-HREFLANG-OFFLINE.md).
 - **F93**: deduplicação conservadora de consultas equivalentes Unicode nos fluxos CSV e JSON, evitando contagens orgânicas infladas ([PR #135](https://github.com/rafhael100/imagine-seo-engine/pull/135)).
 - **F94**: rejeição de dados GSC falsificados por getters, chaves ocultas, símbolos, protótipos inesperados e arrays não densos ([PR #136](https://github.com/rafhael100/imagine-seo-engine/pull/136)).
 - **F95/F96**: importação local de dois CSVs manuais e auditoria para revisão do Portal, usando manifesto com entradas protegidas e caminhos restritos à mesma pasta ([F95 #137](https://github.com/rafhael100/imagine-seo-engine/pull/137)).

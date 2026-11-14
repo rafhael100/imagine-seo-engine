@@ -3,8 +3,8 @@ import { auditStaticSite } from '../src/audit-static.mjs';
 import {parseStaticAuditCliArgs} from '../src/audit-cli-args.mjs';
 
 try {
-  const {target,siteUrl,strict,strictPublicHead,allowedLanguages}=parseStaticAuditCliArgs(process.argv.slice(2));
-  const result = await auditStaticSite(target, { siteUrl, strictPublicHead, allowedLanguages });
+  const {target,siteUrl,strict,strictPublicHead,allowedLanguages,checkHreflang}=parseStaticAuditCliArgs(process.argv.slice(2));
+  const result = await auditStaticSite(target, { siteUrl, strictPublicHead, allowedLanguages, checkHreflang });
   console.log(JSON.stringify(result, null, 2));
   if (result.summary.errors > 0 || (strict && result.summary.warnings > 0)) process.exitCode = 1;
 } catch (error) {

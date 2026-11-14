@@ -15,6 +15,7 @@ const MAX_ANCHORS_PER_PAGE = 1000;
 const MAX_TOTAL_ANCHORS = 200000;
 const MAX_TOTAL_NAV_LINKS = 100000;
 const MAX_JSONLD_PER_PAGE = 128;
+const MAX_HREFLANG_PER_PAGE = 16;
 const MAX_ROBOTS_LINES = 10000;
 const MAX_SITEMAP_LOCS = MAX_PAGES;
 const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
@@ -217,10 +218,12 @@ async function crawlTree(root,errors,limits,emit){
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'] } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'], checkHreflang=false } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
   const acceptedLanguages=validateAllowedLanguages(allowedLanguages);
+  if(typeof checkHreflang!=='boolean'||(checkHreflang&&acceptedLanguages.size<2))
+    throw Error('audit: invalid checkHreflang option');
   const site = new URL(siteUrl);
   if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
     site.username || site.password || site.port) {
@@ -356,6 +359,45 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
           ?'Exactly one pt-BR language on root html required'
           :'Exactly one approved language on root html required'});
 
+    if(checkHreflang){
+      record.language=rootLanguages.length===1&&
+        acceptedLanguages.has(rootLanguages[0].toLowerCase())
+        ?rootLanguages[0].toLowerCase():null;
+      const alternateLanguages=new Map();
+      let alternateCount=0;
+      for(const markup of tags(head,'link')){
+        const link=attrs(markup);
+        const alternate=typeof link.rel==='string'&&
+          link.rel.toLowerCase().split(/\s+/).includes('alternate');
+        if(!alternate&&!Object.hasOwn(link,'hreflang'))continue;
+        // An alternate without hreflang can be an RSS feed or a stylesheet;
+        // it does not declare an international-language relationship.
+        if(alternate&&!Object.hasOwn(link,'hreflang'))continue;
+        if(++alternateCount>MAX_HREFLANG_PER_PAGE)
+          throw Error('audit: hreflang link budget exceeded');
+        const language=typeof link.hreflang==='string'?link.hreflang.trim().toLowerCase():'';
+        if(!alternate||(!acceptedLanguages.has(language)&&language!=='x-default')){
+          emit(errors,{type:'invalid_hreflang',file:rel,
+            message:'Alternate language must use approved hreflang and rel'});
+          continue;
+        }
+        if(alternateLanguages.has(language)){
+          emit(errors,{type:'duplicate_hreflang',file:rel,
+            message:'Duplicate hreflang locale on one page'});
+          continue;
+        }
+        const normalized=typeof link.href==='string'?normalizeUrl(link.href,site):{invalid:true};
+        const canonical=normalized.path?new URL(normalized.path,site).href:null;
+        if(normalized.invalid||normalized.external||link.href!==canonical){
+          emit(errors,{type:'invalid_hreflang_url',file:rel,
+            message:'Hreflang requires an exact same-origin public canonical URL'});
+          continue;
+        }
+        alternateLanguages.set(language,normalized.path);
+      }
+      record.alternates=alternateLanguages;
+    }
+
     let jsonldCount=0;
     for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
       if(++jsonldCount>MAX_JSONLD_PER_PAGE)
@@ -414,6 +456,34 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     record.links = links;
     pages.push(record);
     known.set(path, rel);
+  }
+
+  // F100: check exact local canonical destinations, language consistency
+  // and return links. This is intentionally offline and opt-in.
+  if(checkHreflang){
+    const byPath=new Map(pages.map(page=>[page.path,page]));
+    for(const page of pages){
+      const alt=page.alternates;
+      if(!alt?.size)continue;
+      if(!page.language||alt.get(page.language)!==page.path)
+        emit(errors,{type:'hreflang_missing_self',file:page.file,
+          message:'Page with alternate languages requires a matching self-reference'});
+      for(const [language,targetPath] of alt){
+        const target=byPath.get(targetPath);
+        if(!target){
+          emit(errors,{type:'hreflang_missing_target',file:page.file,
+            message:'Hreflang target is not part of this local build'});
+          continue;
+        }
+        if(language==='x-default')continue;
+        if(target.language!==language)
+          emit(errors,{type:'hreflang_language_mismatch',file:page.file,
+            message:'Hreflang locale does not match target HTML root language'});
+        if(!page.language||target.alternates?.get(page.language)!==page.path)
+          emit(errors,{type:'hreflang_missing_return',file:page.file,
+            message:'Hreflang target does not return a link to the source locale'});
+      }
+    }
   }
 
   // Grafo local de navegação: encontrar páginas sem entrada e URLs não
