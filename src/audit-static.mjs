@@ -19,6 +19,17 @@ const MAX_ROBOTS_LINES = 10000;
 const MAX_SITEMAP_LOCS = MAX_PAGES;
 const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDepth:32});
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
+// Locales enabled only by an explicit operator option. This prevents
+// accidental acceptance of an unrelated language in a pt-BR-only build.
+const SUPPORTED_HTML_LANGUAGES=Object.freeze(['pt-BR','en','es','en-US','es-ES']);
+function validateAllowedLanguages(input){
+  if(!Array.isArray(input)||input.length<1||input.length>SUPPORTED_HTML_LANGUAGES.length||
+    input.some((value,index)=>typeof value!=='string'||
+      !SUPPORTED_HTML_LANGUAGES.includes(value)||input.indexOf(value)!==index))
+    throw Error('audit: invalid allowedLanguages');
+  return new Set(input.map(value=>value.toLowerCase()));
+}
+
 
 /**
  * Offline robots summary for the general Google web crawler. This interprets
@@ -206,9 +217,10 @@ async function crawlTree(root,errors,limits,emit){
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={} } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'] } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
+  const acceptedLanguages=validateAllowedLanguages(allowedLanguages);
   const site = new URL(siteUrl);
   if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
     site.username || site.password || site.port) {
@@ -333,14 +345,16 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         emit(errors,{type:'wrong_og_url',file:rel,message:'Open Graph URL does not match public canonical'});
       }
     }
-    // Do not let a lang=pt-BR string inside scripts, comments, or body
-    // spoof the document's actual root <html lang="..."> attribute.
+    // Only the real root <html> lang is evidence. Body markup, scripts,
+    // comments and multiple lang attributes must not spoof its locale.
     const htmlTag=publicHtml.match(/<html\b[^>]*>/i)?.[0]??'';
     const rootLanguages=[...htmlTag.matchAll(ATTR)]
       .filter(x=>x[1].toLowerCase()==='lang').map(x=>x[3].trim());
-    if(rootLanguages.length!==1 || rootLanguages[0].toLowerCase()!=='pt-br')
-      emit(warnings,{type:'missing_ptbr_lang',file:rel,
-        message:'Exactly one pt-BR language on root html required'});
+    if(rootLanguages.length!==1 || !acceptedLanguages.has(rootLanguages[0].toLowerCase()))
+      emit(warnings,{type:acceptedLanguages.size===1?'missing_ptbr_lang':'invalid_root_lang',
+        file:rel,message:acceptedLanguages.size===1
+          ?'Exactly one pt-BR language on root html required'
+          :'Exactly one approved language on root html required'});
 
     let jsonldCount=0;
     for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
