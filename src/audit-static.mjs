@@ -501,7 +501,23 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
             message:'Hreflang target is not part of this local build'});
           continue;
         }
-        if(language==='x-default')continue;
+        if(language==='x-default'){
+          // F103: x-default may legitimately point to a standalone neutral
+          // selector (without hreflang), but must not silently jump to a
+          // DIFFERENT fully-declared translation group. F101 compares only
+          // locale targets; x-default requires this additional guard.
+          // Do not echo paths, languages or untrusted HTML in findings.
+          const fallbackAlternates=target.alternates;
+          if(fallbackAlternates?.size){
+            const sameSize=fallbackAlternates.size===alt.size;
+            const sameTargets=sameSize&&[...alt].every(([locale,canonicalPath])=>
+              fallbackAlternates.get(locale)===canonicalPath);
+            if(!sameTargets)
+              emit(errors,{type:'hreflang_x_default_foreign_cluster',file:page.file,
+                message:'X-default points to a page declaring a different hreflang cluster'});
+          }
+          continue;
+        }
         if(target.language!==language)
           emit(errors,{type:'hreflang_language_mismatch',file:page.file,
             message:'Hreflang locale does not match target HTML root language'});
