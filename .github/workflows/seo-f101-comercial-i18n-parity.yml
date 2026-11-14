@@ -1,4 +1,4 @@
-name: SEO F101 - Comercial multilingual Astro parity (offline)
+name: SEO RC39 - Comercial multilingual Astro parity (offline)
 
 on:
   pull_request:
@@ -10,6 +10,7 @@ on:
       - 'tests/audit-static.test.mjs'
       - 'scripts/qa-comercial-hreflang-mutation.mjs'
       - 'scripts/qa-comercial-hreflang-attributes-mutation.mjs'
+      - 'scripts/qa-comercial-i18n-release-contract.mjs'
   workflow_dispatch:
 
 permissions:
@@ -33,14 +34,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rafhael100/imagine-comercial
-          ref: 2f9c65f613859a4105395370672de0b5c88132b4
+          ref: f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a
           path: .qa/comercial-i18n
           persist-credentials: false
       - name: Verify checked-out Comercial revision and clean sources
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C .qa/comercial-i18n rev-parse HEAD)" = 2f9c65f613859a4105395370672de0b5c88132b4
+          test "$(git -C .qa/comercial-i18n rev-parse HEAD)" = f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a
           test -z "$(git -C .qa/comercial-i18n status --porcelain --untracked-files=no)"
       - name: Run complete SEO unit and regression suite
         run: npm test
@@ -61,6 +62,8 @@ jobs:
         run: node scripts/qa-comercial-hreflang-mutation.mjs .qa/comercial-i18n/dist
       - name: Prove ambiguous duplicated hreflang href fails closed and recovers
         run: node scripts/qa-comercial-hreflang-attributes-mutation.mjs .qa/comercial-i18n/dist
+      - name: Verify all 45 page language flags and WebPage locale contracts
+        run: node scripts/qa-comercial-i18n-release-contract.mjs .qa/comercial-i18n/dist
       - name: Refuse changes to fixed Comercial tracked sources
         shell: bash
         run: |
