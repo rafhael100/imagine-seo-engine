@@ -653,6 +653,56 @@ test('F100 hreflang blocks duplicate, invalid, cross-origin and missing URLs',as
     assert.equal(report.errors.some(x=>x.message.includes('outside.example')),false);
   });
 });
+test('F102 rejects duplicate hreflang, href and rel attributes on a translation link',async()=>{
+  const normal='<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">';
+  const cases=[
+    '<link rel="alternate" hreflang="pt-BR" hreflang="en" href="'+origin+'/">',
+    '<link rel="alternate" hreflang="pt-BR" href="https://evil.example/" href="'+origin+'/">',
+    '<link rel="alternate" REL="canonical" rel="alternate" hreflang="pt-BR" href="'+origin+'/">'
+  ];
+  for(const attack of cases){
+    const home=makePage('/',{links:['/servicos/']}).replace('</head>',normal+attack+'</head>');
+    await withSite({home},async root=>{
+      const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es'],
+        checkHreflang:true});
+      assert.ok(report.errors.some(e=>e.file==='index.html'&&
+        e.type==='invalid_hreflang_attributes'));
+      assert.doesNotMatch(JSON.stringify(report.errors),/evil\\.example/);
+    });
+  }
+});
+test('F102 does not silently skip unquoted hreflang, rel or href',async()=>{
+  const cases=[
+    '<link rel="alternate" hreflang=en href="'+origin+'/servicos/">',
+    '<link rel=alternate hreflang="en" href="'+origin+'/servicos/">',
+    '<link rel="alternate" hreflang="en" href='+origin+'/servicos/>'
+  ];
+  for(const markup of cases){
+    const home=makePage('/',{links:['/servicos/']}).replace('</head>',markup+'</head>');
+    await withSite({home},async root=>{
+      const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es'],
+        checkHreflang:true});
+      assert.ok(report.errors.some(e=>e.type==='invalid_hreflang_attributes'),
+        'Unquoted required attribute must fail closed');
+    });
+  }
+});
+test('F102 keeps valid quoted alternates and ignores non-language RSS links',async()=>{
+  const pair='<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
+    '<link rel="alternate" hreflang="en" href="'+origin+'/servicos/">';
+  const rss='<link rel="alternate" type="application/rss+xml" href="'+origin+'/feed.xml">';
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('</head>',pair+rss+'</head>');
+  const service=makePage('/servicos/')
+    .replace('<html lang="pt-BR">','<html lang="en">')
+    .replace('</head>',pair+rss+'</head>');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es'],
+      checkHreflang:true});
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+
 test('F101 rejects incomplete three-language cluster even when every pair returns links',async()=>{
   const locales={pt:'pt-BR',en:'en',es:'es'};
   const url={pt:'/',en:'/servicos/',es:'/es/'};
