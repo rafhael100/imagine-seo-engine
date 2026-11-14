@@ -615,7 +615,7 @@ test('F100 hreflang detects missing return and target-language mismatch',async()
     '<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
     '<link rel="alternate" hreflang="en-US" href="'+origin+'/servicos/"></head>');
   const service=makePage('/servicos/').replace('</head>',
-    '<link rel="alternate" hreflang="pt-BR" href="'+origin+'/servicos/"></head>');
+    '<link rel="alternate" hreflang="en-US" href="'+origin+'/servicos/"></head>');
   await withSite({home,service},async root=>{
     const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES'],
       checkHreflang:true});
