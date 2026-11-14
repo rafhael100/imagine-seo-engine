@@ -578,6 +578,17 @@ test('multilingual audit accepts EN-US and ES-ES root languages only when enable
     assert.deepEqual(multi.summary,{pages:2,errors:0,warnings:0});
   });
 });
+test('F99 accepts the actual Imagine Comercial English and Spanish HTML codes',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html lang="en">');
+  const service=makePage('/servicos/')
+    .replace('<html lang="pt-BR">','<html lang="es">');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,
+      {allowedLanguages:['pt-BR','en','es','en-US','es-ES']});
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
 test('multilingual root-language gate rejects missing, unapproved and duplicate lang',async()=>{
   const home=makePage('/',{links:['/servicos/']})
     .replace('<html lang="pt-BR">','<html lang="fr-FR" lang="en-US">');
@@ -599,13 +610,13 @@ test('audit rejects invalid or repeated multilingual policy before filesystem re
 
 test('F100 hreflang accepts reciprocal canonical EN/PT targets and x-default',async()=>{
   const pair='<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
-    '<link rel="alternate" hreflang="en-US" href="'+origin+'/servicos/">'+
+    '<link rel="alternate" hreflang="en" href="'+origin+'/servicos/">'+
     '<link rel="alternate" hreflang="x-default" href="'+origin+'/">';
   const home=makePage('/',{links:['/servicos/']}).replace('</head>',pair+'</head>');
   const service=makePage('/servicos/').replace('<html lang="pt-BR">',
-    '<html lang="en-US">').replace('</head>',pair+'</head>');
+    '<html lang="en">').replace('</head>',pair+'</head>');
   await withSite({home,service},async root=>{
-    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES'],
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es','en-US','es-ES'],
       checkHreflang:true});
     assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
   });
