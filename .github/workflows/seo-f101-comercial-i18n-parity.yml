@@ -11,6 +11,8 @@ on:
       - 'scripts/qa-comercial-hreflang-mutation.mjs'
       - 'scripts/qa-comercial-hreflang-attributes-mutation.mjs'
       - 'scripts/qa-comercial-i18n-release-contract.mjs'
+      - 'docs/SEO-RC39-RELEASE-RUNBOOK.md'
+      - 'docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md'
   workflow_dispatch:
 
 permissions:
