@@ -66,7 +66,7 @@ function checkPage(path,html){
   const group=languageAlternates(path);
   if(group){
     assert.equal(flags.get(lang).selected,true,'RC39: translated page must mark active locale');
-    assert.equal(Object.values(flags).filter(x=>x.selected).length,1,
+    assert.equal([...flags.values()].filter(x=>x.selected).length,1,
       'RC39: exactly one active locale on translated page');
     for(const code of localeKeys)
       assert.equal(flags.get(code).href,group[code]);
