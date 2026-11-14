@@ -1,0 +1,65 @@
+name: SEO F101 - Comercial multilingual Astro parity (offline)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f101-comercial-i18n-parity.yml'
+      - 'src/audit-static.mjs'
+      - 'src/audit-cli-args.mjs'
+      - 'scripts/audit-dist.mjs'
+      - 'tests/audit-static.test.mjs'
+      - 'scripts/qa-comercial-hreflang-mutation.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comercial-multilingual-build:
+    name: Fixed Comercial Astro build and SEO hreflang review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate SEO Engine source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout immutable public Comercial i18n candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 2f9c65f613859a4105395370672de0b5c88132b4
+          path: .qa/comercial-i18n
+          persist-credentials: false
+      - name: Verify checked-out Comercial revision and clean sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-i18n rev-parse HEAD)" = 2f9c65f613859a4105395370672de0b5c88132b4
+          test -z "$(git -C .qa/comercial-i18n status --porcelain --untracked-files=no)"
+      - name: Run complete SEO unit and regression suite
+        run: npm test
+      - name: Build unchanged Comercial Astro HTML from its lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-i18n ci --no-audit --no-fund
+          npm --prefix .qa/comercial-i18n run build
+          npm --prefix .qa/comercial-i18n run check:dist
+      - name: Enforce full multilingual HTML and canonical hreflang cluster checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/audit-dist.mjs .qa/comercial-i18n/dist https://imaginecomunicacao.com.br/ --strict-public-head --fail-on-warnings --multilingual --check-hreflang
+      - name: Prove fail-closed behavior on a synthetic split hreflang cluster
+        run: node scripts/qa-comercial-hreflang-mutation.mjs .qa/comercial-i18n/dist
+      - name: Refuse changes to fixed Comercial tracked sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C .qa/comercial-i18n status --porcelain --untracked-files=no)"

@@ -653,6 +653,69 @@ test('F100 hreflang blocks duplicate, invalid, cross-origin and missing URLs',as
     assert.equal(report.errors.some(x=>x.message.includes('outside.example')),false);
   });
 });
+test('F101 rejects incomplete three-language cluster even when every pair returns links',async()=>{
+  const locales={pt:'pt-BR',en:'en',es:'es'};
+  const url={pt:'/',en:'/servicos/',es:'/es/'};
+  const alternates=codes=>codes.map(code=>
+    '<link rel="alternate" hreflang="'+locales[code]+'" href="'+origin+url[code]+'">').join('');
+  const pt=makePage('/',{links:['/servicos/','/es/']})
+    .replace('</head>',alternates(['pt','en'])+'</head>');
+  const en=makePage('/servicos/').replace('<html lang="pt-BR">','<html lang="en">')
+    .replace('</head>',alternates(['pt','en','es'])+'</head>');
+  const es=makePage('/es/').replace('<html lang="pt-BR">','<html lang="es">')
+    .replace('</head>',alternates(['en','es'])+'</head>');
+  await withSite({home:pt,service:en},async root=>{
+    await mkdir(join(root,'es'));
+    await writeFile(join(root,'es/index.html'),es);
+    await writeFile(join(root,'sitemap.xml'),
+      '<urlset>'+Object.values(url).map(path=>'<loc>'+origin+path+'</loc>').join('')+'</urlset>');
+    const report=await auditStaticSite(root,{
+      allowedLanguages:['pt-BR','en','es'],checkHreflang:true
+    });
+    assert.equal(report.errors.some(e=>e.type==='hreflang_missing_return'),false);
+    assert.ok(report.errors.some(e=>e.type==='hreflang_cluster_inconsistent'));
+    assert.equal(report.errors.some(e=>e.message.includes(origin)),false);
+  });
+});
+test('F101 accepts a complete three-language cluster with identical x-default',async()=>{
+  const locales={pt:'pt-BR',en:'en',es:'es'};
+  const url={pt:'/',en:'/servicos/',es:'/es/'};
+  const alternatives=Object.entries(url).map(([code,path])=>
+    '<link rel="alternate" hreflang="'+locales[code]+'" href="'+origin+path+'">').join('')+
+    '<link rel="alternate" hreflang="x-default" href="'+origin+'/">';
+  const pt=makePage('/',{links:['/servicos/','/es/']})
+    .replace('</head>',alternatives+'</head>');
+  const en=makePage('/servicos/').replace('<html lang="pt-BR">','<html lang="en">')
+    .replace('</head>',alternatives+'</head>');
+  const es=makePage('/es/').replace('<html lang="pt-BR">','<html lang="es">')
+    .replace('</head>',alternatives+'</head>');
+  await withSite({home:pt,service:en},async root=>{
+    await mkdir(join(root,'es'));
+    await writeFile(join(root,'es/index.html'),es);
+    await writeFile(join(root,'sitemap.xml'),
+      '<urlset>'+Object.values(url).map(path=>'<loc>'+origin+path+'</loc>').join('')+'</urlset>');
+    const report=await auditStaticSite(root,{
+      allowedLanguages:['pt-BR','en','es'],checkHreflang:true
+    });
+    assert.deepEqual(report.summary,{pages:3,errors:0,warnings:0});
+  });
+});
+test('F101 detects when x-default disagrees across two reciprocal translations',async()=>{
+  const pair='<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
+    '<link rel="alternate" hreflang="en" href="'+origin+'/servicos/">';
+  const pt=makePage('/',{links:['/servicos/']})
+    .replace('</head>',pair+'<link rel="alternate" hreflang="x-default" href="'+origin+'/"></head>');
+  const en=makePage('/servicos/').replace('<html lang="pt-BR">','<html lang="en">')
+    .replace('</head>',pair+'</head>');
+  await withSite({home:pt,service:en},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es'],
+      checkHreflang:true});
+    assert.ok(report.errors.some(e=>e.type==='hreflang_cluster_inconsistent'));
+    const compatibility=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es']});
+    assert.equal(compatibility.errors.some(e=>e.type==='hreflang_cluster_inconsistent'),false);
+  });
+});
+
 test('F100 hreflang must be explicitly enabled under multilingual mode',async()=>{
   await assert.rejects(auditStaticSite('/not-present',{checkHreflang:true}),
     /invalid checkHreflang option/);
