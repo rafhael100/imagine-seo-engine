@@ -1,5 +1,9 @@
 # Imagine SEO Engine
 
+## RC39 multilíngue — candidata de revisão (NO-GO)
+
+F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt-BR`, `en`, `es`, variantes regionais e auditoria dos grupos `hreflang`. A [checklist RC39](docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md) documenta CI, paridade com o Comercial e bloqueios de liberação. **Sem merge `main`, deploy, OAuth/GSC real ou publicação.**
+
 ## Estado vigente — 12/11/2026
 
 - **RC38 de desenvolvimento**: [PR #129](https://github.com/rafhael100/imagine-seo-engine/pull/129), evoluída de F88 até F96; release ainda **DRAFT/NO-GO** sem merge na `main` ou deploy.
