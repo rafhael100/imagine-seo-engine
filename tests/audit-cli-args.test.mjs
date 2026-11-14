@@ -10,9 +10,9 @@ test('valid options preserve strict flags independently of argument order',()=>{
   assert.equal(parse(['--multilingual','--check-hreflang']).checkHreflang,true);
   assert.equal(parse(['--multilingual']).checkHreflang,false);
   assert.deepEqual(parse(['--multilingual','dist']).allowedLanguages,
-    ['pt-BR','en-US','es-ES']);
+    ['pt-BR','en','es','en-US','es-ES']);
   assert.deepEqual(parse(['dist','--multilingual','https://example.com/']).allowedLanguages,
-    ['pt-BR','en-US','es-ES']);
+    ['pt-BR','en','es','en-US','es-ES']);
 });
 test('unknown, repeated and surplus flags are rejected before any audit',()=>{
   for(const args of [
