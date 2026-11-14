@@ -36,11 +36,11 @@ ou redirecionamentos.
 ## RC39 — nova verificação integrada
 
 - CI Node 22/24 da candidata com as verificações novas:
-  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608255358
-  (**405/405 testes**, ambos ambientes).
+  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608676982
+  (**408/408 testes**, ambos ambientes, incluindo defesa do workflow cruzado).
 - CI cruzado RC39 no Astro fixado do Comercial PR #385
   (commit `f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a`):
-  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608255309
+  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608676996
   (**45 páginas, zero errors/zero warnings**).
 - Os 45 seletores de idiomas foram conferidos contra os destinos originais
   e a política EN/ES/PT; 26 rotas internacionais incluídas. Um link de
@@ -59,10 +59,9 @@ por novos checks da HEAD exata antes de promoção.
 
 ## Gates para revisão e homologação
 
-- [x] CI Node 22 e 24 na revisão de código com QA RC39, logs #43608255358. Após commits de documentação, validar a HEAD final novamente.
-- [x] CI integrado na revisão de código RC39, logs #43608255309: build 45 páginas e mutações negativas. Repetir na HEAD final.
-- [ ] Revisão independente de AppSec e SEO da heurística HTML (não parser DOM
-      normativo), segurança do GitHub Actions e variantes linguísticas.
+- [x] CI Node 22 e 24 na revisão de código com QA RC39, logs #43608676982. Após commits de documentação, validar a HEAD final novamente.
+- [x] CI integrado na revisão de código RC39, logs #43608676996: build 45 páginas e mutações negativas. Repetir na HEAD final.
+- [ ] Revisão independente de AppSec e SEO da heurística HTML (não parser DOM normativo) e variantes linguísticas. Os controles automatizados do workflow estão cobertos por três testes próprios, mas não substituem uma revisão humana.
 - [ ] Revisão editorial de conteúdo PT/EN/ES, links de bandeiras, UX,
       acessibilidade, metadados e `x-default` de cada equivalência.
 - [ ] Conferir publicação protegida em staging controlado, rollback, backups,
@@ -71,6 +70,10 @@ por novos checks da HEAD exata antes de promoção.
 - [ ] Se houver conexão GSC real, exigir consentimento OAuth readonly,
       grants verificáveis por tenant/propriedade, LGPD e gestão segura de
       credenciais; os dados offline não fornecem essa autorização.
+
+## Pendências de liberação
+
+No momento da inspeção (14/11/2026), ambas as PRs RC39 #147 e Comercial #385 tinham **0 revisões humanas registradas**; a branch `main` do SEO Engine apresentou `protected: false`. A checklist e o roteiro [RC39 release runbook](SEO-RC39-RELEASE-RUNBOOK.md) identificam essas travas de governança, homologação e rollback. Atestar somente o que foi comprovado; não declarar produção pronta.
 
 ## Restrições
 
