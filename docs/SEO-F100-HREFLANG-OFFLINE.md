@@ -14,13 +14,13 @@ node scripts/audit-dist.mjs dist https://imaginecomunicacao.com.br/ --multilingu
 
 `--check-hreflang` exige `--multilingual` para evitar mudanças de contrato
 em auditorias atuais. A API local aceita `checkHreflang: true` junto
-a `allowedLanguages: ['pt-BR','en-US','es-ES']`.
+a `allowedLanguages: ['pt-BR','en','es','en-US','es-ES']`.
 
 ## Invariantes
 
 - Inspeciona somente `<link rel="alternate" hreflang="...">` no head real.
   Comentários, scripts e templates inertes não fornecem evidência.
-- Aceita `pt-BR`, `en-US`, `es-ES` e o valor especial `x-default`.
+- Aceita `pt-BR`, `en`, `es`, `en-US`, `es-ES` e o valor especial `x-default`. O Comercial #383 produz `en` e `es`.
 - Recusa duplicações de idioma e destinos com origem diferente, URLs relativas,
   parâmetros, fragmentos e aliases que não correspondam exatamente às
   URLs canônicas públicas do build.
