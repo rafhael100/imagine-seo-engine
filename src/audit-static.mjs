@@ -88,6 +88,29 @@ function attrs(markup) {
   }
   return result;
 }
+
+/**
+ * F102: the normal lightweight attribute helper keeps the last value.
+ * That is not safe for <link hreflang>, where browsers can interpret the
+ * first occurrence of a duplicate attribute. Reject ambiguous or unquoted
+ * rel, href, and hreflang rather than silently trusting a different value.
+ * Other links (RSS, stylesheets, canonical) retain legacy behavior.
+ */
+function strictHreflangLink(markup){
+  const required=['rel','hreflang','href'];
+  const matches=[...markup.matchAll(ATTR)];
+  // Raw name detection also catches unquoted hreflang declarations which
+  // ATTR intentionally does not parse; never silently ignore those tags.
+  const candidate=/(?:\s)hreflang\s*=/i.test(markup)||
+    matches.some(x=>x[1].toLowerCase()==='hreflang');
+  if(!candidate)return {candidate:false};
+  for(const name of required){
+    const parsed=matches.filter(x=>x[1].toLowerCase()===name).length;
+    const raw=[...markup.matchAll(new RegExp('\\s'+name+'\\s*=','gi'))].length;
+    if(parsed!==1||raw!==1)return {candidate:true,invalid:true};
+  }
+  return {candidate:true,invalid:false,link:attrs(markup)};
+}
 /**
  * Omit inactive <template> subtrees from static SEO evidence. Handle nested
  * template elements and never interpret <template> strings inside raw script
@@ -366,16 +389,19 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       const alternateLanguages=new Map();
       let alternateCount=0;
       for(const markup of tags(head,'link')){
-        const link=attrs(markup);
-        const alternate=typeof link.rel==='string'&&
-          link.rel.toLowerCase().split(/\s+/).includes('alternate');
-        if(!alternate&&!Object.hasOwn(link,'hreflang'))continue;
-        // An alternate without hreflang can be an RSS feed or a stylesheet;
-        // it does not declare an international-language relationship.
-        if(alternate&&!Object.hasOwn(link,'hreflang'))continue;
+        const checked=strictHreflangLink(markup);
+        // An alternate without hreflang can be RSS; it is not a translation.
+        if(!checked.candidate)continue;
         if(++alternateCount>MAX_HREFLANG_PER_PAGE)
           throw Error('audit: hreflang link budget exceeded');
-        const language=typeof link.hreflang==='string'?link.hreflang.trim().toLowerCase():'';
+        if(checked.invalid){
+          emit(errors,{type:'invalid_hreflang_attributes',file:rel,
+            message:'Hreflang link has ambiguous, duplicate or unquoted required attributes'});
+          continue;
+        }
+        const link=checked.link;
+        const alternate=link.rel.toLowerCase().split(/\s+/).includes('alternate');
+        const language=link.hreflang.trim().toLowerCase();
         if(!alternate||(!acceptedLanguages.has(language)&&language!=='x-default')){
           emit(errors,{type:'invalid_hreflang',file:rel,
             message:'Alternate language must use approved hreflang and rel'});
