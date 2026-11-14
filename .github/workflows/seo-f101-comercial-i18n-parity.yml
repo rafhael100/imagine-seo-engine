@@ -11,6 +11,7 @@ on:
       - 'scripts/qa-comercial-hreflang-mutation.mjs'
       - 'scripts/qa-comercial-hreflang-attributes-mutation.mjs'
       - 'scripts/qa-comercial-i18n-release-contract.mjs'
+      - 'scripts/qa-comercial-x-default-foreign-cluster-mutation.mjs'
       - 'docs/SEO-RC39-RELEASE-RUNBOOK.md'
       - 'docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md'
   workflow_dispatch:
@@ -66,6 +67,8 @@ jobs:
         run: node scripts/qa-comercial-hreflang-attributes-mutation.mjs .qa/comercial-i18n/dist
       - name: Verify all 45 page language flags and WebPage locale contracts
         run: node scripts/qa-comercial-i18n-release-contract.mjs .qa/comercial-i18n/dist
+      - name: Block wrong x-default cluster despite reciprocal locales
+        run: node scripts/qa-comercial-x-default-foreign-cluster-mutation.mjs .qa/comercial-i18n/dist
       - name: Refuse changes to fixed Comercial tracked sources
         shell: bash
         run: |
