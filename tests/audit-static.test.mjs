@@ -578,6 +578,17 @@ test('multilingual audit accepts EN-US and ES-ES root languages only when enable
     assert.deepEqual(multi.summary,{pages:2,errors:0,warnings:0});
   });
 });
+test('F99 accepts the actual Imagine Comercial English and Spanish HTML codes',async()=>{
+  const home=makePage('/',{links:['/servicos/']})
+    .replace('<html lang="pt-BR">','<html lang="en">');
+  const service=makePage('/servicos/')
+    .replace('<html lang="pt-BR">','<html lang="es">');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,
+      {allowedLanguages:['pt-BR','en','es','en-US','es-ES']});
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
 test('multilingual root-language gate rejects missing, unapproved and duplicate lang',async()=>{
   const home=makePage('/',{links:['/servicos/']})
     .replace('<html lang="pt-BR">','<html lang="fr-FR" lang="en-US">');
