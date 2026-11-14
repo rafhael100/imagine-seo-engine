@@ -1,5 +1,12 @@
 # Imagine SEO Engine
 
+## RC40 — integração diária GSC offline com prova Portal (NO-GO)
+
+A RC40 consolida F103 (`x-default` seguro) e F104 (ponte local somente de
+métricas diárias agregadas do OpenSEO), com prova de consumo PHP sintético
+no Imagine Portal. Os testes não concedem OAuth, propriedade, tenant nem
+direito de exibição aos clientes. [Revisão e gates RC40](docs/SEO-RC40-GSC-PORTAL-RELEASE-REVIEW.md).
+
 ## RC39 multilíngue — candidata de revisão (NO-GO)
 
 F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt-BR`, `en`, `es`, variantes regionais e auditoria dos grupos `hreflang`. A [checklist RC39](docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md) documenta CI, paridade com o Comercial e bloqueios de liberação. **Sem merge `main`, deploy, OAuth/GSC real ou publicação.**
@@ -11,6 +18,8 @@ F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt
 - **F100 (proposta em revisão)**: checagem opt-in de destinos canônicos, idioma do alvo e retorno recíproco via `--multilingual --check-hreflang` em builds sintéticos locais. [Manual F100](docs/SEO-F100-HREFLANG-OFFLINE.md).
 - **F101 (proposta em revisão)**: valida que cada página traduzida de um grupo `hreflang` anuncia o mesmo conjunto de alternates, inclusive `x-default`, sem criar traduções automaticamente. [Manual F101](docs/SEO-F101-HREFLANG-CLUSTER-INTEGRITY.md).
 - **F102 (proposta em revisão)**: bloqueia atributos hreflang/href/rel duplicados e valores sem aspas em links de idioma, para evitar interpretação ambígua entre navegador e auditor. [Manual F102](docs/SEO-F102-HREFLANG-ATTRIBUTES.md).
+- **F103 (proposta em revisão)**: bloqueia `x-default` que conduz a outro cluster declarado de traduções, mas permite um seletor neutro sem alternates. [Manual F103](docs/SEO-F103-X-DEFAULT-CLUSTER.md).
+- **F104 (proposta em revisão)**: entrada local de snapshots OpenSEO GSC **somente por data**, com conferência exata de propriedade, limites, privacidade e saída sem autorização SaaS. [Manual F104](docs/SEO-F104-OPENSEO-DAILY-OFFLINE.md).
 - **F93**: deduplicação conservadora de consultas equivalentes Unicode nos fluxos CSV e JSON, evitando contagens orgânicas infladas ([PR #135](https://github.com/rafhael100/imagine-seo-engine/pull/135)).
 - **F94**: rejeição de dados GSC falsificados por getters, chaves ocultas, símbolos, protótipos inesperados e arrays não densos ([PR #136](https://github.com/rafhael100/imagine-seo-engine/pull/136)).
 - **F95/F96**: importação local de dois CSVs manuais e auditoria para revisão do Portal, usando manifesto com entradas protegidas e caminhos restritos à mesma pasta ([F95 #137](https://github.com/rafhael100/imagine-seo-engine/pull/137)).
