@@ -1,5 +1,12 @@
 # Imagine SEO Engine
 
+## RC40 — integração diária GSC offline com prova Portal (NO-GO)
+
+A RC40 consolida F103 (`x-default` seguro) e F104 (ponte local somente de
+métricas diárias agregadas do OpenSEO), com prova de consumo PHP sintético
+no Imagine Portal. Os testes não concedem OAuth, propriedade, tenant nem
+direito de exibição aos clientes. [Revisão e gates RC40](docs/SEO-RC40-GSC-PORTAL-RELEASE-REVIEW.md).
+
 ## RC39 multilíngue — candidata de revisão (NO-GO)
 
 F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt-BR`, `en`, `es`, variantes regionais e auditoria dos grupos `hreflang`. A [checklist RC39](docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md) documenta CI, paridade com o Comercial e bloqueios de liberação. **Sem merge `main`, deploy, OAuth/GSC real ou publicação.**
