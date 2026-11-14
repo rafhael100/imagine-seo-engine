@@ -8,6 +8,7 @@ on:
       - 'src/audit-cli-args.mjs'
       - 'scripts/audit-dist.mjs'
       - 'tests/audit-static.test.mjs'
+      - 'scripts/qa-comercial-hreflang-mutation.mjs'
   workflow_dispatch:
 
 permissions:
@@ -55,6 +56,8 @@ jobs:
           set -euo pipefail
           umask 077
           node scripts/audit-dist.mjs .qa/comercial-i18n/dist https://imaginecomunicacao.com.br/ --strict-public-head --fail-on-warnings --multilingual --check-hreflang
+      - name: Prove fail-closed behavior on a synthetic split hreflang cluster
+        run: node scripts/qa-comercial-hreflang-mutation.mjs .qa/comercial-i18n/dist
       - name: Refuse changes to fixed Comercial tracked sources
         shell: bash
         run: |
