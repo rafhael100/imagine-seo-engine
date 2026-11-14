@@ -33,14 +33,34 @@ ou redirecionamentos.
   (CI principal e navegador aprovados); banco de laboratório:
   https://github.com/rafhael100/imagine-comercial/actions/runs/43606681426
 
-Esta documentação resume execuções **anteriores**. Uma execução consolidada
-da HEAD exata da RC39 ainda é obrigatória antes de qualquer promoção.
+## RC39 — nova verificação integrada
+
+- CI Node 22/24 da candidata com as verificações novas:
+  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608255358
+  (**405/405 testes**, ambos ambientes).
+- CI cruzado RC39 no Astro fixado do Comercial PR #385
+  (commit `f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a`):
+  https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608255309
+  (**45 páginas, zero errors/zero warnings**).
+- Os 45 seletores de idiomas foram conferidos contra os destinos originais
+  e a política EN/ES/PT; 26 rotas internacionais incluídas. Um link de
+  bandeira intencionalmente errado foi rejeitado na cópia descartável.
+- Os campos `inLanguage` do JSON-LD `WebPage` conferem com o idioma
+  raiz de cada página. Nenhuma tradução foi gerada automaticamente.
+- As mutações negativas de F101 e F102 passaram novamente e o HTML foi
+  restaurado ao final; testes de navegador/acessibilidade do Comercial
+  na execução #43606681451 também estão verdes.
+- **Bloqueios objetivos e roteiro de release:**
+  [SEO-RC39-RELEASE-RUNBOOK.md](SEO-RC39-RELEASE-RUNBOOK.md).
+  Nenhum destes sucessos equivale à revisão independente ou ao deploy.
+
+Os commits de documentação posteriores a esses jobs devem ser confirmados
+por novos checks da HEAD exata antes de promoção.
 
 ## Gates para revisão e homologação
 
-- [ ] Validar a HEAD exata da RC39 em Node 22 e 24.
-- [ ] Reexecutar o build Astro real imutável e os cenários de mutação negativa
-      contra a HEAD exata da RC39.
+- [x] CI Node 22 e 24 na revisão de código com QA RC39, logs #43608255358. Após commits de documentação, validar a HEAD final novamente.
+- [x] CI integrado na revisão de código RC39, logs #43608255309: build 45 páginas e mutações negativas. Repetir na HEAD final.
 - [ ] Revisão independente de AppSec e SEO da heurística HTML (não parser DOM
       normativo), segurança do GitHub Actions e variantes linguísticas.
 - [ ] Revisão editorial de conteúdo PT/EN/ES, links de bandeiras, UX,
