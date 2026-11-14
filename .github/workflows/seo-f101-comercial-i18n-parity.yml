@@ -12,6 +12,10 @@ on:
       - 'scripts/qa-comercial-hreflang-attributes-mutation.mjs'
       - 'scripts/qa-comercial-i18n-release-contract.mjs'
       - 'scripts/qa-comercial-x-default-foreign-cluster-mutation.mjs'
+      - 'src/openseo-daily-bridge.mjs'
+      - 'scripts/review-openseo-daily-offline.mjs'
+      - 'tests/openseo-daily-bridge.test.mjs'
+      - 'tests/openseo-daily-cli.test.mjs'
       - 'docs/SEO-RC39-RELEASE-RUNBOOK.md'
       - 'docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md'
   workflow_dispatch:
