@@ -88,8 +88,8 @@ const original=await readFile(changedFile,'utf8');
 const nav=extractNav(original);
 assert.equal(nav.get('es').href,'/es/');
 const broken=original.replace(
-  /(<a\b[^>]*\bclass="locale-option"[^>]*\blang="es"[^>]*\bhref=")\/es\/(")/i,
-  '$1/es/faq/$2'
+  /<a\b[^>]*\bclass="locale-option"[^>]*\blang="es"[^>]*>/i,
+  tag=>tag.replace('href="/es/"','href="/es/faq/"')
 );
 assert.notEqual(broken,original,'RC39: negative flag mutation did not apply');
 try{
