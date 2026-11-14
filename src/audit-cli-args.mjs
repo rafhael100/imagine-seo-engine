@@ -21,7 +21,7 @@ export function parseStaticAuditCliArgs(args){
     siteUrl:positional[1]??'https://imaginecomunicacao.com.br/',
     strict:flags.has('--fail-on-warnings'),
     strictPublicHead:flags.has('--strict-public-head'),
-    allowedLanguages:flags.has('--multilingual')?['pt-BR','en-US','es-ES']:['pt-BR'],
+    allowedLanguages:flags.has('--multilingual')?['pt-BR','en','es','en-US','es-ES']:['pt-BR'],
     checkHreflang:flags.has('--check-hreflang')
   };
 }
