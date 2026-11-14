@@ -9,6 +9,7 @@ on:
       - 'scripts/audit-dist.mjs'
       - 'tests/audit-static.test.mjs'
       - 'scripts/qa-comercial-hreflang-mutation.mjs'
+      - 'scripts/qa-comercial-hreflang-attributes-mutation.mjs'
   workflow_dispatch:
 
 permissions:
@@ -58,6 +59,8 @@ jobs:
           node scripts/audit-dist.mjs .qa/comercial-i18n/dist https://imaginecomunicacao.com.br/ --strict-public-head --fail-on-warnings --multilingual --check-hreflang
       - name: Prove fail-closed behavior on a synthetic split hreflang cluster
         run: node scripts/qa-comercial-hreflang-mutation.mjs .qa/comercial-i18n/dist
+      - name: Prove ambiguous duplicated hreflang href fails closed and recovers
+        run: node scripts/qa-comercial-hreflang-attributes-mutation.mjs .qa/comercial-i18n/dist
       - name: Refuse changes to fixed Comercial tracked sources
         shell: bash
         run: |
