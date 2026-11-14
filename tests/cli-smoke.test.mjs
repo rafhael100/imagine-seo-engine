@@ -67,6 +67,30 @@ test('CLI multilingual flag permits only supported public HTML root languages',a
   });
 });
 
+test('F100 CLI verifies reciprocal hreflang only with explicit flag',async()=>{
+  await workspace(async dir=>{
+    await mkdir(join(dir,'servicos'),{recursive:true});
+    const pair='<link rel="alternate" hreflang="pt-BR" href="'+site+'/">'+
+      '<link rel="alternate" hreflang="en-US" href="'+site+'/servicos/">';
+    await writeFile(join(dir,'index.html'),page('/', ['/servicos/'])
+      .replace('</head>',pair+'</head>'));
+    await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
+      .replace('<html lang="pt-BR">','<html lang="en-US">')
+      .replace('</head>',pair+'</head>'));
+    await writeFile(join(dir,'robots.txt'),
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
+    await writeFile(join(dir,'sitemap.xml'),
+      '<urlset><loc>'+site+'/</loc><loc>'+site+'/servicos/</loc></urlset>');
+    const good=run('audit-dist.mjs',[dir,site+'/','--multilingual',
+      '--check-hreflang','--fail-on-warnings']);
+    assert.equal(good.status,0,good.stderr);
+    assert.deepEqual(JSON.parse(good.stdout).summary,{pages:2,errors:0,warnings:0});
+    const missingFlag=run('audit-dist.mjs',[dir,site+'/','--check-hreflang']);
+    assert.equal(missingFlag.status,1);
+    assert.equal(missingFlag.stdout,'');
+  });
+});
+
 test('CSV report and comparison CLIs never echo supplied raw queries',async()=>{
   await workspace(async dir=>{
     const header='Queries,Clicks,Impressions,CTR,Position\n';
