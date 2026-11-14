@@ -14,13 +14,13 @@ falsamente marcadas como concluídas.
 | --- | --- | --- |
 | Comercial, código e HTML Astro | `f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a` | PR #385; CI #43606681451 |
 | Comercial, PostgreSQL sintético | mesma SHA | CI #43606681426 |
-| SEO Engine RC39 (com QA dos 45 seletores) | `d72773282d1ba35086da166c03adeaed1c3a18c3` | CI Node #43608255358 e integração #43608255309 |
+| SEO Engine RC39 (com QA dos 45 seletores) | `dabaf8624fb70e025b8c2e6ef3c0e537bdcd02d5` | CI Node #43608676982 e integração #43608676996 |
 | SEO Engine RC38 de base | `50d56a6febc674fada8a04bbe513e7fddc62551d` | PR #129 |
 
 Links de revisão:
 - https://github.com/rafhael100/imagine-seo-engine/pull/147
 - https://github.com/rafhael100/imagine-comercial/pull/385
-- https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608255309
+- https://github.com/rafhael100/imagine-seo-engine/actions/runs/43608676996
 - https://github.com/rafhael100/imagine-comercial/actions/runs/43606681451
 
 A documentação do candidato pode avançar em commit posterior; nesse caso,
@@ -29,7 +29,7 @@ de **evidência de código** desta verificação, não permissão de release.
 
 ## Verificações técnicas já executadas
 
-- [x] 405 testes offline em Node 22 e Node 24, RC39.
+- [x] 408 testes offline em Node 22 e Node 24, RC39, incluindo segurança do workflow cross-repo.
 - [x] Build real do Astro em runner descartável e inventário de 45 páginas:
       26 EN/ES, 0 erros e 0 avisos do auditor.
 - [x] Links `hreflang`: destino, canonical, locale, reciprocidade e paridade
@@ -40,6 +40,7 @@ de **evidência de código** desta verificação, não permissão de release.
 - [x] Mutação temporária de cluster dividido, `href` duplicado e bandeira
       espanhola com URL errada; cada uma bloqueada e restaurada.
 - [x] Contratos, navegação e acessibilidade do Comercial na PR #385.
+- [x] Workflow cross-repo bloqueia refs mutáveis, GitHub Actions sem SHA revisado, permissões elevadas e comandos de deploy.
 - [x] O código desta integração está em PRs Draft; sem deploy ou merge.
 
 ## Impedimentos constatados por leitura do GitHub
