@@ -27,7 +27,7 @@ const config={
   checkHreflang:true
 };
 function dropAlternate(html,code){
-  const rx=new RegExp('<link\\b(?=[^>]*\\brel=["\\\']alternate["\\\'])(?=[^>]*\\bhreflang=["\\\']'+code+'["\\\'])[^>]*>','gi');
+  const rx=new RegExp('<link\\b(?=[^>]*\\brel="alternate")(?=[^>]*\\bhreflang="'+code+'")[^>]*>','gi');
   const found=[...html.matchAll(rx)];
   assert.equal(found.length,1,'F101 mutation requires exactly one locale alternate');
   return html.replace(rx,'');
