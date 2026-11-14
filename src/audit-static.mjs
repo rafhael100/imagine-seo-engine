@@ -482,6 +482,22 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         if(!page.language||target.alternates?.get(page.language)!==page.path)
           emit(errors,{type:'hreflang_missing_return',file:page.file,
             message:'Hreflang target does not return a link to the source locale'});
+
+        // F101: a reciprocal pair is not enough for a multilingual cluster.
+        // Every linked translation must declare the SAME reviewed set of
+        // canonical locale targets (including optional x-default). Without
+        // this, PT<->EN and EN<->ES can look healthy while PT omits ES.
+        // Keep at most one generic finding per relationship; never copy
+        // source URLs or locale-provided markup into diagnostics.
+        const targetAlternates=target.alternates;
+        if(targetAlternates?.size){
+          const sameSize=targetAlternates.size===alt.size;
+          const sameTargets=sameSize&&[...alt].every(([locale,canonicalPath])=>
+            targetAlternates.get(locale)===canonicalPath);
+          if(!sameTargets)
+            emit(errors,{type:'hreflang_cluster_inconsistent',file:page.file,
+              message:'Linked translated pages disagree about their hreflang cluster'});
+        }
       }
     }
   }
