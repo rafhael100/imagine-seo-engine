@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {parseStaticAuditCliArgs as parse} from '../src/audit-cli-args.mjs';
 test('valid options preserve strict flags independently of argument order',()=>{
   assert.deepEqual(parse(['--strict-public-head','dist','https://example.com/','--fail-on-warnings']),{
-    target:'dist',siteUrl:'https://example.com/',strict:true,strictPublicHead:true,allowedLanguages:['pt-BR']
+    target:'dist',siteUrl:'https://example.com/',strict:true,strictPublicHead:true,allowedLanguages:['pt-BR'],checkHreflang:false
   });
   assert.equal(parse(['--fail-on-warnings']).strict,true);
   assert.equal(parse([]).target,'dist');
+  assert.equal(parse(['--multilingual','--check-hreflang']).checkHreflang,true);
+  assert.equal(parse(['--multilingual']).checkHreflang,false);
   assert.deepEqual(parse(['--multilingual','dist']).allowedLanguages,
     ['pt-BR','en','es','en-US','es-ES']);
   assert.deepEqual(parse(['dist','--multilingual','https://example.com/']).allowedLanguages,
@@ -14,7 +16,9 @@ test('valid options preserve strict flags independently of argument order',()=>{
 });
 test('unknown, repeated and surplus flags are rejected before any audit',()=>{
   for(const args of [
-    ['--fail-on-warning'],['--multilingual','--multilingual'],['--strict-public-head','--strict-public-head'],
+    ['--fail-on-warning'],['--check-hreflang'],
+    ['--check-hreflang','--check-hreflang','--multilingual'],
+    ['--multilingual','--multilingual'],['--strict-public-head','--strict-public-head'],
     ['a','b','c'],['--'],['-v'],[1]
   ])assert.throws(()=>parse(args),/SEO audit CLI:/);
 });

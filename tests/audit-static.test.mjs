@@ -608,6 +608,58 @@ test('audit rejects invalid or repeated multilingual policy before filesystem re
   }
 });
 
+test('F100 hreflang accepts reciprocal canonical EN/PT targets and x-default',async()=>{
+  const pair='<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
+    '<link rel="alternate" hreflang="en" href="'+origin+'/servicos/">'+
+    '<link rel="alternate" hreflang="x-default" href="'+origin+'/">';
+  const home=makePage('/',{links:['/servicos/']}).replace('</head>',pair+'</head>');
+  const service=makePage('/servicos/').replace('<html lang="pt-BR">',
+    '<html lang="en">').replace('</head>',pair+'</head>');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en','es','en-US','es-ES'],
+      checkHreflang:true});
+    assert.deepEqual(report.summary,{pages:2,errors:0,warnings:0});
+  });
+});
+test('F100 hreflang detects missing return and target-language mismatch',async()=>{
+  const home=makePage('/',{links:['/servicos/']}).replace('</head>',
+    '<link rel="alternate" hreflang="pt-BR" href="'+origin+'/">'+
+    '<link rel="alternate" hreflang="en-US" href="'+origin+'/servicos/"></head>');
+  const service=makePage('/servicos/').replace('</head>',
+    '<link rel="alternate" hreflang="en-US" href="'+origin+'/servicos/"></head>');
+  await withSite({home,service},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES'],
+      checkHreflang:true});
+    assert.ok(report.errors.some(x=>x.type==='hreflang_missing_return'));
+    assert.ok(report.errors.some(x=>x.type==='hreflang_language_mismatch'));
+    assert.ok(report.errors.some(x=>x.type==='hreflang_missing_self'));
+  });
+});
+test('F100 hreflang blocks duplicate, invalid, cross-origin and missing URLs',async()=>{
+  const badLinks=[
+    ['pt-BR',origin+'/'],['pt-BR',origin+'/'],
+    ['en-US','https://outside.example/'],
+    ['es-ES',origin+'/missing/'],
+    ['x-default',origin+'/?preview=1'],
+    ['fr-FR',origin+'/']
+  ].map(([language,url])=>'<link rel="alternate" hreflang="'+language+'" href="'+url+'">').join('');
+  const home=makePage('/',{links:['/servicos/']}).replace('</head>',badLinks+'</head>');
+  await withSite({home},async root=>{
+    const report=await auditStaticSite(root,{allowedLanguages:['pt-BR','en-US','es-ES'],
+      checkHreflang:true});
+    for(const type of ['duplicate_hreflang','invalid_hreflang_url',
+      'hreflang_missing_target','invalid_hreflang'])
+      assert.ok(report.errors.some(x=>x.type===type),type);
+    assert.equal(report.errors.some(x=>x.message.includes('outside.example')),false);
+  });
+});
+test('F100 hreflang must be explicitly enabled under multilingual mode',async()=>{
+  await assert.rejects(auditStaticSite('/not-present',{checkHreflang:true}),
+    /invalid checkHreflang option/);
+  await assert.rejects(auditStaticSite('/not-present',{checkHreflang:'true',
+    allowedLanguages:['pt-BR','en-US']}),/invalid checkHreflang option/);
+});
+
 test('a case variant of pt-BR on the root html tag remains valid',async()=>{
   const home=makePage('/',{links:['/servicos/']})
     .replace('<html lang="pt-BR">','<html LANG="PT-br">');
