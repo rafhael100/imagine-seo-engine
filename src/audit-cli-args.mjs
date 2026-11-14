@@ -1,7 +1,7 @@
 /** SEO-F29: reject misspelled or duplicate CLI flags instead of silently disabling gates. */
-const KNOWN=new Set(['--fail-on-warnings','--strict-public-head']);
+const KNOWN=new Set(['--fail-on-warnings','--strict-public-head','--multilingual']);
 export function parseStaticAuditCliArgs(args){
-  if(!Array.isArray(args)||args.length>4||args.some(x=>typeof x!=='string'||!x))
+  if(!Array.isArray(args)||args.length>5||args.some(x=>typeof x!=='string'||!x))
     throw Error('SEO audit CLI: invalid arguments');
   const flags=new Set(),positional=[];
   for(const value of args){
@@ -18,6 +18,7 @@ export function parseStaticAuditCliArgs(args){
     target:positional[0]??'dist',
     siteUrl:positional[1]??'https://imaginecomunicacao.com.br/',
     strict:flags.has('--fail-on-warnings'),
-    strictPublicHead:flags.has('--strict-public-head')
+    strictPublicHead:flags.has('--strict-public-head'),
+    allowedLanguages:flags.has('--multilingual')?['pt-BR','en-US','es-ES']:['pt-BR']
   };
 }
