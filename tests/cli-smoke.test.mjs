@@ -53,7 +53,7 @@ test('CLI multilingual flag permits only supported public HTML root languages',a
     await writeFile(join(dir,'servicos/index.html'),page('/servicos/')
       .replace('<html lang="pt-BR">','<html lang="es-ES">'));
     await writeFile(join(dir,'robots.txt'),
-      'User-agent: *\\nAllow: /\\nSitemap: '+site+'/sitemap.xml\\n');
+      'User-agent: *\nAllow: /\nSitemap: '+site+'/sitemap.xml\n');
     await writeFile(join(dir,'sitemap.xml'),
       '<urlset><loc>'+site+'/</loc><loc>'+site+'/servicos/</loc></urlset>');
     const legacy=run('audit-dist.mjs',[dir,site+'/','--fail-on-warnings']);
