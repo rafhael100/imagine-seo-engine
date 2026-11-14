@@ -21,7 +21,7 @@ const CRAWL_BUDGETS=Object.freeze({maxDirectories:5000,maxEntries:100000,maxDept
 const ATTR = /([a-zA-Z][a-zA-Z0-9:-]*)\s*=\s*(["'])(.*?)\2/gs;
 // Locales enabled only by an explicit operator option. This prevents
 // accidental acceptance of an unrelated language in a pt-BR-only build.
-const SUPPORTED_HTML_LANGUAGES=Object.freeze(['pt-BR','en-US','es-ES']);
+const SUPPORTED_HTML_LANGUAGES=Object.freeze(['pt-BR','en','es','en-US','es-ES']);
 function validateAllowedLanguages(input){
   if(!Array.isArray(input)||input.length<1||input.length>SUPPORTED_HTML_LANGUAGES.length||
     input.some((value,index)=>typeof value!=='string'||
