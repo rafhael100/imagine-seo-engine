@@ -90,6 +90,31 @@ test('F104 refuses prototype, accessor, hidden and symbol-based payloads before 
   const pollutedInput=Object.assign(Object.create({customerDisplayAuthorized:true}),input());
   assert.throws(()=>review(pollutedInput),/exact offline snapshot/);
 });
+test('F104 refuses accessor indices on date dimensions, rows and date keys',()=>{
+  for(const type of ['dimensions','rows','keys']){
+    const current=snapshot();
+    if(type==='keys'){
+      const keys=['2026-10-15'];
+      Object.defineProperty(keys,'0',{enumerable:true,configurable:true,
+        get(){throw Error('SECRET_ARRAY_ACCESSOR');}});
+      current.rows=[{...row('2026-10-15'),keys}];
+      current.rowCount=1;
+    }else if(type==='dimensions'){
+      const dimensions=['date'];
+      Object.defineProperty(dimensions,'0',{enumerable:true,configurable:true,
+        get(){throw Error('SECRET_ARRAY_ACCESSOR');}});
+      current.dimensions=dimensions;
+    }else{
+      const rows=[row('2026-10-15')];
+      Object.defineProperty(rows,'0',{enumerable:true,configurable:true,
+        get(){throw Error('SECRET_ARRAY_ACCESSOR');}});
+      current.rows=rows;
+      current.rowCount=1;
+    }
+    assert.throws(()=>review(input({snapshot:current})),
+      /complete date-only snapshot required|invalid date-only row/);
+  }
+});
 test('F104 empty snapshot cannot invent traffic and always keeps production authorization false',()=>{
   const result=review(input({snapshot:snapshot({rows:[],rowCount:0})}));
   assert.equal(result.period.unreturnedDays,3);
