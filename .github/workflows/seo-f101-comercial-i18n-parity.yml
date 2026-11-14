@@ -18,6 +18,7 @@ on:
       - 'tests/openseo-daily-cli.test.mjs'
       - 'docs/SEO-RC39-RELEASE-RUNBOOK.md'
       - 'docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md'
+      - 'docs/SEO-RC40-GSC-PORTAL-RELEASE-REVIEW.md'
   workflow_dispatch:
 
 permissions:
