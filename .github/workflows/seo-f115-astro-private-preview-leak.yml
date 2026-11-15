@@ -1,0 +1,55 @@
+name: SEO F115 - private editorial leak on immutable Astro build
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f115-astro-private-preview-leak.yml'
+      - 'scripts/qa-comercial-private-preview-leak-mutation.mjs'
+      - 'src/audit-static.mjs'
+      - 'src/geo-editorial-html-previews.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove-private-draft-rejection:
+    name: Pinned Astro build and private preview rejection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate SEO Engine
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout immutable public Imagine Comercial candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a
+          path: .qa/comercial-i18n
+          persist-credentials: false
+      - name: Validate immutable Comercial source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-i18n rev-parse HEAD)" = f5e4d75bc4ef72597d5265bb83c2c90f4e53c73a
+          test -z "$(git -C .qa/comercial-i18n status --porcelain --untracked-files=no)"
+      - name: Build disposable Astro output
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-i18n ci --no-audit --no-fund
+          npm --prefix .qa/comercial-i18n run build
+          npm --prefix .qa/comercial-i18n run check:dist
+      - name: Prove F113 leak detection and automatic restoration
+        run: node scripts/qa-comercial-private-preview-leak-mutation.mjs .qa/comercial-i18n/dist
+      - name: Verify clean tracked source after mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C .qa/comercial-i18n status --porcelain --untracked-files=no)"
