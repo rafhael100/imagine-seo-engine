@@ -125,3 +125,48 @@ test('F114 fails closed on invalid input/HTTP origin and auditor page budget',as
     await assert.rejects(review({...base,inventoryInput:huge}),/at most 20000/);
   });
 });
+
+test('F117 denies an existing route when inventory EN locale conflicts with PT HTML',async()=>{
+  await withBuild(async root=>{
+    const result=await review({
+      inventoryInput:manifest({locale:'en-US'}),buildDirectory:root,siteUrl:origin
+    });
+    assert.equal(result.reviewStatus,'blocked');
+    assert.equal(result.summary.expectedRoutesFound,1);
+    assert.equal(result.summary.expectedRoutesMissing,0);
+    assert.equal(result.summary.expectedRoutesWrongLocale,1);
+    assert.deepEqual(result.wrongLocaleInventoryIndices,[0]);
+    assert.equal(result.deploymentAuthorized,false);
+    assert.doesNotMatch(JSON.stringify(result),
+      /fortaleza-ce|2304400|site-onepage|imaginecomunicacao.com.br/);
+  });
+});
+test('F117 recognizes en-US manifest for genuine EN root and es-ES for ES root',async()=>{
+  await withBuild(async root=>{
+    const {readFile}=await import('node:fs/promises');
+    const file=join(root,'servicos','site-onepage','fortaleza-ce','index.html');
+    const original=await readFile(file,'utf8');
+    for(const [locale,lang] of [['en-US','en'],['es-ES','es']]){
+      await writeFile(file,original.replace('lang="pt-BR"','lang="'+lang+'"'));
+      const result=await review({
+        inventoryInput:manifest({locale}),buildDirectory:root,siteUrl:origin
+      });
+      assert.equal(result.summary.expectedRoutesWrongLocale,0,locale);
+      assert.equal(result.reviewStatus,'human_independent_review_required');
+    }
+  });
+});
+test('F117 rejects an invalid root locale even when route and canonical match',async()=>{
+  await withBuild(async root=>{
+    const {readFile}=await import('node:fs/promises');
+    const file=join(root,'servicos','site-onepage','fortaleza-ce','index.html');
+    const original=await readFile(file,'utf8');
+    await writeFile(file,original.replace('lang="pt-BR"','lang="fr-FR"'));
+    const result=await review({
+      inventoryInput:manifest(),buildDirectory:root,siteUrl:origin
+    });
+    assert.equal(result.reviewStatus,'blocked');
+    assert.equal(result.summary.expectedRoutesWrongLocale,1);
+    assert.ok(result.technicalWarningTypes.some(x=>x.code==='invalid_root_lang'));
+  });
+});
