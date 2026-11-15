@@ -109,3 +109,18 @@ test('caller-supplied approvals and incomplete reference cannot bypass F110',()=
   const y=original();y.municipalityReference.entries=[];
   assert.throws(()=>prepare(y),/SEO F110/);
 });
+
+test('F118 special administrative code cannot generate even a local preview',()=>{
+  for(const special of [
+    {ibgeCode:'5300108',state:'DF',city:'Brasília'},
+    {ibgeCode:'2605459',state:'PE',city:'Fernando de Noronha'}
+  ]){
+    const originalData=original([candidate(special)]);
+    originalData.municipalityReference.entries.push(special);
+    const r=prepare(originalData);
+    assert.equal(r.summary.blockedDrafts,1);
+    assert.deepEqual(r.documents,[]);
+    assert.deepEqual(r.blockedIndices,[0]);
+    assert.equal(r.publicationAuthorized,false);
+  }
+});
