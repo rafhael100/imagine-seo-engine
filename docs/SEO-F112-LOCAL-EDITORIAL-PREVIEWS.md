@@ -29,7 +29,10 @@ diretório de deploy**.
 
 Após preparar os três arquivos F110:
 
-    node scripts/render-geo-editorial-previews-offline.mjs drafts.json inventory.json reference.json ./private-review-new
+    mkdir -m 700 "$HOME/private-seo-reviews"
+    node scripts/render-geo-editorial-previews-offline.mjs drafts.json inventory.json reference.json "$HOME/private-seo-reviews/review-001"
+
+**F116:** a pasta pai precisa existir fora de qualquer checkout Git e fora de diretórios públicos (por exemplo `public`, `dist`, `build`, `www`, `htdocs`, `_site`). Pastas-pai simbólicas também são recusadas. A regra não protege contra um invasor local que altere os diretórios entre a validação e a criação; utilizar uma área privada confiável.
 
 O diretório de saída precisa **não existir**. O programa cria
 somente os arquivos draft-001.html, draft-002.html etc. para os
