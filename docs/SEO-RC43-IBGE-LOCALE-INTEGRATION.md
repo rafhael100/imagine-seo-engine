@@ -18,6 +18,16 @@ A captura foi adaptada de código já em revisão, sem alterar o fluxo de public
 - As verificações do Astro Comercial fixo, de hreflang e de vazamento de prévias privadas permanecem aplicáveis.
 - Todas as evidências devem ser coletadas na SHA exata desta branch; resultados de uma PR de origem não substituem CI da integração.
 
+## Incidente observado em CI (15/11/2026)
+
+A primeira execução da integração ([workflow #43745485842](https://github.com/rafhael100/imagine-seo-engine/actions/runs/43745485842)) confirmou que o acesso ao endpoint do IBGE **não estava disponível no runner**: curl terminou com exit 28 / HTTP 000; o capturador Node terminou com `official_source_transport_unavailable`. A verificação de origem **não foi concluída**. Os testes determinísticos de Node 22/24 passaram.
+
+Para não transformar instabilidade da rede externa em falsa conclusão sobre o código, o workflow foi separado:
+- Em toda PR: `offline-source-contract` exige validações de schema, limites, origem fixa, respostas simuladas falsas/legítimas e integridade SHA-256; isto não comprova acesso real.
+- Somente com `workflow_dispatch`: `official-data-source` executa o download HTTPS verdadeiro e a verificação do recibo; falha, de fato, se o transporte continuar indisponível.
+
+**Gate externo em HOLD.** Nenhuma execução local de mocks nem job `skipped` valida o IBGE real. A captura operacional deve ser repetida em ambiente autorizado e o resultado inspecionado antes de promoção ou publicação. Não habilitar cron indiscriminado nem usar URLs alternativas sem revisão de segurança.
+
 ## Limites de publicação
 
 A existência de um recibo SHA-256 prova que a cópia local não mudou **desde que o recibo foi criado**, mas não constitui assinatura digital da edição IBGE nem comprova atendimento da Imagine em cada município. A rede HTTPS não autoriza indexação. Um idioma correto não comprova qualidade de tradução.
