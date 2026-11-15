@@ -32,6 +32,19 @@ jobs:
           node-version: '22'
       - name: Unit regressions including schema and fake HTTPS response negative cases
         run: npm test
+      - name: Diagnose official IBGE source accessibility without logging response data
+        shell: bash
+        run: |
+          set +e
+          status="$(curl --silent --show-error --fail --max-time 24 --connect-timeout 10 \
+            --proto '=https' --output /dev/null --write-out '%{http_code}' \
+            https://servicodados.ibge.gov.br/api/v1/localidades/municipios 2>/dev/null)"
+          code=$?
+          if [ "$code" -eq 0 ] && [ "$status" = "200" ]; then
+            echo "IBGE curl transport: reachable with HTTP 200"
+          else
+            echo "IBGE curl transport: unavailable (curl exit $code, HTTP ${status:-none})"
+          fi
       - name: Fetch public IBGE Localidades over exact HTTPS host
         shell: bash
         run: |
