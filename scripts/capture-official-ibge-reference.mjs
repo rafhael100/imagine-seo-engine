@@ -41,7 +41,16 @@ if(!referencePath||!receiptPath||extra.length||
     // a verified source record. Only unlink paths created by this process.
     for(const path of created)
       await rm(path,{force:true}).catch(()=>{});
-    console.error('SEO official IBGE capture refused:',safeCliDiagnostic(error));
+    const code=error?.cause?.code;
+    const knownTransportCodes=new Set([
+      'UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT',
+      'ENETUNREACH','ETIMEDOUT','ENOTFOUND','ECONNREFUSED','ECONNRESET'
+    ]);
+    // Generic code only; never print request URLs, proxy information or
+    // arbitrary response text. A transport outage is not a software pass.
+    const diagnostic=knownTransportCodes.has(code)?
+      'official_source_transport_unavailable':safeCliDiagnostic(error);
+    console.error('SEO official IBGE capture refused:',diagnostic);
     process.exitCode=2;
   }
 }
