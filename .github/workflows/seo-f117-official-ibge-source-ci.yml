@@ -1,3 +1,4 @@
+# RC45 unified candidate: offline checks never substitute for the explicit live IBGE gate.
 name: SEO F120 - IBGE source contract and explicit live gate
 
 on:
