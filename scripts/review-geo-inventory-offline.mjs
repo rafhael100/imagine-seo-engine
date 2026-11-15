@@ -11,7 +11,7 @@ if(!file||rest.length){
   console.error('Usage: node scripts/review-geo-inventory-offline.mjs <input.json>');
   process.exitCode=2;
 }else try{
-  const raw=await readBoundedLocalText(file,{maxBytes:16*1024*1024});
+  const raw=await readBoundedLocalText(file,{maxBytes:10*1024*1024});
   const inventory=parseSafeJson(raw);
   console.log(JSON.stringify(reviewMunicipalPageInventory(inventory),null,2));
 }catch(error){
