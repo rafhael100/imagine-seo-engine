@@ -11,7 +11,7 @@ import {reviewMunicipalSeoDraftBatch}
 
 const [file,...extra]=process.argv.slice(2);
 if(!file||extra.length){
-  console.error('Usage: node scripts/review-geo-batch-offline.mjs <private-drafts.json>');
+  console.error('Usage: node scripts/review-geo-batch-offline.mjs <input.json>');
   process.exitCode=2;
 }else try{
   const input=parseSafeJson(await readBoundedLocalText(file,{
