@@ -1,5 +1,7 @@
 # Imagine SEO Engine
 
+> **Diretriz transversal (15/11/2026):** a Imagine passa a adotar **Visitas → Leads → Clientes** como assinatura estratégica. [Aplicação neste projeto](docs/METODOLOGIA-IMAGINE-VISITAS-LEADS-CLIENTES-2026-11-15.md). Somente documentação nesta PR; não modifica os gates de implementação ou produção.
+
 Motor de SEO independente e futuramente comercializável, inicialmente dedicado ao crescimento orgânico e às conversões do site público da Imagine.
 
 ## Prioridade aprovada em 08/11/2026
