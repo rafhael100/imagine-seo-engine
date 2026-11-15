@@ -296,6 +296,22 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
       .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,'');
     const record = { path, file: rel };
+    // F113: even if a draft's robots=noindex header is deleted or changed,
+    // a private editorial marker must NEVER be present in a publishable build.
+    // The marker is inserted by the F112 offline renderer. A legacy-text
+    // fallback covers previews created just before the explicit marker.
+    // This is evidence of a leak, NOT a production authorization check.
+    const hasPrivatePreviewMarker=getMeta(head,'imagine:editorial-preview')
+      .some(meta=>meta.content==='private-unpublished-review');
+    const hasLegacyPrivatePreviewText=
+      visibleBody.includes('RASCUNHO INTERNO — NÃO PUBLICAR NEM INDEXAR');
+    if(hasPrivatePreviewMarker||hasLegacyPrivatePreviewText){
+      emit(errors,{
+        type:'private_editorial_preview_in_public_build',
+        file:rel,
+        message:'Private editorial preview included in public build'
+      });
+    }
     if (path === '/404.html') {
       // Error document: keep out of XML sitemap and public page totals.
       continue;
