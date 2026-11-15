@@ -66,7 +66,7 @@ test('HTML-escapes untrusted editorial content without executing markup',()=>{
   const attack='<img src=x onerror=alert("SECRET_TOKEN")>';
   const x=prepare(original([candidate({
     localContent:text+' '+attack,
-    reasonForLocalPage:'Uma avaliação contextual do serviço requer auditoria. '+attack
+    reasonForLocalPage:'Uma avaliação contextual do serviço requer auditoria editorial independente e verificação da disponibilidade do atendimento local e de cada informação apresentada. '+attack
   })]));
   assert.equal(x.documents.length,1);
   const html=x.documents[0].html;
