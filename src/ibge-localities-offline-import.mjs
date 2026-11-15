@@ -69,11 +69,13 @@ export function normalizeLocallySuppliedIbgeMunicipalities(raw){
 
     const code=String(row.id);
     let immed=null,micro=null;
-    if(Object.hasOwn(row,'regiao-imediata')){
+    if(Object.hasOwn(row,'regiao-imediata') &&
+       row['regiao-imediata']!==null){
       immed=getUf(row,['regiao-imediata','regiao-intermediaria','UF','sigla']);
       if(immed===null)throw Error('SEO F111: malformed UF hierarchy');
     }
-    if(Object.hasOwn(row,'microrregiao')){
+    if(Object.hasOwn(row,'microrregiao') &&
+       row.microrregiao!==null){
       micro=getUf(row,['microrregiao','mesorregiao','UF','sigla']);
       if(micro===null)throw Error('SEO F111: malformed UF hierarchy');
     }
