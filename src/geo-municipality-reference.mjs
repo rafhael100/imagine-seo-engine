@@ -166,7 +166,7 @@ export function reconcileMunicipalDraftsWithReference(input){
     caveats:[
       'UF prefix structure is checked locally, but exact municipality IDs and names come from an unverified operator-supplied reference.',
       'A municipality missing from an incomplete reference is not proof that it does not exist.',
-      'Known administrative exceptions (DF and Fernando de Noronha) require a separate editorial workflow; other geocodes remain unclassified by this offline check.',
+      'Known administrative exceptions require separate editorial review; other geocodes remain unclassified by this offline check.',
       'Even a matching code/name/UF does not establish editorial quality, actual service availability, Google indexation, or permission to publish.'
     ]
   };
