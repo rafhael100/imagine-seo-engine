@@ -128,3 +128,42 @@ test('falsified reference and privileged fields are refused',()=>{
   const sym=input();sym[Symbol('superuser')]=true;
   assert.throws(()=>review(sym),/SEO F110/);
 });
+
+test('F118 DF and Fernando de Noronha require independent territorial editorial review',()=>{
+  const cases=[
+    {code:'5300108',state:'DF',city:'Brasília'},
+    {code:'2605459',state:'PE',city:'Fernando de Noronha'}
+  ];
+  for(const exceptional of cases){
+    const sample=input(
+      [draft({ibgeCode:exceptional.code,state:exceptional.state,
+        city:exceptional.city})],
+      [inventory()],
+      reference([{ibgeCode:exceptional.code,state:exceptional.state,
+        city:exceptional.city}])
+    );
+    const r=review(sample);
+    assert.equal(r.summary.blockedDrafts,1);
+    assert.ok(r.reviews[0].reasons.includes(
+      'known_special_territorial_unit_requires_separate_editorial_review'));
+    assert.equal(r.reviews[0].publishingAllowed,false);
+    assert.equal(r.legalMunicipalityClassificationVerified,false);
+    assert.ok(!JSON.stringify(r).includes(exceptional.code));
+    assert.ok(!JSON.stringify(r).includes(exceptional.city));
+  }
+});
+test('F118 known special unit in existing inventory does not block unrelated municipality',()=>{
+  const existing=inventory({
+    ibgeCode:'2605459',state:'PE',
+    canonicalPath:'/servicos/site-onepage/fernando-de-noronha/',
+    contentSha256:hash('distinct administrative editorial content')
+  });
+  const r=review(input(
+    [draft()],[existing],
+    reference([{ibgeCode:'2605459',state:'PE',city:'Fernando de Noronha'}])
+  ));
+  assert.equal(r.summary.inventoryKnownSpecialTerritorialUnits,1);
+  assert.equal(r.summary.blockedDrafts,0);
+  assert.equal(r.reviews[0].status,'human_editorial_review_required');
+  assert.equal(r.legalMunicipalityClassificationVerified,false);
+});
