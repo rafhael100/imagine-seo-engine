@@ -43,6 +43,22 @@ test('fails closed on UF mismatch between hierarchy branches and code prefix',()
   assert.throws(()=>normalize([row(2304400,'Fortaleza','PE')]),
     /incompatible municipality UF prefix/);
 });
+test('current official dataset can omit retired microregion when immediate UF is valid',()=>{
+  const current=row(5101837,'Boa Esperança do Norte','MT');
+  // Use an MT branch instead of the sample CE/PE helper.
+  current['regiao-imediata']['regiao-intermediaria'].UF.sigla='MT';
+  current.microrregiao=null;
+  const normalized=normalize([current]);
+  assert.equal(normalized.entries[0].state,'MT');
+  assert.equal(normalized.entries[0].ibgeCode,'5101837');
+  const noImmediate=row();
+  noImmediate['regiao-imediata']=null;
+  const accepted=normalize([noImmediate]);
+  assert.equal(accepted.entries[0].state,'CE');
+  assert.throws(()=>normalize([{...row(),
+    'regiao-imediata':null,microrregiao:null
+  }]),/malformed UF hierarchy|incompatible municipality UF prefix/);
+});
 test('rejects duplicate geocodes and untrusted fields, strings and secret payloads',()=>{
   assert.throws(()=>normalize([row(),row()]),/duplicate municipality geocode/);
   const cases=[
@@ -52,7 +68,7 @@ test('rejects duplicate geocodes and untrusted fields, strings and secret payloa
     [{...row(),nome:'   '}],
     [{...row(),nome:'Fortaleza\nINVASION'}],
     [{id:2304400,nome:'Fortaleza',UF:uf('CE')}],
-    [{...row(),microrregiao:null}],
+    [{...row(),'regiao-imediata':null,microrregiao:null}],
     [row(2304400,'Fortaleza','CE'),row(2304400,'Outro Nome','CE')]
   ];
   for(const invalid of cases)
