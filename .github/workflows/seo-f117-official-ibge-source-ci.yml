@@ -1,0 +1,88 @@
+name: SEO F117 - official IBGE HTTPS source and digest
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f117-official-ibge-source-ci.yml'
+      - 'src/ibge-localities-offline-import.mjs'
+      - 'src/ibge-official-https-capture.mjs'
+      - 'src/ibge-source-receipt-review.mjs'
+      - 'scripts/capture-official-ibge-reference.mjs'
+      - 'scripts/verify-ibge-official-receipt.mjs'
+      - 'tests/ibge-official-https-capture.test.mjs'
+      - 'tests/ibge-source-receipt-review.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-source-contract:
+    name: IBGE schema, digest and spoofing regression / Node 22
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Verify source policy and receipt validation deterministically
+        run: npm test
+
+  official-data-source:
+    # A real HTTPS timeout is a genuine unresolved dependency, not a
+    # software-test failure that should be marked green or ignored.
+    # Explicitly opt in to an external probe when network access is known.
+    if: github.event_name == 'workflow_dispatch'
+    name: Official IBGE HTTPS / Node 22 / private ephemeral receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout immutable PR source (no persisted token)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Unit regressions including schema and fake HTTPS response negative cases
+        run: npm test
+      - name: Diagnose official IBGE source accessibility without logging response data
+        shell: bash
+        run: |
+          set +e
+          status="$(curl --silent --show-error --fail --max-time 24 --connect-timeout 10 \
+            --proto '=https' --output /dev/null --write-out '%{http_code}' \
+            https://servicodados.ibge.gov.br/api/v1/localidades/municipios 2>/dev/null)"
+          code=$?
+          if [ "$code" -eq 0 ] && [ "$status" = "200" ]; then
+            echo "IBGE curl transport: reachable with HTTP 200"
+          else
+            echo "IBGE curl transport: unavailable (curl exit $code, HTTP ${status:-none})"
+          fi
+      - name: Fetch public IBGE Localidades over exact HTTPS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/capture-official-ibge-reference.mjs \
+            "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
+      - name: Independently verify private download receipt and content digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-ibge-official-receipt.mjs \
+            "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
+      - name: Remove sensitive intermediate output from disposable runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
