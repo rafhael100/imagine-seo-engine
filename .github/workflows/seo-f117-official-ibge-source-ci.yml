@@ -1,0 +1,55 @@
+name: SEO F117 - official IBGE HTTPS source and digest
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f117-official-ibge-source-ci.yml'
+      - 'src/ibge-localities-offline-import.mjs'
+      - 'src/ibge-official-https-capture.mjs'
+      - 'src/ibge-source-receipt-review.mjs'
+      - 'scripts/capture-official-ibge-reference.mjs'
+      - 'scripts/verify-ibge-official-receipt.mjs'
+      - 'tests/ibge-official-https-capture.test.mjs'
+      - 'tests/ibge-source-receipt-review.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  official-data-source:
+    name: Official IBGE HTTPS / Node 22 / private ephemeral receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout immutable PR source (no persisted token)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Unit regressions including schema and fake HTTPS response negative cases
+        run: npm test
+      - name: Fetch public IBGE Localidades over exact HTTPS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/capture-official-ibge-reference.mjs \
+            "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
+      - name: Independently verify private download receipt and content digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-ibge-official-receipt.mjs \
+            "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
+      - name: Remove sensitive intermediate output from disposable runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/seo-f117-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f117-ibge-proof.json"
