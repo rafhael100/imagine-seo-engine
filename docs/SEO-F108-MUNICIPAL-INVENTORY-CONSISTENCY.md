@@ -24,7 +24,7 @@ Arquivo JSON privado:
   - contentSha256: hash declarado do conteúdo editorial
 
 O manifesto não contém texto da página, nomes, contatos, leads ou
-informações de cliente. O arquivo local é limitado a 16 MiB e não permite
+informações de cliente. O arquivo local é limitado a 10 MiB e não permite
 campos extras. Exemplo de comando:
 
     node scripts/review-geo-inventory-offline.mjs private-inventory.json
