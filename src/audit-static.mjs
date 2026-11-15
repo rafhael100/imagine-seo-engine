@@ -697,6 +697,12 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // Explicit public route inventory detects accidental replacements even if
     // the total HTML page count stays constant.
     routes:pages.map(page=>page.path).sort(),
+    // F117: local-only locale evidence from parsed root <html lang>; callers
+    // can compare declared inventory locales to the actual compiled HTML.
+    // Omitted unless the hreflang parser was explicitly enabled.
+    ...(checkHreflang?{routeLocales:pages.map(page=>({
+      path:page.path,language:page.language
+    })).sort((a,b)=>a.path.localeCompare(b.path))}:{}),
     graph, errors, warnings
   };
 }
