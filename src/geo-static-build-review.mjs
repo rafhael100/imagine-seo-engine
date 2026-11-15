@@ -55,17 +55,34 @@ export async function reviewMunicipalStaticBuild(input){
   // detection. It never issues a network request to the declared origin.
   const audit=await auditStaticSite(input.buildDirectory,{
     siteUrl:input.siteUrl,strictPublicHead:true,
-    allowedLanguages:['pt-BR','en-US','es-ES'],checkHreflang:true
+    allowedLanguages:['pt-BR','en','es','en-US','es-ES'],checkHreflang:true
   });
   if(audit.routes.length!==audit.summary.pages)
     throw Error('SEO F114: inconsistent static audit route inventory');
 
   const actual=new Set(audit.routes);
-  const missingIndices=[];
-  let missingCount=0,matchedCount=0;
+  // F117: the Astro Comercial currently emits <html lang="en"> and "es".
+  // The declared manifest uses canonical BCP47 locales en-US / es-ES.
+  // An exact route match is NOT enough: a wrong-language build is blocked.
+  const localeAliases=Object.freeze({
+    'pt-BR':['pt-br'],'en-US':['en','en-us'],'es-ES':['es','es-es']
+  });
+  if(!Array.isArray(audit.routeLocales) ||
+     audit.routeLocales.length!==audit.summary.pages)
+    throw Error('SEO F117: audited page locale evidence required');
+  const auditedLocales=new Map(audit.routeLocales.map(x=>[x.path,x.language]));
+  if(auditedLocales.size!==audit.summary.pages)
+    throw Error('SEO F117: duplicate audited locale paths');
+  const missingIndices=[],wrongLocaleIndices=[];
+  let missingCount=0,matchedCount=0,wrongLocaleCount=0;
   for(const [index,page] of input.inventoryInput.entries.entries()){
     if(actual.has(page.canonicalPath)){
       matchedCount++;
+      if(!localeAliases[page.locale].includes(auditedLocales.get(page.canonicalPath))){
+        wrongLocaleCount++;
+        if(wrongLocaleIndices.length<MAX_MISSING_INDICES)
+          wrongLocaleIndices.push(index);
+      }
     }else{
       missingCount++;
       if(missingIndices.length<MAX_MISSING_INDICES)
@@ -79,7 +96,7 @@ export async function reviewMunicipalStaticBuild(input){
   const draftLeaks=audit.errors.filter(e=>
     e.type==='private_editorial_preview_in_public_build').length;
   const failed=inventory.summary.conflictCount>0||
-    missingCount>0||audit.summary.errors>0;
+    missingCount>0||wrongLocaleCount>0||audit.summary.errors>0;
 
   return {
     contractVersion:'seo-municipal-static-build-reconciliation-offline-v1',
@@ -91,13 +108,16 @@ export async function reviewMunicipalStaticBuild(input){
       auditedBuildPages:audit.summary.pages,
       expectedRoutesFound:matchedCount,
       expectedRoutesMissing:missingCount,
+      expectedRoutesWrongLocale:wrongLocaleCount,
       omittedMissingRouteIndices:missingCount-missingIndices.length,
+      omittedWrongLocaleIndices:wrongLocaleCount-wrongLocaleIndices.length,
       otherSitePages,
       technicalErrors:audit.summary.errors,
       technicalWarnings:audit.summary.warnings,
       privateEditorialPreviewLeaks:draftLeaks
     },
     missingInventoryIndices:missingIndices,
+    wrongLocaleInventoryIndices:wrongLocaleIndices,
     technicalErrorTypes:sanitizedTypes(audit.errors),
     technicalWarningTypes:sanitizedTypes(audit.warnings),
     auditedRealLocalFiles:true,
@@ -114,7 +134,7 @@ export async function reviewMunicipalStaticBuild(input){
     releaseStatus:'HOLD_INDEPENDENT_EDITORIAL_SOURCE_AND_STAGING_GATES',
     limitations:[
       'A local build is not evidence that the same files are currently deployed to the public domain.',
-      'Routes present in the build are matched only by exact declared canonical paths; draft content hashes are not verified here.',
+      'Routes present in the build are matched by exact canonical paths and declared HTML root languages; draft content hashes are not verified here.',
       'The inventory may omit municipal or other public pages; pages outside this inventory are counted but not assumed erroneous.',
       'Even a clean report requires authenticated source, editorial review, staging, security testing and human release approval.'
     ]
