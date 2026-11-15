@@ -15,6 +15,13 @@ const UF_PREFIX=Object.freeze({
   MG:'31',ES:'32',RJ:'33',SP:'35',PR:'41',SC:'42',RS:'43',
   MS:'50',MT:'51',GO:'52',DF:'53'
 });
+// F118: known IBGE territorial exceptions in the 2025 municipal mesh.
+// An IBGE-style geocode is not a legal guarantee of municipal status.
+// The list is deliberately conservative and NOT a complete taxonomy.
+const SPECIAL_TERRITORIAL_UNITS=new Map([
+  ['5300108','federal_district_brasilia'],
+  ['2605459','state_district_fernando_de_noronha']
+]);
 const REFERENCE_FIELDS=['sourceType','entries'];
 const ENTRY_FIELDS=['ibgeCode','state','city'];
 function exact(v,fields){
@@ -80,7 +87,10 @@ export function reconcileMunicipalDraftsWithReference(input){
   const inventory=input.screenInput.inventoryInput.entries;
   let inventoryNotInReference=0,inventoryUfMismatch=0;
   let inventoryPrefixMismatch=0;
+  let inventoryKnownSpecialTerritorialUnits=0;
   for(const e of inventory){
+    if(SPECIAL_TERRITORIAL_UNITS.has(e.ibgeCode))
+      inventoryKnownSpecialTerritorialUnits++;
     if(!matchesPrefix(e.ibgeCode,e.state))inventoryPrefixMismatch++;
     const municipality=byCode.get(e.ibgeCode);
     if(!municipality)inventoryNotInReference++;
@@ -106,6 +116,12 @@ export function reconcileMunicipalDraftsWithReference(input){
          normalizeCity(candidate.city))
         reasons.push('candidate_city_name_differs_from_reference');
     }
+    // This is a deliberate higher-priority editorial hold: a DF or
+    // state-district code can appear in locality exports, but should
+    // not be silently treated as an ordinary municipal SEO page.
+    // Other units still require independently verified classification.
+    if(SPECIAL_TERRITORIAL_UNITS.has(candidate.ibgeCode))
+      reasons.push('known_special_territorial_unit_requires_separate_editorial_review');
     if(globalReferenceProblem)
       reasons.push('reference_or_inventory_reconciliation_needs_review');
     const unique=[...new Set(reasons)];
@@ -132,11 +148,13 @@ export function reconcileMunicipalDraftsWithReference(input){
       inventoryNotInReference,
       inventoryUfMismatch,
       inventoryPrefixMismatch,
+      inventoryKnownSpecialTerritorialUnits,
       blockedDrafts:blocked,
       awaitingHumanEditorialReview:reviews.length-blocked
     },
     reviews,
     municipalityReferenceAuthenticatedAsIBGE:false,
+    legalMunicipalityClassificationVerified:false,
     completenessOfMunicipalitiesVerified:false,
     editorialQualityIndependentlyApproved:false,
     officialLocalServiceCoverageVerified:false,
@@ -148,6 +166,7 @@ export function reconcileMunicipalDraftsWithReference(input){
     caveats:[
       'UF prefix structure is checked locally, but exact municipality IDs and names come from an unverified operator-supplied reference.',
       'A municipality missing from an incomplete reference is not proof that it does not exist.',
+      'Known administrative exceptions (DF and Fernando de Noronha) require a separate editorial workflow; other geocodes remain unclassified by this offline check.',
       'Even a matching code/name/UF does not establish editorial quality, actual service availability, Google indexation, or permission to publish.'
     ]
   };
