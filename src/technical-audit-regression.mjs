@@ -51,6 +51,9 @@ export function compareOfflineTechnicalAudits({previous,current,previousRevision
   routeInventoryChanges,
   status:'HOLD_ROUTE_COVERAGE_CHANGED',
   previous:summaryOf(before),current:summaryOf(after),
+  // "No new aggregate findings" can coexist with inherited SEO defects.
+  // Expose the debt explicitly before any consumer treats exit 0 as GO.
+  currentBuildHasFindings:after.technical.errors>0||after.technical.warnings>0,
   reviewIncreases:[],
   releaseStatus:'HOLD_EXTERNAL_AUTHORIZATION',
   customerDisplayAuthorized:false,
