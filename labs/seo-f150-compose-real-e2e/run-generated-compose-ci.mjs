@@ -7,6 +7,7 @@ import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:net';
+import http from 'node:http';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {renderIsolatedNginxStagingConfig} from
@@ -148,6 +149,26 @@ async function main(){
        const np=inspected[0].NetworkSettings?.Ports?.['8080/tcp'];
        const h=Array.isArray(hc)&&hc.length===1?hc[0]:{};
        const n=Array.isArray(np)&&np.length===1?np[0]:{};
+       // Detect whether Docker's internal bridge actually permits the
+       // host's loopback-published socket. Never contact external networks.
+       const hostProbe=await new Promise(done=>{
+         let settled=false;
+         const finish=ok=>{
+           if(!settled){settled=true;done(ok);}
+         };
+         const req=http.request({
+           hostname:'127.0.0.1',family:4,port,
+           method:'HEAD',path:'/',agent:false,
+           timeout:1400,
+           headers:{Host:'www.example.test','X-Forwarded-Proto':'http'}
+         },response=>{
+           response.resume();
+           finish(response.statusCode===301);
+         });
+         req.on('timeout',()=>{req.destroy();finish(false);});
+         req.on('error',()=>finish(false));
+         req.end();
+       });
        process.stderr.write(JSON.stringify({
          f198PortDiagnosticOnly:true,
          hostConfigExpectedPortIp:h.HostIp==='127.0.0.1',
@@ -155,7 +176,8 @@ async function main(){
          networkSettingsPortsProvided:Array.isArray(np),
          networkSettingsExpectedPortIp:n.HostIp==='127.0.0.1',
          networkSettingsExpectedPortNumber:n.HostPort===String(port),
-         observedNetworkInternal:networkRecord[0].Internal===true
+         observedNetworkInternal:networkRecord[0].Internal===true,
+         actualLoopbackHead301Reachable:hostProbe
        })+'\n');
      }
      process.stderr.write('SEO F151: blocked runtime rules: '+
