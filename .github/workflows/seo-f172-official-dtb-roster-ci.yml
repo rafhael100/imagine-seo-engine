@@ -6,6 +6,8 @@ on:
       - 'scripts/normalize-official-dtb-2025.py'
       - 'tests/test_normalize_official_dtb_2025.py'
       - 'docs/SEO-F172-OFFICIAL-DTB-2025-ROSTER.md'
+      - 'src/geo-pinned-official-editorial-gate.mjs'
+      - 'scripts/review-pinned-dtb-editorial-batch-offline.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -53,4 +55,40 @@ jobs:
             productionReleaseAuthorized:false
           }));
           JS
+          # F179: prove that a real SHA-pinned DTB row is consumed by the
+          # original F107 editorial contract without ever approving release.
+          draft="${RUNNER_TEMP}/f179-private-editorial-fixture.json"
+          summary="${RUNNER_TEMP}/f179-private-edition-review.json"
+          umask 077
+          node --input-type=module - "$csv" "$draft" <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {parseNormalizedDtb2025Csv} from './src/ibge-independent-dtb-crosscheck.mjs';
+          const roster=parseNormalizedDtb2025Csv(readFileSync(process.argv[2],'utf8'));
+          const row=roster.rows.get('2304400');
+          if(!row)throw Error('F179: public CI sample municipality missing');
+          const draft={
+            candidates:[{
+              serviceSlug:'landing-pages',ibgeCode:'2304400',
+              city:row.city,state:row.state,availabilityConfirmed:false,
+              reasonForLocalPage:'Laboratorio de triagem de qualidade regional; este teste nao comprova prestacao de servicos.',
+              localContent:'Estudo de estrutura editorial para uma pagina de servicos e projetos digitais, apenas no laboratorio isolado. Nao ha atendimento comprovado, contratacao, demanda real, ranqueamento ou resultados de clientes. A revisao humana e obrigatoria antes de qualquer uso, e nenhuma informacao de municipio deve virar URL automaticamente. '.repeat(2),
+              demandEvidence:[]
+            }],existing:[],maxSimilarity:0.75
+          };
+          writeFileSync(process.argv[3],JSON.stringify(draft),{flag:'wx',mode:0o600});
+          JS
+          result=0
+          node scripts/review-pinned-dtb-editorial-batch-offline.mjs "$csv" "$draft" > "$summary" || result=$?
+          test "$result" -eq 1
+          node --input-type=module - "$summary" <<'JS'
+          import {readFileSync} from 'node:fs';
+          const x=JSON.parse(readFileSync(process.argv[2],'utf8'));
+          if(x.matchedOfficialDtbCodes!==1||x.blockedDrafts!==1||
+             x.officialDtbCsvShaPinned!==true||x.publicationAuthorized!==false)
+            throw Error('F179: official source/editorial HOLD contract failed');
+          console.log(JSON.stringify({contractVersion:x.contractVersion,
+            officialRosterSourceBound:true,examinedDrafts:x.examinedDrafts,
+            blockedDrafts:x.blockedDrafts,publicationAuthorized:false}));
+          JS
+          rm -f "$draft" "$summary"
           rm -f "$csv" "$zip"
