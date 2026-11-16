@@ -76,6 +76,9 @@ async function main(){
    throw Error('SEO F148: private inventory write failed');
  }
  await fd.close();
+ report.dockerCommandsPerformed=true;
+ report.dockerReadOnlyQueriesPerformed=true;
+ report.localUnixDockerEndpointOnly=true;
  process.stdout.write(JSON.stringify(report)+'\n');
  if(report.reviewStatus==='blocked')process.exitCode=2;
 }
