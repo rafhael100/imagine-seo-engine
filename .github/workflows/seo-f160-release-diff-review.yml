@@ -6,6 +6,8 @@ on:
       - 'src/release-diff-risk.mjs'
       - 'scripts/review-cumulative-release-diff.mjs'
       - 'tests/release-diff-risk.test.mjs'
+      - 'src/complete-git-diff-review.mjs'
+      - 'tests/complete-git-diff-review.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,9 +25,9 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
-      - name: Test conservative risk categorization and release HOLD
-        run: node --test tests/release-diff-risk.test.mjs
-      - name: Review entire accumulated diff from immutable pre-RC60 main baseline
+      - name: Verify complete Git statuses, deletions, rename pairs, release HOLD
+        run: node --test tests/release-diff-risk.test.mjs tests/complete-git-diff-review.test.mjs
+      - name: Review full cumulative diff, including D and both rename endpoints
         shell: bash
         run: |
           set -euo pipefail
