@@ -7,7 +7,7 @@
  */
 import {lstat,open,realpath} from 'node:fs/promises';
 import {constants} from 'node:fs';
-import {isAbsolute,resolve} from 'node:path';
+import {dirname,isAbsolute,resolve} from 'node:path';
 import {reviewIsolatedSeoStagingInventory} from
   '../../src/staging-compose-isolation-review.mjs';
 import {renderIsolatedNginxStagingConfig} from
@@ -34,7 +34,21 @@ async function canonicalPath(path,kind){
   const st=await lstat(resolved);
   if(st.isSymbolicLink()||!(kind==='dir'?st.isDirectory():st.isFile()))
     unsafe();
-  if(kind==='file'&&(st.size<64||st.size>MAX_CONFIG))unsafe();
+  if(kind==='file'){
+    if(st.size<64||st.size>MAX_CONFIG||
+       (process.platform!=='win32'&&
+        ((st.mode&0o022)!==0||
+         (typeof process.getuid==='function'&&st.uid!==process.getuid()))))
+      unsafe();
+    const folder=dirname(resolved);
+    const owner=await lstat(folder);
+    if(!owner.isDirectory()||owner.isSymbolicLink()||
+       (await realpath(folder))!==folder||
+       (process.platform!=='win32'&&
+        ((owner.mode&0o077)!==0||
+         (typeof process.getuid==='function'&&owner.uid!==process.getuid()))))
+      unsafe();
+  }
   return resolved;
 }
 async function readExactNginxConfig(path){
