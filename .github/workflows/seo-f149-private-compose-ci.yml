@@ -1,0 +1,47 @@
+name: SEO F149 - private isolation-bound Compose staging renderer
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f149-compose-render/**'
+      - 'scripts/render-private-staging-compose.mjs'
+      - 'tests/private-staging-compose-renderer.test.mjs'
+      - 'docs/SEO-F149-PRIVATE-STAGING-COMPOSE-RENDERER.md'
+      - '.github/workflows/seo-f149-private-compose-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-compose-preflight:
+    name: No deployment / actual Docker Compose schema / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full offline regression
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f149-compose-render/render-private-compose.mjs
+          node --check labs/seo-f149-compose-render/validate-compose-ci.mjs
+          node --check scripts/render-private-staging-compose.mjs
+          node --check tests/private-staging-compose-renderer.test.mjs
+          npm test
+      - name: Docker Compose schema validation without docker up/down
+        run: |
+          set -euo pipefail
+          docker compose version
+          node labs/seo-f149-compose-render/validate-compose-ci.mjs
+      - name: Require zero tracked mutations
+        run: test -z "$(git status --porcelain --untracked-files=no)"
