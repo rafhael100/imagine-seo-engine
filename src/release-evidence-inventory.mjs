@@ -10,6 +10,17 @@ const required=Object.freeze([
  'rollback_drill',
  'human_release_decision'
 ]);
+const sourceByGate=Object.freeze({
+ independent_code_review:'independent_review',
+ ibge_source_authentication:'official_source',
+ municipal_editorial_review:'independent_review',
+ gsc_tenant_authorization:'operator_record',
+ portal_crm_consent_review:'independent_review',
+ leaseweb_staging_security:'operator_record',
+ backup_restore_drill:'operator_record',
+ rollback_drill:'operator_record',
+ human_release_decision:'independent_review'
+});
 const sha=/^[a-f0-9]{40}$/;
 const receipt=/^[a-f0-9]{64}$/;
 const own=(x,k)=>Object.prototype.hasOwnProperty.call(x,k);
@@ -22,6 +33,7 @@ export function assessSeoReleaseEvidence(input){
   !Array.isArray(input.evidence)||input.evidence.length>required.length)
   throw Error('F162: exact candidate and evidence envelope required');
  const observed=new Set();
+ const digests=new Set();
  const submitted=[];
  for(const item of input.evidence){
   if(!item||typeof item!=='object'||Array.isArray(item)||
@@ -29,11 +41,12 @@ export function assessSeoReleaseEvidence(input){
     Reflect.ownKeys(item).length!==recordKeys.length||
     !recordKeys.every(k=>own(item,k))||
     !required.includes(item.gate)||observed.has(item.gate)||
+    digests.has(item.evidenceDigest)||
     item.candidateSha!==input.candidateSha||
     !receipt.test(item.evidenceDigest)||
-    !['operator_record','independent_review','official_source'].includes(item.sourceClass)||
+    item.sourceClass!==sourceByGate[item.gate]||
     item.reviewed!==true)throw Error('F162: malformed, repeated or unverified submitted receipt');
-  observed.add(item.gate);submitted.push(item.gate);
+  observed.add(item.gate);digests.add(item.evidenceDigest);submitted.push(item.gate);
  }
  const missing=required.filter(x=>!observed.has(x));
  // Even all externally-submitted receipts can be forged. Authorship, signatures,
