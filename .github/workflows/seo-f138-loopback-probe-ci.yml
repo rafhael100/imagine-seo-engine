@@ -3,7 +3,7 @@ name: SEO F138 - real loopback HTTP HEAD redirect probe
 on:
   pull_request:
     paths:
-      - 'src/loopback-http-redirect-probe.mjs'
+      - 'labs/seo-f138-loopback/probe-loopback.mjs'
       - 'tests/loopback-http-redirect-probe.test.mjs'
       - 'docs/SEO-F138-LOOPBACK-HTTP-REDIRECT-PROBE.md'
       - '.github/workflows/seo-f138-loopback-probe-ci.yml'
@@ -33,7 +33,7 @@ jobs:
       - name: Syntax and full offline suite with isolated loopback HTTP test
         run: |
           set -euo pipefail
-          node --check src/loopback-http-redirect-probe.mjs
+          node --check labs/seo-f138-loopback/probe-loopback.mjs
           node --check tests/loopback-http-redirect-probe.test.mjs
           npm test
       - name: Source remains unmodified
