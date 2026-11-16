@@ -202,3 +202,22 @@ test('F160: multilingual findings retain existing Portal contract and unknown ty
  ]);
  assert.doesNotMatch(JSON.stringify(result),/unknown_PRIVATE|SECRET-USER-DATA/);
 });
+
+test('F161: fabricated routes never become trusted audit coverage or leak in summary',()=>{
+ const unsafe=[
+  '//evil.invalid/','/service//nested/','/private?token=secret',
+  '/private#fragment','/private/%2e%2e/','/../',
+  '/private\\secrets/','/space name/','/without-trailing',
+  '/bad\nnewline/','/bad\rreturn/','/bad\u0000control/'
+ ];
+ for(const path of unsafe){
+  assert.throws(()=>buildOfflineSeoBrief({
+   audit:{...audit(),routes:['/','/service/',path]}
+  }),/inconsistent route coverage/);
+ }
+ const safe=buildOfflineSeoBrief({
+  audit:{...audit(),routes:['/','/en/services/','/404.html']}
+ });
+ assert.equal(safe.technical.pages,3);
+ assert.doesNotMatch(JSON.stringify(safe),/404\.html|en\/services/);
+});
