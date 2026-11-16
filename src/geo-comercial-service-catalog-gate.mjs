@@ -20,13 +20,14 @@ function validatedCatalog(services){
  for(let i=0;i<services.length;i++){
   const d=Object.getOwnPropertyDescriptor(services,String(i));
   const entry=d?.value;
+  const slug=entry&&typeof entry==='object'?
+    Object.getOwnPropertyDescriptor(entry,'slug'):null;
   if(!d?.enumerable||!entry||typeof entry!=='object'||
-     Array.isArray(entry)||!own(entry,'slug')||
-     typeof entry.slug!=='string'||entry.slug.length>72||
-     !SLUG.test(entry.slug)||set.has(entry.slug)||
-     !Object.hasOwn(Object.getOwnPropertyDescriptor(entry,'slug'),'value'))
+     Array.isArray(entry)||!slug?.enumerable||!own(slug,'value')||
+     typeof slug.value!=='string'||slug.value.length>72||
+     !SLUG.test(slug.value)||set.has(slug.value))
     throw Error('F180: invalid or duplicated Comercial service');
-  set.add(entry.slug);
+  set.add(slug.value);
  }
  if(![...INITIAL].every(slug=>set.has(slug)))
   throw Error('F180: initial Onepage and Landing Page products absent');
