@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,readFile,stat,symlink,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,stat,symlink,rm,chmod,mkdir,access} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -133,5 +133,68 @@ test('F149 denies unexpected deploy privilege in operator input',async()=>{
    privateInventory:{...inventory(),approveDeploy:true},
    migrationInput:a.plan,buildDirectory:a.build,nginxConfigPath:a.conf
   }),/SEO F147/);
+ });
+});
+
+test('F194 rejects world-readable topology inventory or migration manifest',async()=>{
+ await fixture(async a=>{
+  const out=join(a.dir,'must-not-write-compose.yml');
+  const args=['--inventory',a.inventoryPath,'--manifest',a.planPath,
+   '--build',a.build,'--nginx-conf',a.conf,'--out',out];
+  await chmod(a.inventoryPath,0o644);
+  const one=spawn(cli,args);
+  assert.equal(one.status,1);
+  assert.equal(one.stdout,'');
+  await assert.rejects(access(out));
+  await chmod(a.inventoryPath,0o600);
+  await chmod(a.planPath,0o644);
+  const two=spawn(cli,args);
+  assert.equal(two.status,1);
+  assert.equal(two.stdout,'');
+  await assert.rejects(access(out));
+ });
+});
+test('F194 denies Compose generation in public or symlinked host directories',async()=>{
+ await fixture(async a=>{
+  const args=['--inventory',a.inventoryPath,'--manifest',a.planPath,
+   '--build',a.build,'--nginx-conf',a.conf,
+   '--out',join(a.dir,'must-not-write-compose.yml')];
+  await chmod(a.dir,0o755);
+  const result=spawn(cli,args);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(args.at(-1)));
+  await chmod(a.dir,0o700);
+  const link=join(a.dir,'alias');
+  await symlink(a.dir,link);
+  args[args.length-1]=join(link,'must-not-write.yml');
+  const symlinked=spawn(cli,args);
+  assert.equal(symlinked.status,1);
+  await assert.rejects(access(join(a.dir,'must-not-write.yml')));
+ });
+});
+test('F194 refuses Compose output in any Git checkout, including foreign private worktree',async()=>{
+ await fixture(async a=>{
+  const work=join(a.dir,'not-a-permitted-git-project');
+  await mkdir(join(work,'.git'),{recursive:true,mode:0o700});
+  const target=join(work,'private-compose.yml');
+  const args=['--inventory',a.inventoryPath,'--manifest',a.planPath,
+   '--build',a.build,'--nginx-conf',a.conf,'--out',target];
+  const result=spawn(cli,args);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(target));
+ });
+});
+test('F194 library refuses publicly traversable parent of a private 0644 Nginx file',async()=>{
+ await fixture(async a=>{
+  const folder=join(a.dir,'public-nginx');
+  await mkdir(folder,{mode:0o755});
+  const conf=join(folder,'publicly-reachable-private.conf');
+  await writeFile(conf,await readFile(a.conf),{mode:0o644});
+  await assert.rejects(render({
+    privateInventory:inventory(),migrationInput:a.plan,
+    buildDirectory:a.build,nginxConfigPath:conf
+  }),/SEO F149/);
  });
 });
