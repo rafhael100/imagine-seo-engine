@@ -1,0 +1,40 @@
+name: SEO F126 - Ed25519 signed multilingual build evidence v2
+
+on:
+  pull_request:
+    paths:
+      - 'src/seo-signed-multilingual-evidence-v2.mjs'
+      - 'tests/seo-signed-multilingual-evidence-v2.test.mjs'
+      - '.github/workflows/seo-f126-signed-multilingual-ci.yml'
+      - 'docs/SEO-F126-SIGNED-MULTILINGUAL-V2.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-report:
+    name: F126 signer / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install pinned major Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and signed report test suite
+        run: |
+          set -euo pipefail
+          node --check src/seo-signed-multilingual-evidence-v2.mjs
+          node --check tests/seo-signed-multilingual-evidence-v2.test.mjs
+          npm test
+      - name: No tracked modifications
+        run: test -z "$(git status --porcelain --untracked-files=no)"

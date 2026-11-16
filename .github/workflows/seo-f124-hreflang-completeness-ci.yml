@@ -1,0 +1,43 @@
+name: SEO F124 - required multilingual hreflang triads
+
+on:
+  pull_request:
+    paths:
+      - 'src/audit-static.mjs'
+      - 'src/geo-hreflang-completeness.mjs'
+      - 'tests/geo-hreflang-completeness.test.mjs'
+      - 'docs/SEO-F124-HREFLANG-REQUIRED-CLUSTERS.md'
+      - '.github/workflows/seo-f124-hreflang-completeness-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hreflang-matrix:
+    name: Full offline verification / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout code without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Select Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax checks
+        run: |
+          set -euo pipefail
+          node --check src/audit-static.mjs
+          node --check src/geo-hreflang-completeness.mjs
+          node --check tests/geo-hreflang-completeness.test.mjs
+      - name: Execute full offline regression suite
+        run: npm test
+      - name: No tracked mutation
+        run: test -z "$(git status --porcelain --untracked-files=no)"

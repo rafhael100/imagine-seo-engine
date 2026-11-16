@@ -1,0 +1,38 @@
+name: SEO F148 - read-only local Docker host inventory parser
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f148-docker-host/**'
+      - 'tests/docker-local-inventory-parser.test.mjs'
+      - 'docs/SEO-F148-READONLY-LEASEWEB-HOST-INVENTORY.md'
+      - '.github/workflows/seo-f148-local-docker-capture-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  local-inventory:
+    name: Private Docker inventory parsing / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout with no retained access token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Full offline regression and local collector syntax
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f148-docker-host/parse-readonly-inventory.mjs
+          node --check labs/seo-f148-docker-host/capture-readonly-host.mjs
+          node --check tests/docker-local-inventory-parser.test.mjs
+          npm test
+      - name: Verify checked-out code unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"

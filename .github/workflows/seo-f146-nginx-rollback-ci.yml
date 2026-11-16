@@ -1,0 +1,44 @@
+name: SEO F146 - isolated Nginx config rollback recovery drill
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f144-nginx/run-compose-ci.sh'
+      - 'docs/SEO-F146-NGINX-CONFIG-ROLLBACK-DRILL.md'
+      - '.github/workflows/seo-f146-nginx-rollback-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rollback-drill:
+    name: Good to blocked to restored / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F144_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout reviewed branch without retained token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify disposable Docker runner and shell source
+        run: |
+          set -euo pipefail
+          docker compose version
+          bash -n labs/seo-f144-nginx/run-compose-ci.sh
+          node --check labs/seo-f144-nginx/create-synthetic-fixture.mjs
+      - name: Actual Nginx positive, wrong-body failure and rollback recovery
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: bash labs/seo-f144-nginx/run-compose-ci.sh
+      - name: Verify no tracked source changes
+        run: test -z "$(git status --porcelain --untracked-files=no)"

@@ -1,0 +1,39 @@
+name: SEO F138 - local loopback HTTP 301 capture integration
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f138-loopback/loopback-capture.mjs'
+      - 'scripts/capture-staging-301-loopback.mjs'
+      - 'tests/legacy-301-loopback-staging-capture.test.mjs'
+      - 'docs/SEO-F138-LOCAL-LOOPBACK-STAGING-CAPTURE.md'
+      - '.github/workflows/seo-f138-loopback-capture-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  loopback-capture:
+    name: Real 127.0.0.1 HEAD probes / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout with no retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run complete offline and loopback-only HTTP regression
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f138-loopback/loopback-capture.mjs
+          node --check scripts/capture-staging-301-loopback.mjs
+          node --check tests/legacy-301-loopback-staging-capture.test.mjs
+          npm test
+      - name: Ensure no tracked files were modified
+        run: test -z "$(git status --porcelain --untracked-files=no)"
