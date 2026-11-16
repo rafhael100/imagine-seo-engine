@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
+import {spawnSync} from 'node:child_process';
+import {chmod} from 'node:fs/promises';
 import {join} from 'node:path';
 import {reviewGeneratedGsc301CrossEvidence as review}
  from '../src/gsc-generated-301-cross-evidence.mjs';
@@ -135,4 +137,85 @@ test('F186 rejects unreviewed input fields and sanitizes local filesystem errors
   targetRoutes:['/','/']}),/F127/);
  await assert.rejects(review(input('/private/UNKNOWN')),
   /SEO F186: independent HTTP or compiled build review failed/);
+});
+
+
+const cli=new URL('../scripts/review-gsc-http-astro-preflight.mjs',import.meta.url).pathname;
+const execCli=(args)=>spawnSync(process.execPath,[cli,...args],{encoding:'utf8',timeout:60000});
+
+test('F186 private CLI rechecks real Astro + independent HTTP, emits sanitized HOLD only',async()=>{
+ await build(async dist=>{
+  const secretDir=await mkdtemp(join(tmpdir(),'seo-f186-private-'));
+  try{
+   const pagePath=join(secretDir,'page.json');
+   const httpPath=join(secretDir,'http.json');
+   await writeFile(pagePath,JSON.stringify(gsc()),{mode:0o600});
+   await writeFile(httpPath,JSON.stringify(capture([receipt()])),{mode:0o600});
+   const good=execCli([pagePath,httpPath,dist]);
+   assert.equal(good.status,1,good.stderr);
+   const report=JSON.parse(good.stdout);
+   assert.equal(report.reviewStatus,'human_independent_release_review_required');
+   assert.equal(report.actualStaticHtmlAudited,true);
+   assert.equal(report.auditedBuildPages,1);
+   assert.equal(report.privateManifestPersisted,false);
+   assert.equal(report.proposedRedirects,1);
+   assert.equal(report.publicationAuthorized,false);
+   assert.equal(report.redirectDeploymentAuthorized,false);
+   assert.doesNotMatch(good.stdout+good.stderr,
+    /example\.test|PRIVATE|page\.json|http\.json|seo-f186-private/);
+   await writeFile(httpPath,JSON.stringify(capture([])),{mode:0o600});
+   const missing=execCli([pagePath,httpPath,dist]);
+   assert.equal(missing.status,1,missing.stderr);
+   assert.equal(JSON.parse(missing.stdout).reviewStatus,'blocked');
+   assert.equal(JSON.parse(missing.stdout).missingHttpReceipts,1);
+  }finally{await rm(secretDir,{recursive:true,force:true});}
+ });
+});
+
+test('F186 private CLI never scans build or prints private GSC when PAGE export is partial/redacted',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'seo-f186-private-'));
+ try{
+  const p=join(dir,'page.json'),c=join(dir,'http.json');
+  await writeFile(c,JSON.stringify(capture([receipt()])),{mode:0o600});
+  for(const [page,status] of [
+   [gsc({hasMore:true}),'HOLD_INCOMPLETE_GSC_PAGINATION'],
+   [gsc({secret:true}),'HOLD_PRIVATE_GSC_URL_VARIANTS']
+  ]){
+   await writeFile(p,JSON.stringify(page),{mode:0o600});
+   const response=execCli([p,c,'/PRIVATE-NONEXISTENT-BUILD']);
+   assert.equal(response.status,1,response.stderr);
+   const report=JSON.parse(response.stdout);
+   assert.equal(report.reviewStatus,status);
+   assert.equal(report.actualStaticHtmlAudited,false);
+   assert.equal(report.proposalGenerated,false);
+   assert.equal(report.networkPerformed,false);
+   assert.doesNotMatch(response.stdout+response.stderr,
+    /PRIVATE-|example\.test|token|http:|https:/);
+  }
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('F186 private CLI rejects insecure input permissions and forged fields with redacted stderr',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'seo-f186-private-'));
+ try{
+  const p=join(dir,'page.json'),c=join(dir,'http.json');
+  await writeFile(p,JSON.stringify(gsc()),{mode:0o600});
+  await writeFile(c,JSON.stringify(capture([receipt()])),{mode:0o600});
+  assert.equal(execCli([p,p,'/PRIVATE-BUILD']).status,2);
+  const invalid=execCli([p,c,'/PRIVATE-BUILD']);
+  assert.equal(invalid.status,2);
+  assert.equal(invalid.stdout,'');
+  assert.doesNotMatch(invalid.stderr,/PRIVATE-BUILD|example\.test|seo-f186-private/);
+  await writeFile(p,JSON.stringify({...gsc(),authorized:true}),{mode:0o600});
+  assert.equal(execCli([p,c,'/PRIVATE-BUILD']).status,2);
+  await writeFile(p,JSON.stringify(gsc()),{mode:0o600});
+  if(process.platform!=='win32'){
+   await chmod(p,0o644);
+   const exposed=execCli([p,c,'/PRIVATE-BUILD']);
+   assert.equal(exposed.status,2);
+   assert.equal(exposed.stdout,'');
+   assert.doesNotMatch(exposed.stderr,/page\.json|PRIVATE|example\.test/);
+  }
+  assert.equal(execCli([]).status,2);
+ }finally{await rm(dir,{recursive:true,force:true});}
 });
