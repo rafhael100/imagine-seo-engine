@@ -95,7 +95,10 @@ async function main(){
  if(folder===checkout||folder.startsWith(checkout+sep))
    throw Error('SEO F144: do not write synthetic fixtures inside checkout');
  await mkdir(folder,{recursive:true});
- await chmod(folder,0o755);
+ // F189: the fixture contains private GSC and legacy mapping data.
+ // Keep the parent non-traversable for other host users; Docker mounts the
+ // individual public dist/config paths only after authorized setup.
+ await chmod(folder,0o700);
  const dist=join(folder,'dist');
  await mkdir(join(dist,'en'),{recursive:true});
  await chmod(dist,0o755);
