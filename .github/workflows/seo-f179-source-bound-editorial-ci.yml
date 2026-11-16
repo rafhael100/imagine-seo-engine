@@ -1,0 +1,34 @@
+name: SEO F179 - source-bound municipal editorial review
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f179-source-bound-editorial-ci.yml'
+      - 'src/geo-pinned-official-editorial-gate.mjs'
+      - 'scripts/review-pinned-dtb-editorial-batch-offline.mjs'
+      - 'tests/geo-pinned-official-editorial-gate.test.mjs'
+      - 'docs/SEO-F179-SOURCE-BOUND-MUNICIPAL-EDITORIAL-GATE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-editorial-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read-only without persisted token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test exact official municipality code UF and editorial HOLD
+        run: |
+          set -euo pipefail
+          node --test tests/geo-pinned-official-editorial-gate.test.mjs
+          node --check scripts/review-pinned-dtb-editorial-batch-offline.mjs

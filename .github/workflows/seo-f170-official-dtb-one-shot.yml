@@ -1,0 +1,67 @@
+name: SEO F170 - one-shot official IBGE DTB 2025 HTTPS source capture
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f170-official-dtb-one-shot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-zip-transport:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: One attempt at original HTTPS ZIP, TLS checked, no redirects
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          out="${RUNNER_TEMP}/dtb-2025-original.zip"
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$out" "$url"
+          test -s "$out"
+          python3 - "$out" <<'PY'
+          import hashlib,json,sys,zipfile
+          from pathlib import PurePosixPath
+          p=sys.argv[1]
+          with open(p,'rb') as f:
+              data=f.read(5000001)
+          if len(data)>5000000 or not zipfile.is_zipfile(p):
+              raise SystemExit('F170: official ZIP failed bounded format check')
+          digest=hashlib.sha256(data).hexdigest()
+          with zipfile.ZipFile(p) as z:
+              items=z.infolist()
+              if not 1<=len(items)<=250:
+                  raise SystemExit('F170: unexpected number of ZIP entries')
+              if sum(i.file_size for i in items)>50000000:
+                  raise SystemExit('F170: oversized uncompressed ZIP inventory')
+              names=[i.filename for i in items]
+              for name in names:
+                  path=PurePosixPath(name)
+                  if path.is_absolute() or '..' in path.parts or '\\' in name:
+                      raise SystemExit('F170: unsafe ZIP entry name')
+              if len(names)!=len(set(names)):
+                  raise SystemExit('F170: duplicate ZIP entry')
+              municipality=sum('MUNICIPIOS' in name.upper() and
+                 name.lower().endswith(('.xls','.ods','.xlsx')) for name in names)
+              if municipality<1:
+                  raise SystemExit('F170: municipality workbook absent')
+              if z.testzip() is not None:
+                  raise SystemExit('F170: ZIP CRC check failed')
+          print(json.dumps({
+              'contractVersion':'seo-f170-official-ibge-dtb-zip-source-v1',
+              'source':'geoftp.ibge.gov.br',
+              'edition':'2025',
+              'downloadedZipBytes':len(data),
+              'sha256':digest,
+              'archiveEntries':len(names),
+              'municipalWorkbookCount':municipality,
+              'officialSourceTransport':'HTTPS_TLS_DIRECT',
+              'independentSourceAgreementVerified':False,
+              'municipalityRowsParsed':False,
+              'releaseAuthorized':False,
+              'sourceFileUploaded':False
+          }))
+          PY
+          rm -f "$out"
