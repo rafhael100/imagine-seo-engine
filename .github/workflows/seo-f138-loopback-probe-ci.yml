@@ -1,0 +1,40 @@
+name: SEO F138 - real loopback HTTP HEAD redirect probe
+
+on:
+  pull_request:
+    paths:
+      - 'src/loopback-http-redirect-probe.mjs'
+      - 'tests/loopback-http-redirect-probe.test.mjs'
+      - 'docs/SEO-F138-LOOPBACK-HTTP-REDIRECT-PROBE.md'
+      - '.github/workflows/seo-f138-loopback-probe-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  loopback-head:
+    name: Real local HTTP redirects / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read-only candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full offline suite with isolated loopback HTTP test
+        run: |
+          set -euo pipefail
+          node --check src/loopback-http-redirect-probe.mjs
+          node --check tests/loopback-http-redirect-probe.test.mjs
+          npm test
+      - name: Source remains unmodified
+        run: test -z "$(git status --porcelain --untracked-files=no)"
