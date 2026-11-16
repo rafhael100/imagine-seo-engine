@@ -125,3 +125,14 @@ test('F87 requires bounded integer redaction counts before organic brief can be 
   assert.equal(redacted.organic,null);
   assert.deepEqual(redacted.recommendedReviews,[]);
 });
+
+test('F156: an empty HTML build never yields a misleading zero-findings SEO brief',()=>{
+ for(const cases of [
+  {summary:{pages:0,errors:0,warnings:0},errors:[],warnings:[]},
+  {summary:{pages:0,errors:1,warnings:0},errors:[issue('missing_sitemap')],warnings:[]}
+ ]){
+  assert.throws(()=>buildOfflineSeoBrief({audit:cases}),/no pages audited/);
+ }
+ // A nonempty real-looking offline report can still be reviewed.
+ assert.equal(buildOfflineSeoBrief({audit:audit()}).technical.pages,3);
+});
