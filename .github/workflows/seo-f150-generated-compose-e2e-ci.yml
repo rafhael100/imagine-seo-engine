@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'labs/seo-f150-compose-real-e2e/**'
+      - 'src/private-bridge-network-review.mjs'
+      - 'tests/private-bridge-network-review.test.mjs'
       - 'labs/seo-f149-compose-render/render-private-compose.mjs'
       - 'scripts/render-private-staging-compose.mjs'
       - 'tests/private-staging-compose-renderer.test.mjs'
