@@ -1,0 +1,47 @@
+name: SEO F144 - real Nginx Docker Compose isolated staging E2E
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f144-nginx/**'
+      - 'docs/SEO-F144-REAL-NGINX-COMPOSE-E2E.md'
+      - '.github/workflows/seo-f144-nginx-compose-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docker-nginx:
+    name: Real nonroot Nginx and HTML bytes / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F144_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify syntax and Docker Compose capability
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f144-nginx/create-synthetic-fixture.mjs
+          bash -n labs/seo-f144-nginx/run-compose-ci.sh
+          docker compose version
+          docker info --format '{{.ServerVersion}}' >/dev/null
+      - name: Offline regression suite and local HTTP tests
+        run: npm test
+      - name: Real Nginx container / one healthy case and one stale HTML blocker
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: bash labs/seo-f144-nginx/run-compose-ci.sh
+      - name: No changes to tracked sources
+        run: test -z "$(git status --porcelain --untracked-files=no)"

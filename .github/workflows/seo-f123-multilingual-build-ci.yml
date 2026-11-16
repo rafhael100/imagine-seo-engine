@@ -1,0 +1,41 @@
+name: SEO F123 - real static HTML and municipal locale gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/geo-multilingual-build-gate.mjs'
+      - 'tests/geo-multilingual-build-gate.test.mjs'
+      - 'docs/SEO-F123-REAL-MULTILINGUAL-BUILD-GATE.md'
+      - '.github/workflows/seo-f123-multilingual-build-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-static-html:
+    name: F123 real local HTML / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout pinned candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax checks
+        run: |
+          set -euo pipefail
+          node --check src/geo-multilingual-build-gate.mjs
+          node --check tests/geo-multilingual-build-gate.test.mjs
+      - name: Run complete offline audit suite
+        run: npm test
+      - name: Ensure no tracked code mutation
+        run: test -z "$(git status --porcelain --untracked-files=no)"
