@@ -8,7 +8,7 @@ Os recibos F134/F135 eram JSONs sintéticos ou fornecidos pelo operador, sem qua
 
 ### Contrato de biblioteca
 
-`probeLoopbackLegacyRedirects({migrationInput,loopbackPort})`
+`probeLoopbackLegacyRedirects({migrationInput,loopbackPort})` (módulo exclusivo de laboratório `labs/seo-f138-loopback/probe-loopback.mjs`; as pastas `src/` e `scripts/` permanecem estritamente sem rede por F77).
 
 - Exige `SEO_F138_ALLOW_LOCAL_HEAD=1` definido intencionalmente pelo operador.
 - `loopbackPort` deve ser porta local 1024–65535, um serviço aprovado e **isolado**; não ler porta ou destino a partir de resposta HTTP.
