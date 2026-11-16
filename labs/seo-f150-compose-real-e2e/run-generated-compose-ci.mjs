@@ -142,6 +142,22 @@ async function main(){
    if(runtime.reviewStatus!=='human_real_docker_runtime_review_required'||
       runtime.blockedComponents.length||runtime.productionDeploymentAuthorized){
      // Fixed code identifiers only: no Docker IDs, environment or mount paths.
+     if(runtime.blockedComponents.includes('public_or_wrong_host_port_binding')){
+       // CI-only REDACTED diagnostic, no IP, port, Docker ID or raw inspect.
+       const hc=inspected[0].HostConfig?.PortBindings?.['8080/tcp'];
+       const np=inspected[0].NetworkSettings?.Ports?.['8080/tcp'];
+       const h=Array.isArray(hc)&&hc.length===1?hc[0]:{};
+       const n=Array.isArray(np)&&np.length===1?np[0]:{};
+       process.stderr.write(JSON.stringify({
+         f198PortDiagnosticOnly:true,
+         hostConfigExpectedPortIp:h.HostIp==='127.0.0.1',
+         hostConfigExpectedPortNumber:h.HostPort===String(port),
+         networkSettingsPortsProvided:Array.isArray(np),
+         networkSettingsExpectedPortIp:n.HostIp==='127.0.0.1',
+         networkSettingsExpectedPortNumber:n.HostPort===String(port),
+         observedNetworkInternal:networkRecord[0].Internal===true
+       })+'\n');
+     }
      process.stderr.write('SEO F151: blocked runtime rules: '+
        runtime.blockedComponents.join(',')+'\\n');
      throw Error('SEO F151: container differs from approved isolation contract');
