@@ -1,4 +1,4 @@
-name: SEO F175 - original DTB versus original Area 2025 independent product
+name: SEO F178 - strict known-delta DTB and Area 2025 products
 on:
   pull_request:
     paths:
@@ -6,6 +6,7 @@ on:
       - 'scripts/compare-pinned-dtb-areas2025.py'
       - 'tests/test_compare_pinned_dtb_areas2025.py'
       - 'docs/SEO-F175-DTB-AREA2025-RECONCILIATION.md'
+      - 'docs/SEO-F178-TWO-OFFICIAL-PRODUCTS-KNOWN-DELTA.md'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,6 +24,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p test_compare_pinned_dtb_areas2025.py -v
           python3 -m unittest discover -s tests -p test_normalize_official_dtb_2025.py -v
+          python3 -m unittest discover -s tests -p test_reconcile_pinned_ibge_two_products.py -v
       - name: Fetch pinned DTB and independent Area ODS then compare national geocodes
         shell: bash
         run: |
@@ -42,5 +44,32 @@ jobs:
           printf '%s  %s\n' 029219bb994d87750fbe7d26c31217152a7e95449ddd2d2f26b504cb32a425f1 "$area" | sha256sum --check --status
           python3 scripts/normalize-official-dtb-2025.py "$dtb" "$csv"
           test "$(stat -c %a "$csv")" = 600
-          python3 scripts/compare-pinned-dtb-areas2025.py "$csv" "$area"
-          rm -f "$dtb" "$csv" "$area"
+          report="${RUNNER_TEMP}/f175-expected-known-delta.json"
+          set +e
+          python3 scripts/compare-pinned-dtb-areas2025.py "$csv" "$area" > "$report"
+          comparison_exit=$?
+          set -e
+          test "$comparison_exit" = 1
+          python3 - "$report" <<'PY'
+          import json,sys
+          with open(sys.argv[1],encoding='utf-8') as f:r=json.load(f)
+          expected={
+           'officialDtbRows':5571,'officialAreaRows':5573,
+           'missingFromArea':0,'unexpectedAreaCodes':2,
+           'ufDisagreements':0,'municipalityNameDisagreements':0,
+           'geocodesStructurallyEquivalent':False,
+           'releaseStatus':'HOLD_OFFICIAL_PRODUCT_DISAGREEMENT'
+          }
+          if any(r.get(k)!=v for k,v in expected.items()):
+              raise SystemExit('F178: unexpected delta between the two original official products')
+          print(json.dumps({
+           'contractVersion':'seo-f178-known-official-operational-areas-ci-v1',
+           'expectedPublicAreaExtraRows':2,
+           'dtbRows':5571,'areaRows':5573,
+           'unexplainedGeocodeDifferences':0,
+           'externalEditorialApproval':False,
+           'releaseAuthorized':False
+          }))
+          PY
+          python3 scripts/reconcile-pinned-ibge-two-products.py "$csv" "$area"
+          rm -f "$dtb" "$csv" "$area" "$report"
