@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,stat,rm,writeFile,symlink} from 'node:fs/promises';
+import {mkdtemp,readFile,stat,rm,writeFile,symlink,chmod,mkdir,access} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -101,5 +101,70 @@ test('F145 refuses symlinked manifest without generating output',async()=>{
   assert.equal(result.stdout,'');
   assert.equal(result.stderr,
     'SEO F145: private Nginx staging config rejected or failed\n');
+ });
+});
+
+test('F189 keeps all private staging source material under an operator-only parent',async()=>{
+ await fixture(async({dir,planPath,build})=>{
+  const parent=await stat(dir);
+  assert.equal(parent.mode&0o777,0o700);
+  const input=await stat(planPath);
+  assert.equal(input.mode&0o777,0o600);
+  const output=join(dir,'private-operator-map.conf');
+  const result=execute(cli,[
+   '--manifest',planPath,'--build',build,'--out',output
+  ]);
+  assert.equal(result.status,0,result.stderr);
+  const written=await stat(output);
+  // 0644 is deliberate for an unprivileged uid 101 Nginx bind mount.
+  // Its PARENT stays 0700 and is inaccessible to other host users.
+  assert.equal(written.mode&0o777,0o644);
+  assert.equal((await stat(dir)).mode&0o777,0o700);
+ });
+});
+test('F189 refuses public 0755 input/output directory before creating Nginx config',async()=>{
+ await fixture(async({dir,planPath,build})=>{
+  await chmod(dir,0o755);
+  const output=join(dir,'must-not-write.conf');
+  const result=execute(cli,[
+   '--manifest',planPath,'--build',build,'--out',output
+  ]);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(result.stderr,
+   'SEO F145: private Nginx staging config rejected or failed\n');
+  await assert.rejects(access(output));
+ });
+});
+test('F189 refuses world-readable manifest even inside private parent',async()=>{
+ await fixture(async({dir,planPath,build})=>{
+  await chmod(planPath,0o644);
+  const output=join(dir,'must-not-write.conf');
+  const result=execute(cli,[
+   '--manifest',planPath,'--build',build,'--out',output
+  ]);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(output));
+ });
+});
+test('F189 refuses separate unsafe output directory and symlinked directory',async()=>{
+ await fixture(async({dir,planPath,build})=>{
+  const publicDir=join(dir,'public-output');
+  await mkdir(publicDir,{mode:0o755});
+  const result=execute(cli,[
+   '--manifest',planPath,'--build',build,
+   '--out',join(publicDir,'not-private.conf')
+  ]);
+  assert.equal(result.status,1);
+  await assert.rejects(access(join(publicDir,'not-private.conf')));
+  const alias=join(dir,'symlinked-output');
+  await symlink(dir,alias);
+  const symlinkAttempt=execute(cli,[
+   '--manifest',planPath,'--build',build,
+   '--out',join(alias,'not-private.conf')
+  ]);
+  assert.equal(symlinkAttempt.status,1);
+  await assert.rejects(access(join(dir,'not-private.conf')));
  });
 });
