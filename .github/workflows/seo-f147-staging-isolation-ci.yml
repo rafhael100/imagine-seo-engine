@@ -1,0 +1,41 @@
+name: SEO F147 - offline Docker staging inventory and no-conflict gate
+on:
+  pull_request:
+    paths:
+      - 'src/staging-compose-isolation-review.mjs'
+      - 'scripts/review-staging-docker-inventory-offline.mjs'
+      - 'tests/staging-compose-isolation-review.test.mjs'
+      - 'tests/staging-compose-inventory-cli.test.mjs'
+      - 'docs/SEO-F147-LEASEWEB-STAGING-ISOLATION-PREFLIGHT.md'
+      - '.github/workflows/seo-f147-staging-isolation-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-preflight:
+    name: Operator inventory privacy and ports / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout immutable code without persisted token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify syntax and complete offline regression
+        run: |
+          set -euo pipefail
+          node --check src/staging-compose-isolation-review.mjs
+          node --check scripts/review-staging-docker-inventory-offline.mjs
+          node --check tests/staging-compose-isolation-review.test.mjs
+          node --check tests/staging-compose-inventory-cli.test.mjs
+          npm test
+      - name: Verify source unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
