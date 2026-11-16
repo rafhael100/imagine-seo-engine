@@ -1,4 +1,4 @@
-# SEO F144 — GitHub Actions/lab isolated Nginx. NO production deploy.
+# SEO F144 — GitHub Actions/lab isolated Nginx. NO production deploy. Project-specific bridge, loopback-only published port.
 # Required absolute host paths: SEO_F144_BUILD and SEO_F144_CONF.
 # Dynamic host port bound to IPv4 loopback only; read with:
 #   docker compose -f ... port nginx 8080
@@ -14,7 +14,7 @@ services:
     tmpfs:
       - "/tmp:rw,nosuid,nodev,uid=101,gid=101,mode=1777,size=16m"
     ports:
-      - "127.0.0.1::8080"
+      - "127.0.0.1:0:8080"
     volumes:
       - type: bind
         source: ${SEO_F144_BUILD:?set private absolute build path}
@@ -32,4 +32,6 @@ services:
       retries: 20
 networks:
   seo_f144_internal:
-    internal: true
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
