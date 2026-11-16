@@ -106,3 +106,30 @@ test('F148 requires explicit operator opt-in before any commands',async()=>{
   await assert.rejects(readFile(out,'utf8'));
  });
 });
+
+test('F148 refuses remote Docker context BEFORE listing any container',async()=>{
+ await fixture(async({root,bin,out,args,env})=>{
+  const marker=join(root,'UNSAFE_REMOTE_QUERY_WAS_SENT');
+  const remoteDocker=`#!/bin/sh
+set -eu
+if [ "$1 $2" = "context inspect" ]; then
+ printf 'ssh://remote.example.test\\n'
+else
+ printf 'unsafe' > "$MOCK_REMOTE_QUERY_MARKER"
+fi
+`;
+  await writeFile(join(bin,'docker'),remoteDocker,{mode:0o700});
+  await chmod(join(bin,'docker'),0o700);
+  const result=run(args,{
+   ...env,
+   DOCKER_HOST:'ssh://remote.example.test',
+   MOCK_REMOTE_QUERY_MARKER:marker
+  });
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(result.stderr,
+    'SEO F148: failed to capture safe local Docker inventory\\n');
+  await assert.rejects(readFile(marker,'utf8'));
+  await assert.rejects(readFile(out,'utf8'));
+ });
+});
