@@ -125,3 +125,99 @@ test('F87 requires bounded integer redaction counts before organic brief can be 
   assert.equal(redacted.organic,null);
   assert.deepEqual(redacted.recommendedReviews,[]);
 });
+
+test('F156: an empty HTML build never yields a misleading zero-findings SEO brief',()=>{
+ for(const cases of [
+  {summary:{pages:0,errors:0,warnings:0},errors:[],warnings:[]},
+  {summary:{pages:0,errors:1,warnings:0},errors:[issue('missing_sitemap')],warnings:[]}
+ ]){
+  assert.throws(()=>buildOfflineSeoBrief({audit:cases}),/no pages audited/);
+ }
+ // A nonempty real-looking offline report can still be reviewed.
+ assert.equal(buildOfflineSeoBrief({audit:audit()}).technical.pages,3);
+});
+
+test('F156: locally supplied route evidence must match pages without leaking paths',()=>{
+ for(const routes of [
+  [],
+  ['/','/service/'],
+  ['/','/service/','/service/'],
+  ['/','/service/',42],
+  'private/secret'
+ ]){
+  assert.throws(()=>buildOfflineSeoBrief({
+   audit:{...audit(),routes}
+  }),/inconsistent route coverage/);
+ }
+ const clean=buildOfflineSeoBrief({audit:audit()});
+ assert.equal(clean.technical.pages,3);
+ assert.doesNotMatch(JSON.stringify(clean),/private\/|service\//);
+});
+
+test('F160: important static audit findings become actionable review priorities, not generic noise',()=>{
+ const errors=[
+  issue('missing_homepage'),issue('private_editorial_preview_in_public_build'),
+  issue('duplicate_sitemap_url'),issue('broken_local_fragment')
+ ];
+ const warnings=[
+  issue('page_not_in_sitemap'),issue('sitemap_not_in_robots'),
+  issue('hreflang_missing_return'),issue('invalid_hreflang_url'),
+  issue('duplicate_description'),issue('duplicate_html_id')
+ ];
+ const brief=buildOfflineSeoBrief({audit:audit(errors,warnings)});
+ assert.equal(brief.technical.status,'review_required');
+ assert.deepEqual(brief.recommendedReviews,[
+  {code:'review_indexation',priority:'critical',count:2},
+  {code:'fix_sitemap',priority:'high',count:3},
+  {code:'review_page_metadata',priority:'high',count:3},
+  {code:'repair_internal_links',priority:'high',count:1},
+  {code:'review_page_structure',priority:'medium',count:1}
+ ]);
+ const portal=preparePortalSeoHandoff({
+  tenantRef:'imagine-demo',propertyFingerprint:'a'.repeat(64),
+  sourceRevision:'b'.repeat(40),brief
+ });
+ assert.deepEqual(portal.suggestedReviews,brief.recommendedReviews);
+ assert.equal(portal.customerDisplayAuthorized,false);
+ assert.equal(portal.releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
+ assert.doesNotMatch(JSON.stringify(portal),/private\/pessoa|SECRET-USER-DATA/);
+});
+
+test('F160: multilingual findings retain existing Portal contract and unknown types remain generic',()=>{
+ const hreflang=[
+  'invalid_hreflang','invalid_hreflang_attributes','duplicate_hreflang',
+  'hreflang_missing_self','hreflang_missing_target',
+  'hreflang_language_mismatch','hreflang_cluster_inconsistent',
+  'hreflang_x_default_foreign_cluster'
+ ];
+ const result=buildOfflineSeoBrief({
+  audit:audit(hreflang.map(type=>issue(type)),[
+   issue('unsafe_symlink'),issue('unsafe_html_file'),issue('oversize_html'),
+   issue('unknown_PRIVATE-SENSITIVE')
+  ])
+ });
+ assert.deepEqual(result.recommendedReviews,[
+  {code:'review_page_metadata',priority:'high',count:hreflang.length},
+  {code:'review_other_technical_findings',priority:'high',count:4}
+ ]);
+ assert.doesNotMatch(JSON.stringify(result),/unknown_PRIVATE|SECRET-USER-DATA/);
+});
+
+test('F161: fabricated routes never become trusted audit coverage or leak in summary',()=>{
+ const unsafe=[
+  '//evil.invalid/','/service//nested/','/private?token=secret',
+  '/private#fragment','/private/%2e%2e/','/../',
+  '/private\\secrets/','/space name/','/without-trailing',
+  '/bad\nnewline/','/bad\rreturn/','/bad\u0000control/'
+ ];
+ for(const path of unsafe){
+  assert.throws(()=>buildOfflineSeoBrief({
+   audit:{...audit(),routes:['/','/service/',path]}
+  }),/inconsistent route coverage/);
+ }
+ const safe=buildOfflineSeoBrief({
+  audit:{...audit(),routes:['/','/en/services/','/404.html']}
+ });
+ assert.equal(safe.technical.pages,3);
+ assert.doesNotMatch(JSON.stringify(safe),/404\.html|en\/services/);
+});
