@@ -76,7 +76,9 @@ function noPortInternalVariant(source,portNumber){
  const result=source.replace(portLine,
   '    # F198: deliberately NO host-published ports')
   .replace(driver,driver+'\n    internal: true');
- if(result.includes('    ports:')||result.includes('127.0.0.1:')||
+ // A HEALTHCHECK may legitimately use 127.0.0.1 INSIDE the container.
+ // Refuse a host port mapping, not the container's own loopback probe.
+ if(result.includes('    ports:')||result.includes(portLine)||
     result.split('internal: true').length!==2)
   throw Error('F198: internal no-port rendering failed');
  return result;
