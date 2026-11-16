@@ -1,0 +1,29 @@
+name: SEO F164 - pinned Comercial Astro and Chromium SHA parity
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f164-comercial-pin-parity.yml'
+      - '.github/workflows/seo-f158-current-comercial-astro-ci.yml'
+      - '.github/workflows/seo-f159-comercial-browser-qa.yml'
+      - 'src/commercial-workflow-sha-parity.mjs'
+      - 'tests/commercial-workflow-sha-parity.test.mjs'
+      - 'scripts/review-comercial-qa-pins.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Verify immutable cross-workflow target
+        run: |
+          set -euo pipefail
+          node --test tests/commercial-workflow-sha-parity.test.mjs
+          node scripts/review-comercial-qa-pins.mjs

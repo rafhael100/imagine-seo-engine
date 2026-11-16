@@ -1,0 +1,37 @@
+name: SEO F131 - GSC page-origin parity offline
+on:
+  pull_request:
+    paths:
+      - 'src/gsc-page-origin-parity.mjs'
+      - 'tests/gsc-page-origin-parity.test.mjs'
+      - 'docs/SEO-F131-GSC-ORIGIN-READONLY-REVIEW.md'
+      - '.github/workflows/seo-f131-gsc-origin-parity-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review-gsc-origin:
+    name: GSC page-origin offline / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout without saved credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Strict parse and complete regression
+        run: |
+          set -euo pipefail
+          node --check src/gsc-page-origin-parity.mjs
+          node --check tests/gsc-page-origin-parity.test.mjs
+          npm test
+      - name: Do not mutate tracked source
+        run: test -z "$(git status --porcelain --untracked-files=no)"
