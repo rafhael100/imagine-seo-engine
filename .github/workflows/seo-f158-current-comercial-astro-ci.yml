@@ -23,17 +23,17 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '22'
-      - name: Checkout exact Imagine Comercial F335 reviewed contact fragment candidate SHA
+      - name: Checkout exact Imagine Comercial F336 (sobre F335) reviewed contact fragment candidate SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rafhael100/imagine-comercial
-          ref: c33008d335901ba8aa1f5455f681bc4df13f45d7
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
           path: .qa/comercial-current
           persist-credentials: false
       - name: Confirm pinned Comercial commit identity
         run: |
           set -euo pipefail
-          test "$(git -C .qa/comercial-current rev-parse HEAD)" = c33008d335901ba8aa1f5455f681bc4df13f45d7
+          test "$(git -C .qa/comercial-current rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
           node --check scripts/qa-current-comercial-pinned-funnel-build.mjs
       - name: Build current static Astro pages and verify own site contracts
         run: |
