@@ -7,6 +7,7 @@
 import {auditStaticSite} from '../src/audit-static.mjs';
 import {compareOfflineTechnicalAudits} from '../src/technical-audit-regression.mjs';
 import {safeCliDiagnostic} from '../src/cli-diagnostics.mjs';
+import {realpath,stat} from 'node:fs/promises';
 
 const args=process.argv.slice(2);
 if(args.length!==4){
@@ -18,7 +19,13 @@ if(args.length!==4){
     !/^[0-9a-f]{40}$/.test(currentRevision)||
     previousRevision===currentRevision)
    throw Error('SEO technical regression: distinct local source revisions required');
- if(beforeDir===afterDir)
+ // Fail closed when two different spellings point to the same compiled
+ // artifact (e.g. './dist' versus 'x/../dist'). A false no-change report is
+ // not useful, even though it would remain non-publishable.
+ const [realBefore,realAfter]=await Promise.all([realpath(beforeDir),realpath(afterDir)]);
+ const [beforeInfo,afterInfo]=await Promise.all([stat(realBefore),stat(realAfter)]);
+ if(realBefore===realAfter||
+    (beforeInfo.dev===afterInfo.dev&&beforeInfo.ino===afterInfo.ino))
    throw Error('SEO audit gate: two distinct local build directories required');
  const settings={
   strictPublicHead:true,
