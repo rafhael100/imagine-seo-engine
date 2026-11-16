@@ -4,8 +4,9 @@
  * truthful Portal checkout readiness disclosures. All input is local public
  * HTML, with no Google access, redirects, session, customer or production.
  */
-import {readFileSync,lstatSync} from 'node:fs';
+import {readFileSync,lstatSync,statSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
 
 const SHA=/^[0-9a-f]{40}$/;
 const locales=Object.freeze([
@@ -14,6 +15,23 @@ const locales=Object.freeze([
  {code:'en',page:'en/index.html',marker:'Public checkout is not available'},
  {code:'es',page:'es/index.html',marker:'No existe checkout público'}
 ]);
+// F195: path and SHA-shaped strings are not proof of checkout identity.
+// Both source builds must be inside independent Git worktrees at the exact
+// 40-hex revisions supplied by the pinned workflow, not arbitrary folders.
+function checkoutHead(directory){
+ let actual;
+ try{
+  actual=execFileSync('git',['-C',directory,'rev-parse','HEAD'],{
+   encoding:'utf8',timeout:10000,maxBuffer:1024,
+   stdio:['ignore','pipe','ignore']
+  }).trim();
+ }catch{
+  throw Error('F195: independent immutable Git checkout proof required');
+ }
+ if(!SHA.test(actual))
+  throw Error('F195: invalid Git checkout revision');
+ return actual;
+}
 const matchStatus=html=>{
  const found=[...html.matchAll(
   /<p\b([^>]*\bdata-choice-portal-readiness\b[^>]*)>([\s\S]*?)<\/p>/gi
@@ -38,7 +56,14 @@ function main(){
     typeof afterPath!=='string'||!afterPath)
   throw Error('F194: two distinct local Astro builds required');
  const before=resolve(beforePath),after=resolve(afterPath);
- if(before===after)throw Error('F194: distinct local build directories required');
+ if(before===after||realpathSync(before)!==before||realpathSync(after)!==after)
+  throw Error('F195: distinct real compiled build directories required');
+ const a=statSync(before),b=statSync(after);
+ if(!a.isDirectory()||!b.isDirectory()||
+    (a.dev===b.dev&&a.ino===b.ino))
+  throw Error('F195: separate compiled Astro builds required');
+ if(checkoutHead(before)!==args[2]||checkoutHead(after)!==args[3])
+  throw Error('F195: checkout revisions differ from pinned source SHAs');
 
  let checked=0;
  for(const locale of locales){
@@ -66,6 +91,8 @@ function main(){
   contractVersion:'seo-f194-pinned-comercial-portal-status-build-v1',
   pinnedBeforeRevisionVerified:true,
   pinnedAfterRevisionVerified:true,
+  independentGitCheckoutHeadsVerified:true,
+  outputHtmlCryptographicallyAttested:false,
   realPublicAstroLanguagesAudited:checked,
   actualHtmlRead:true,
   oldVersionHasNoReadinessDisclosure:true,
