@@ -1,0 +1,36 @@
+name: SEO F187 - real isolated loopback HEAD GSC/HTTP/compiled Astro
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f187-real-loopback-cross-ci.yml'
+      - 'labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs'
+      - 'tests/gsc-real-loopback-cross-evidence.test.mjs'
+      - 'docs/SEO-F187-REAL-LOCAL-301-GSC-E2E.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  loopback-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read-only no saved token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test bounded real HEAD loopback capture, valid and adversarial
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs
+          node --test tests/gsc-real-loopback-cross-evidence.test.mjs
