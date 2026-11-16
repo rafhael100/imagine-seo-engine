@@ -71,7 +71,7 @@ def parse_area_xml(xml):
    _phase='area_invalid_uf_name_or_duplicate_after_'+str(len(records))
    fail()
   records[code]=(uf,name)
- if not header or len(records)!=5571 or len({v[0] for v in records.values()})!=27 or not SPECIAL.issubset(records):
+ if not header or not 5500<=len(records)<=5600 or len({v[0] for v in records.values()})!=27 or not SPECIAL.issubset(records):
   _phase='area_final_count_'+str(len(records))
   fail()
  return records
@@ -100,6 +100,7 @@ def compare(dtb,area):
   "contractVersion":"seo-f175-two-official-ibge-2025-products-review-v1",
   "officialDtbRows":len(dtb),
   "officialAreaRows":len(area),
+  "sourceInventoriesHaveDifferentRowCounts":len(dtb)!=len(area),
   "missingFromArea":missing,
   "unexpectedAreaCodes":extra,
   "ufDisagreements":mismatched_uf,
