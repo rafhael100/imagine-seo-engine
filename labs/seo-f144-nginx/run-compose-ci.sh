@@ -35,6 +35,7 @@ node --input-type=module -e '
    process.exit(1);
 ' "$tempdir/rendered-sanitized-report.json"
 export SEO_F144_CONF="$tempdir/nginx-rendered-from-manifest.conf"
+good_conf_sha="$(sha256sum "$SEO_F144_CONF" | cut -d' ' -f1)"
 docker compose -f "$compose_file" config --quiet
 docker compose -f "$compose_file" up -d --wait --no-build --pull always
 address="$(docker compose -f "$compose_file" port nginx 8080)"
@@ -101,6 +102,11 @@ node --input-type=module -e '
 # was active. Recreate the service and prove the complete F143 check is green.
 docker compose -f "$compose_file" down --volumes --remove-orphans >/dev/null
 export SEO_F144_CONF="$tempdir/nginx-rendered-from-manifest.conf"
+restored_conf_sha="$(sha256sum "$SEO_F144_CONF" | cut -d' ' -f1)"
+if [[ "$good_conf_sha" != "$restored_conf_sha" ]]; then
+  echo "SEO F146: approved staging config changed during rollback drill" >&2
+  exit 1
+fi
 docker compose -f "$compose_file" config --quiet
 docker compose -f "$compose_file" up -d --wait --no-build --pull never
 address="$(docker compose -f "$compose_file" port nginx 8080)"
