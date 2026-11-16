@@ -20,6 +20,8 @@ import {reviewRunningStagingContainer} from
  '../seo-f151-docker-runtime/audit-running-container.mjs';
 import {runServedHtmlAttestedStagingQa} from
  '../seo-f143-full-served-gate/run-served-html-staging-gate.mjs';
+import {reviewNginxLoopbackSeoMetadata} from
+ '../seo-f201-served-metadata/review-served-seo-metadata.mjs';
 
 const F348='5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444';
 const DOMAIN='imaginecomunicacao.com.br';
@@ -194,6 +196,19 @@ async function main(){
      report.publicTlsIdentityVerified!==false)
    throw Error('F197: Nginx real HEAD/GET failed compiled F348 parity');
 
+  // F201: built robots and sitemap alone cannot prove what Nginx serves.
+  // Compare both actual loopback GET responses to the same compiled F348.
+  const seoFiles=await reviewNginxLoopbackSeoMetadata({
+   buildDirectory:built,stagingPort:port,timeoutMs:3000
+  });
+  if(seoFiles.reviewStatus!=='human_live_static_metadata_review_required'||
+     seoFiles.checkedLocalMetadataFiles!==2||
+     seoFiles.actualLoopbackHttpGetRequests!==2||
+     seoFiles.byteIdenticalServedMetadataFiles!==2||
+     seoFiles.publicationAuthorized!==false||
+     seoFiles.publicRobotsIndexingAuthorized!==false)
+   throw Error('F201: actual Nginx served robots/sitemap differ from Astro build');
+
   // Do not print Docker data, private configuration, headers, paths, URLs
   // or source GSC rows. This stdout contains fixed flags and counts only.
   process.stdout.write(JSON.stringify({
@@ -205,6 +220,8 @@ async function main(){
    actualLocalHttpHeadRedirectReceipts:2,
    actualLocalHttpGetBodiesCompared:3,
    byteIdenticalRealF348Html:3,
+   realNginxServedRobotsAndSitemapMatched:2,
+   searchEngineIndexingAuthorized:false,
    localBuildDigestMatched:true,
    privateNginxConfigMountedReadonly:true,
    gscPageSourceAuthenticated:false,
