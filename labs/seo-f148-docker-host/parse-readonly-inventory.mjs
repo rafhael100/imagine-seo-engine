@@ -66,6 +66,14 @@ export function parseLinuxAvailableMemory(raw){
      kib>1024*1024*1024)fail();
   return Math.floor(kib/1024);
 }
+export function assertLocalDockerUnixContext(endpoint){
+  // This must be called by the collector BEFORE any ls/ps commands.
+  if(typeof endpoint!=='string'||
+     !/^unix:\/\/[\w/.-]+\.sock$/.test(endpoint)||
+     endpoint.includes('..')||!endpoint.startsWith('unix:///'))
+    fail();
+  return true;
+}
 export function buildReadOnlyDockerInventory(input){
   const needed=['requested','contextEndpoint','containers','networks',
     'volumes','listeners','published','meminfo','totalCpu'];
@@ -77,10 +85,7 @@ export function buildReadOnlyDockerInventory(input){
        return !d?.enumerable||!Object.hasOwn(d,'value');
      }))fail();
   // Avoid silently inventorying an SSH/TCP Docker daemon elsewhere.
-  if(typeof input.contextEndpoint!=='string'||
-     !/^unix:\/\/[\w/.-]+\.sock$/.test(input.contextEndpoint)||
-     input.contextEndpoint.includes('..')||
-     !input.contextEndpoint.startsWith('unix:///'))fail();
+  assertLocalDockerUnixContext(input.contextEndpoint);
   const value={
     sourceType:'operator_supplied_docker_host_inventory_unverified',
     requested:input.requested,
