@@ -7,7 +7,7 @@ A F158 constrói HTML Astro real e audita a estrutura da versão Comercial F336 
 
 ## Contrato
 
-- Checkout da candidata Comercial na SHA exata `fb95b6684226d78c03f692ea499c72b8e1c3cc53`, sem refs móveis nem token persistente.
+- Checkout da candidata Comercial na SHA exata `8ace0224679ddaee09ff342d27c19aa8bd6ecac6`, sem refs móveis nem token persistente.
 - Dependências do Comercial pelo lockfile (`npm ci`), Chromium instalado usando o Playwright **já declarado** pelo Comercial; nenhuma dependência Playwright adicionada ao SEO.
 - Executa testes nativos, `astro build`, `check:dist`, auditor F158 no HTML real e `test:browser` do Comercial, que exercita os cenários do funil PT/EN/ES, cálculos, cópia voluntária, invalidação de estimativas e navegação.
 - Testes usam servidor de preview `127.0.0.1` em runner descartável. Não conectam GSC/GA4, CRM, pagamentos, VPS nem serviços do cliente por conta desta integração.
