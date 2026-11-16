@@ -25,17 +25,17 @@ export function reviewOfflineGscLegacyMigrationCoverage(input){
     throw Error('SEO F133: expected exact independent GSC and legacy evidence');
   const gsc=reviewOfflineGscPageOrigins(input.gscPageInput);
   const redirects=reviewLegacyOriginAndLocaleRedirects(input.legacyMigrationInput);
-  const {gscPageInput:g,legacyMigrationInput:m}=input;
+  const {gscPageInput:originalGsc,legacyMigrationInput:m}=input;
   // Verify both data sources belong to the SAME declared domain and origin;
   // never combine page evidence from a different tenant/domain.
-  if(g.property!=='sc-domain:'+m.siteDomain||
-     g.canonicalOrigin!==m.canonicalOrigin)
+  if(originalGsc.property!=='sc-domain:'+m.siteDomain||
+     originalGsc.canonicalOrigin!==m.canonicalOrigin)
     throw Error('SEO F133: property/redirect origin mismatch');
 
-  const redacted=g.summary.redactedRows>0;
+  const redacted=gsc.summary.redactedRows>0;
   const summary={
-    suppliedGscPageRows:g.summary.receivedRows,
-    redactedGscPageRows:g.summary.redactedRows,
+    suppliedGscPageRows:gsc.summary.receivedRows,
+    redactedGscPageRows:gsc.summary.redactedRows,
     reviewedLegacyUrlRows:redirects.summary.legacyUrlCount,
     originalRedirectCandidateCount:redirects.summary.reviewed301Candidates,
     originalRedirectUnmappedCount:redirects.summary.unmappedCount,
@@ -58,8 +58,8 @@ export function reviewOfflineGscLegacyMigrationCoverage(input){
     const oldSet=new Set(m.legacyUrls);
     const mapped=new Set(m.candidates.map(c=>c.fromUrl));
     let canonicalCount=0,coveredCount=0,uncoveredCount=0,otherCount=0;
-    for(let i=0;i<g.rows.length;i++){
-      const value=g.rows[i].keys[0];
+    for(let i=0;i<originalGsc.rows.length;i++){
+      const value=originalGsc.rows[i].keys[0];
       // F131 has already checked the URL, the provider domain, strict
       // cardinality and absence of URL parameters/fragment when unredacted.
       const url=new URL(value);
@@ -84,7 +84,7 @@ export function reviewOfflineGscLegacyMigrationCoverage(input){
     if(otherCount)signals.push('review_unscoped_gsc_subdomain_origins');
     if(redirects.reviewStatus==='blocked')
       signals.push('review_invalid_legacy_redirect_manifest');
-    if(g.hasMore)signals.push('review_remaining_gsc_page_pagination');
+    if(originalGsc.hasMore)signals.push('review_remaining_gsc_page_pagination');
     if(!signals.length)status='human_independent_redirect_review_required';
   }
   return {
