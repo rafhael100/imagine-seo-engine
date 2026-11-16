@@ -1,0 +1,68 @@
+name: SEO F167 - compare two immutable Comercial Astro builds
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f167-two-astro-builds-ci.yml'
+      - 'src/technical-audit-regression.mjs'
+      - 'scripts/compare-technical-audits-offline.mjs'
+      - 'scripts/compare-astro-builds-offline.mjs'
+      - 'tests/technical-audit-regression.test.mjs'
+      - 'tests/compare-astro-builds-offline.test.mjs'
+      - 'docs/SEO-F167-REAL-COMERCIAL-BUILD-REGRESSION.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout SEO candidate read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Test F162 and F166 contracts
+        run: |
+          set -euo pipefail
+          node --test tests/technical-audit-regression.test.mjs tests/compare-astro-builds-offline.test.mjs
+      - name: Checkout immutable old Comercial F335
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: c33008d335901ba8aa1f5455f681bc4df13f45d7
+          path: .qa/comercial-before
+          persist-credentials: false
+      - name: Checkout immutable corrected Comercial F336
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-after
+          persist-credentials: false
+      - name: Verify exact immutable candidate revisions
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-before rev-parse HEAD)" = c33008d335901ba8aa1f5455f681bc4df13f45d7
+          test "$(git -C .qa/comercial-after rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Build actual old and corrected Astro sites
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-before ci --no-audit --no-fund
+          npm --prefix .qa/comercial-before run build
+          npm --prefix .qa/comercial-after ci --no-audit --no-fund
+          npm --prefix .qa/comercial-after run build
+      - name: Compare actual independent Astro output with SEO Engine
+        run: |
+          set -euo pipefail
+          node scripts/compare-astro-builds-offline.mjs             .qa/comercial-before/dist .qa/comercial-after/dist             c33008d335901ba8aa1f5455f681bc4df13f45d7             0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Confirm source files were not modified
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-before status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-after status --porcelain --untracked-files=no)"
