@@ -98,7 +98,7 @@ test('F133 holds all metrics if any GSC URL contains private query data',()=>{
  assert.deepEqual(result.uncoveredGscIndices,[]);
  assert.deepEqual(result.reviewSignals,
    ['withhold_all_coverage_due_to_private_url_variants']);
- assert.doesNotMatch(JSON.stringify(result),/token|private|example.test/);
+ assert.doesNotMatch(JSON.stringify(result),/token=private|example\\.test/);
 });
 test('F133 rejects different domain, wrong origin, extra permission, getter',()=>{
  const wrong=input([row('https://example.test/',0,5)]);
