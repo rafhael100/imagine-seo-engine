@@ -4,6 +4,7 @@ on:
     paths:
       - 'labs/seo-f143-full-served-gate/**'
       - 'scripts/run-served-html-staging-qa.mjs'
+      - 'src/private-staging-artifact-custody.mjs'
       - 'tests/served-html-attested-staging-gate.test.mjs'
       - 'docs/SEO-F143-COMBINED-SERVED-HTML-STAGING-QA.md'
       - '.github/workflows/seo-f143-served-html-staging-ci.yml'
