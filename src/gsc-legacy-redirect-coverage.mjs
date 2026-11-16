@@ -92,7 +92,7 @@ export function reviewOfflineGscLegacyMigrationCoverage(input){
     sourceType:'independent_operator_supplied_gsc_and_migration_unverified',
     reviewStatus:status,
     summary,uncoveredGscIndices,reviewSignals:signals,
-    coverageStatus:g.coverageStatus,
+    coverageStatus:gsc.coverageStatus,
     originalRedirectReviewStatus:redirects.reviewStatus,
     propertyAuthenticated:false,
     originalGoogleSearchDataVerified:false,
