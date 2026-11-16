@@ -9,7 +9,7 @@ import {readFile,open,realpath,rm} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {isAbsolute,dirname,sep} from 'node:path';
 import {cpus} from 'node:os';
-import {buildReadOnlyDockerInventory} from
+import {buildReadOnlyDockerInventory,assertLocalDockerUnixContext} from
   './parse-readonly-inventory.mjs';
 const execute=promisify(execFile);
 const MAX=1024*1024;
@@ -45,6 +45,8 @@ async function main(){
  const daemon=await readCommand('docker',[
    'context','inspect','--format','{{.Endpoints.docker.Host}}'
  ]);
+ // Fail closed BEFORE contacting a remote daemon through list/ps queries.
+ assertLocalDockerUnixContext(daemon);
  const hostEnv=process.env.DOCKER_HOST;
  if(hostEnv&&hostEnv!==daemon)
    throw Error('SEO F148: Docker host environment differs from local context');
