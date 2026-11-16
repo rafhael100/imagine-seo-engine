@@ -113,6 +113,7 @@ export async function renderPrivateStagingCompose(input){
     '  seo_f149_staging:',
     '    name: '+JSON.stringify(q.networkName),
     '    driver: bridge',
+    '    internal: true',
     ''
   ].join('\n');
   return {
