@@ -111,21 +111,28 @@ def compare(dtb,area):
     "HOLD_EXTERNAL_EDITORIAL_AND_OPERATIONAL_REVIEW"
  }
 
+_phase='input'
 def main():
+ global _phase
  if len(sys.argv)!=3:fail()
  with open(sys.argv[1],"rb") as f:dtb_csv=f.read(1024*1024+1)
  with open(sys.argv[2],"rb") as f:area_ods=f.read(1000001)
  if len(dtb_csv)>1024*1024 or len(area_ods)>1000000:fail()
  if hashlib.sha256(area_ods).hexdigest()!=AREA_ODS_SHA:fail()
+ _phase='area_zip'
  with zipfile.ZipFile(io.BytesIO(area_ods)) as z:
   if z.testzip() is not None:fail()
+  _phase='area_xml'
   area=parse_area_xml(z.read("content.xml"))
- result=compare(parse_dtb_csv(dtb_csv),area)
+ _phase='dtb_csv'
+ dtb=parse_dtb_csv(dtb_csv)
+ _phase='comparison'
+ result=compare(dtb,area)
  print(json.dumps(result,ensure_ascii=False))
  if not result["geocodesStructurallyEquivalent"]:sys.exit(1)
 
 if __name__=="__main__":
  try:main()
  except Exception:
-  sys.stderr.write("F175: original area/DTB comparison refused\n")
+  sys.stderr.write("F175: original area/DTB comparison refused at "+_phase+"\n")
   sys.exit(2)
