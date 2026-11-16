@@ -1,0 +1,35 @@
+name: SEO F185 - conservative GSC to compiled Astro 301 proposal
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f185-private-astro-301-ci.yml'
+      - '.github/workflows/seo-f167-two-astro-builds-ci.yml'
+      - 'src/gsc-private-compiled-redirect-drafts.mjs'
+      - 'scripts/propose-private-gsc-astro-redirects.mjs'
+      - 'tests/gsc-private-compiled-redirect-drafts.test.mjs'
+      - 'docs/SEO-F185-PRIVATE-GSC-ASTRO-301-DRAFTS.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-301-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Read-only checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify original PAGE, only exact build routes, and private redaction
+        run: |
+          set -euo pipefail
+          node --test tests/gsc-private-compiled-redirect-drafts.test.mjs
+          node --check scripts/propose-private-gsc-astro-redirects.mjs
