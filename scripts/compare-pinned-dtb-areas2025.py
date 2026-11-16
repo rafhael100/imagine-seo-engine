@@ -46,6 +46,7 @@ def extract_row(row):
  return values
 
 def parse_area_xml(xml):
+ global _phase
  if len(xml)>15000000:fail()
  root=ET.fromstring(xml)
  tables=[t for t in root.findall(f".//{{{TABLE}}}table")
@@ -63,11 +64,15 @@ def parse_area_xml(xml):
   if len(v)<5 or not re.fullmatch(r"\d{7}",v[3]):
    # Footer/comment rows may be present after the data.
    if len(records)>=5571:continue
+   _phase='area_non_code_row_after_'+str(len(records))
    fail()
   uf,code,name=v[2],v[3],v[4]
-  if uf not in PREFIX or code[:2]!=PREFIX[uf] or not 2<=len(name)<=120 or code in records:fail()
+  if uf not in PREFIX or code[:2]!=PREFIX[uf] or not 2<=len(name)<=120 or code in records:
+   _phase='area_invalid_uf_name_or_duplicate_after_'+str(len(records))
+   fail()
   records[code]=(uf,name)
  if not header or len(records)!=5571 or len({v[0] for v in records.values()})!=27 or not SPECIAL.issubset(records):
+  _phase='area_final_count_'+str(len(records))
   fail()
  return records
 
