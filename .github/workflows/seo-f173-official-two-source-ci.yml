@@ -1,0 +1,43 @@
+name: SEO F173 - one-shot two-official-endpoint IBGE national crosscheck
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f173-official-two-source-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  separate-ibge-api:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout read-only candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test API/DTB comparison without network
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_crosscheck_official_ibge_sources.py -v
+          python3 -m unittest discover -s tests -p test_normalize_official_dtb_2025.py -v
+      - name: One attempt at official API HTTPS, then SHA-pinned DTB ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${RUNNER_TEMP}/ibge-municipalities-api-private.json"
+          zip="${RUNNER_TEMP}/dtb-2025-original.zip"
+          csv="${RUNNER_TEMP}/dtb-2025-normalized-private.csv"
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 20000000 \
+            --header 'User-Agent: ImagineSEO-IBGE-Verification/1.0' \
+            --header 'Accept: application/json' \
+            --output "$api" 'https://servicodados.ibge.gov.br/api/v1/localidades/municipios'
+          test -s "$api"
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$zip" \
+            'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          printf '%s  %s\n' d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27 "$zip" | sha256sum --check --status
+          python3 scripts/normalize-official-dtb-2025.py "$zip" "$csv"
+          python3 scripts/crosscheck-official-ibge-dtb-api.py "$csv" "$api"
+          rm -f "$zip" "$csv" "$api"
