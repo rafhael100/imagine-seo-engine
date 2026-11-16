@@ -49,7 +49,7 @@ class TestOfficialDtbOfflineNormalizer(unittest.TestCase):
             m.parse_ods_rows(data.replace('DTB_Municípios'.encode(),'Outro'.encode()))
     def test_rejects_embedded_markup_in_city(self):
         with self.assertRaises(ValueError):
-            m.parse_ods_rows(xml([record('11','1100015','<script>')]))
+            m.parse_ods_rows(xml([record('11','1100015','&lt;script&gt;')]))
 
 if __name__=='__main__':
     unittest.main()
