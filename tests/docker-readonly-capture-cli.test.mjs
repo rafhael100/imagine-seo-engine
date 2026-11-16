@@ -66,7 +66,9 @@ test('F148 calls only fixed read-only Docker commands and saves a private snapsh
   assert.equal(p.stderr,'');
   const report=JSON.parse(p.stdout);
   assert.equal(report.sourceAuthenticated,false);
-  assert.equal(report.dockerCommandsPerformed,false);
+  assert.equal(report.dockerCommandsPerformed,true);
+  assert.equal(report.dockerReadOnlyQueriesPerformed,true);
+  assert.equal(report.localUnixDockerEndpointOnly,true);
   assert.equal(report.vpsChangesApplied,false);
   const data=JSON.parse(await readFile(out,'utf8'));
   assert.deepEqual(data.existing.containerNames,[
