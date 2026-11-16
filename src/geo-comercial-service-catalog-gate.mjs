@@ -23,7 +23,8 @@ function validatedCatalog(services){
   if(!d?.enumerable||!entry||typeof entry!=='object'||
      Array.isArray(entry)||!own(entry,'slug')||
      typeof entry.slug!=='string'||entry.slug.length>72||
-     !SLUG.test(entry.slug)||set.has(entry.slug))
+     !SLUG.test(entry.slug)||set.has(entry.slug)||
+     !Object.hasOwn(Object.getOwnPropertyDescriptor(entry,'slug'),'value'))
     throw Error('F180: invalid or duplicated Comercial service');
   set.add(entry.slug);
  }
