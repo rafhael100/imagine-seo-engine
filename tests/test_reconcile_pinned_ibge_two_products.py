@@ -42,9 +42,8 @@ class TestLagoonsClassification(unittest.TestCase):
   d,a=self.reference()
   a.pop('1100015')
   a['1100023']=('RO','Outro Município')
-  report=f177.reconcile(d,a,expected_rows=1)
-  self.assertFalse(report['crossProductRecordsConsistent'])
-  self.assertEqual(report['releaseStatus'],'HOLD_CROSS_PRODUCT_MUNICIPALITY_DISAGREEMENT')
+  with self.assertRaises(ValueError):
+   f177.reconcile(d,a,expected_rows=1)
  def test_same_code_disagreeing_in_name_is_not_approved(self):
   d,a=self.reference()
   a['1100015']=('RO','Nome diferente')
