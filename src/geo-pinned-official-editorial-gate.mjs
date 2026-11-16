@@ -30,7 +30,7 @@ function reviewedRowMap(rows){
  if(!(rows instanceof Map)||Object.getPrototypeOf(rows)!==Map.prototype||
     rows.size===0||rows.size>5571)return false;
  for(const [code,row] of rows){
-  if(typeof code!=='string'||!/^\\d{7}$/.test(code)||
+  if(typeof code!=='string'||!/^\d{7}$/.test(code)||
      row===null||typeof row!=='object'||Array.isArray(row)||
      ![Object.prototype,null].includes(Object.getPrototypeOf(row)))return false;
   const keys=Reflect.ownKeys(row);
@@ -45,7 +45,7 @@ function reviewedRowMap(rows){
   const city=Object.getOwnPropertyDescriptor(row,'city').value;
   if(typeof state!=='string'||!/^[A-Z]{2}$/.test(state)||
      typeof city!=='string'||city.length<2||city.length>120||
-     /[\\x00-\\x1f\\x7f<>]/.test(city))return false;
+     /[\x00-\x1f\x7f<>]/.test(city))return false;
   if(keys.length===3){
    const index=Object.getOwnPropertyDescriptor(row,'index').value;
    if(!Number.isSafeInteger(index)||index<0||index>5570)return false;
