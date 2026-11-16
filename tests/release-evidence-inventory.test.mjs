@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import {assessSeoReleaseEvidence as inspect,SEO_F162_REQUIRED_GATES as gates}
  from '../src/release-evidence-inventory.mjs';
 const candidateSha='a'.repeat(40);
-const entry=(gate)=>({
- gate,candidateSha,evidenceDigest:'b'.repeat(64),
- sourceClass:'independent_review',reviewed:true
+const operator=new Set(['gsc_tenant_authorization','leaseweb_staging_security',
+ 'backup_restore_drill','rollback_drill']);
+const entry=(gate,i=0)=>({
+ gate,candidateSha,evidenceDigest:(i+1).toString(16).padStart(64,'0'),
+ sourceClass:gate==='ibge_source_authentication'?'official_source':
+  operator.has(gate)?'operator_record':'independent_review',reviewed:true
 });
 const envelope=(evidence)=>({candidateSha,evidence});
 test('F162 empty evidence keeps all release gates blocked',()=>{
@@ -21,7 +24,7 @@ test('F162 empty evidence keeps all release gates blocked',()=>{
  assert.ok(Object.isFrozen(result.missingGates));
 });
 test('F162 all self-reported receipts still cannot authorize deployment',()=>{
- const result=inspect(envelope(gates.map(entry)));
+ const result=inspect(envelope(gates.map((gate,i)=>entry(gate,i))));
  assert.equal(result.submissionComplete,true);
  assert.deepEqual(result.missingGates,[]);
  assert.equal(result.releaseStatus,'HOLD_INDEPENDENT_EVIDENCE_AUTHENTICATION');
@@ -35,6 +38,8 @@ test('F162 refuses candidate mismatch, duplicate and false reviewed receipts',()
   [{...entry('ibge_source_authentication'),candidateSha:'c'.repeat(40)}],
   [{...entry('ibge_source_authentication'),reviewed:false}],
   [{...entry('ibge_source_authentication'),sourceClass:'synthetic'}],
+  [{...entry('ibge_source_authentication'),sourceClass:'operator_record'}],
+  [entry('independent_code_review'),entry('municipal_editorial_review')],
   [{...entry('ibge_source_authentication'),evidenceDigest:'invalid'}],
   [{...entry('ibge_source_authentication'),secret:'leak'}],
   [{...entry('unknown_gate')}]
