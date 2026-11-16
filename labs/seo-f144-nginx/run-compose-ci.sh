@@ -96,5 +96,34 @@ node --input-type=module -e '
     r.buildDigestMatchedInLocalProxy!==true ||
     r.productionReleaseAuthorized!==false)process.exit(1);
 ' "$tempdir/bad-sanitized-report.json"
+# F146 — isolate a CONFIG-ONLY rollback drill. The approved generated
+# Nginx configuration must have remained byte-identical while the bad config
+# was active. Recreate the service and prove the complete F143 check is green.
+docker compose -f "$compose_file" down --volumes --remove-orphans >/dev/null
+export SEO_F144_CONF="$tempdir/nginx-rendered-from-manifest.conf"
+docker compose -f "$compose_file" config --quiet
+docker compose -f "$compose_file" up -d --wait --no-build --pull never
+address="$(docker compose -f "$compose_file" port nginx 8080)"
+port="${address##*:}"
+if [[ ! "$port" =~ ^[0-9]{4,5}$ ]]; then
+  echo "SEO F146: rollback did not expose an isolated loopback port" >&2
+  exit 1
+fi
+node scripts/run-served-html-staging-qa.mjs \
+  --gsc "$tempdir/gsc-private.json" \
+  --manifest "$tempdir/legacy-private.json" \
+  --build "$tempdir/dist" \
+  --out "$tempdir/rollback-private-receipts.json" \
+  --port "$port" \
+  --enable-loopback-probe > "$tempdir/rollback-sanitized-report.json"
+node --input-type=module -e '
+ import {readFileSync} from "node:fs";
+ const r=JSON.parse(readFileSync(process.argv[1],"utf8"));
+ if(r.reviewStatus!=="human_independent_served_html_staging_review_required" ||
+    r.summary.identicalServedHtmlRoutes!==2 ||
+    r.summary.validHttp301Receipts!==2 ||
+    r.buildDigestMatchedInLocalProxy!==true ||
+    r.productionReleaseAuthorized!==false)process.exit(1);
+' "$tempdir/rollback-sanitized-report.json"
 # Never print private fixture files or detailed Nginx logs into public CI.
-echo "SEO F144: isolated Nginx valid and stale-HTML negative scenario passed"
+echo "SEO F146: isolated Nginx valid -> invalid HOLD -> original config restored and verified"
