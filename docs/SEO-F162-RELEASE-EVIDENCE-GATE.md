@@ -19,7 +19,7 @@ O motor verifica **somente completude e formato dos recibos declarados**. Não v
 
 ## Entrada privada
 
-JSON com `candidateSha` (40 hex) e `evidence` (lista de registros estritos com `gate`, `candidateSha`, `evidenceDigest` SHA-256, `sourceClass` e `reviewed:true`). Recibos devem apontar para a **mesma SHA candidata**. O programa recusa campos extras e relatos sintéticos como classe de origem.
+JSON com `candidateSha` (40 hex) e `evidence` (lista de registros estritos com `gate`, `candidateSha`, `evidenceDigest` SHA-256, `sourceClass` e `reviewed:true`). Recibos devem apontar para a **mesma SHA candidata**, possuir SHA-256 **distinto por gate** e declarar a classe exigida: `official_source` para origem IBGE, `independent_review` para revisões humanas e aprovação formal, e `operator_record` para operações GSC, Leaseweb, backup e rollback. A classe é declarativa, não prova autenticidade. O programa recusa campos extras e relatos sintéticos como classe de origem.
 
 O CLI `node scripts/review-release-evidence-offline.mjs /CAMINHO-PRIVADO/inventory.json` exige arquivo regular com permissão `0600` em sistemas POSIX, sem symlink e de até 64 KiB. Não publica os hashes/paths; a saída contém apenas contagens, nomes de gates pendentes e o status HOLD. O CLI termina com código não-zero **deliberadamente**, pois não implementa promoção de release.
 
