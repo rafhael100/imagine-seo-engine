@@ -7,6 +7,7 @@ export function inspectWorkflowSource(name,source){
   typeof source!=='string'||!source.trim())throw Error('F161: valid workflow source required');
  const findings=[],lines=source.split(/\r?\n/);
  let usesCount=0;
+ let permissionsDeclared=false;
  for(let i=0;i<lines.length;i++){
   const row=lines[i].trim();
   if(!row||row.startsWith('#'))continue;
@@ -20,10 +21,12 @@ export function inspectWorkflowSource(name,source){
   const m=row.match(/^-?\s*uses\s*:\s*([^\s#]+)/);
   if(m){
    usesCount++;
-   if(!remote.test(m[1])&&!docker.test(m[1])&&!local.test(m[1]))
+   const target=m[1].replace(/^['\"]|['\"]$/g,'');
+   if(!remote.test(target)&&!docker.test(target)&&!local.test(target))
     findings.push({line:i+1,rule:'unpinned_or_ambiguous_action'});
   }
  }
+ if(!permissionsDeclared)findings.push({line:1,rule:'missing_explicit_permissions'});
  return Object.freeze({
   workflow:name,usesCount,findings:Object.freeze(findings.map(x=>Object.freeze(x))),
   hardBlockerCount:findings.filter(x=>x.rule!=='write_permission_review').length
@@ -39,7 +42,7 @@ export function summarizeWorkflowSupplyChain(results){
   unique.add(item.workflow);actions+=item.usesCount;
   for(const finding of item.findings){
    if(!['privileged_event_review','persisted_checkout_credentials','write_permission_review',
-      'unpinned_or_ambiguous_action'].includes(finding.rule))throw Error('F161: unknown security finding');
+      'unpinned_or_ambiguous_action','missing_explicit_permissions'].includes(finding.rule))throw Error('F161: unknown security finding');
    rules[finding.rule]=(rules[finding.rule]??0)+1;
   }
  }
