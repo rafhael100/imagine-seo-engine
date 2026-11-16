@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'labs/seo-f150-compose-real-e2e/**'
+      - 'labs/seo-f149-compose-render/render-private-compose.mjs'
+      - 'scripts/render-private-staging-compose.mjs'
+      - 'tests/private-staging-compose-renderer.test.mjs'
       - 'docs/SEO-F150-GENERATED-COMPOSE-NGINX-REAL-TEST.md'
       - '.github/workflows/seo-f150-generated-compose-e2e-ci.yml'
   workflow_dispatch:
