@@ -45,7 +45,7 @@ test('F187 validates three actual compiled HTML locale files without disclosing 
   assert.equal(r.publicationAuthorized,false);
   assert.equal(r.tenantAuthorized,false);
   assert.ok(Object.isFrozen(r));
-  assert.doesNotMatch(JSON.stringify(r),/seo-f187-|\/tmp\/|http:|https:/);
+  assert.doesNotMatch(JSON.stringify(r),/\/tmp\/|http:|https:|PRIVATE-SECRET/);
  });
 });
 test('F187 rejects missing, duplicated, nonlocal or hidden-without-JS clipboard links',async()=>{
