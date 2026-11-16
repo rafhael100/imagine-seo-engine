@@ -1,0 +1,40 @@
+name: SEO F130 - GA4 funnel measurement readiness offline
+
+on:
+  pull_request:
+    paths:
+      - 'src/ga4-funnel-measurement-readiness.mjs'
+      - 'tests/ga4-funnel-measurement-readiness.test.mjs'
+      - 'docs/SEO-F130-VISITS-LEADS-CUSTOMERS-MEASUREMENT.md'
+      - '.github/workflows/seo-f130-ga4-measurement-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measurement-preflight:
+    name: GA4 leads readiness / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read-only code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test strict event schema and complete offline suite
+        run: |
+          set -euo pipefail
+          node --check src/ga4-funnel-measurement-readiness.mjs
+          node --check tests/ga4-funnel-measurement-readiness.test.mjs
+          npm test
+      - name: Read-only code remains unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
