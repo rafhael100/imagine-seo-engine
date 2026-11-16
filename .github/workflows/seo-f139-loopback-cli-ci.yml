@@ -1,0 +1,40 @@
+name: SEO F139 - private opt-in loopback HTTP operator CLI
+
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f138-loopback/review-private-loopback-cli.mjs'
+      - 'tests/loopback-operator-cli.test.mjs'
+      - 'docs/SEO-F139-PRIVATE-LOOPBACK-CLI.md'
+      - '.github/workflows/seo-f139-loopback-cli-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verified-operator-cli:
+    name: Loopback-only HTTP CLI / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Parse CLI and run full regression with local HTTP server
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f138-loopback/review-private-loopback-cli.mjs
+          node --check tests/loopback-operator-cli.test.mjs
+          npm test
+      - name: Keep source tree unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
