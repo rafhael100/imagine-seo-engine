@@ -5,9 +5,10 @@
  */
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {readFile,open,realpath,rm} from 'node:fs/promises';
+import {readFile,open,rm} from 'node:fs/promises';
 import {constants} from 'node:fs';
-import {isAbsolute,dirname,sep} from 'node:path';
+import {reviewPrivateOperatorFilePath} from
+  '../../src/private-staging-artifact-custody.mjs';
 import {cpus} from 'node:os';
 import {buildReadOnlyDockerInventory,assertLocalDockerUnixContext} from
   './parse-readonly-inventory.mjs';
@@ -34,11 +35,10 @@ async function main(){
  const [loopbackPort,memoryLimitMiB,cpuLimit]=
    [a[7],a[9],a[11]].map(Number);
  const output=a[13];
- if(!isAbsolute(output)||output.length>2048)throw Error('SEO F148: absolute path required');
- const root=await realpath(process.cwd());
- const parent=await realpath(dirname(output));
- if(parent===root||parent.startsWith(root+sep))
-   throw Error('SEO F148: inventory must remain outside public repository');
+ // F200: deny unsafe storage BEFORE the FIRST Docker context command.
+ // A genuine host inventory includes names, network topology and ports.
+ // Reuse F199's operator-private 0700 and no-Git/worktree custody gate.
+ await reviewPrivateOperatorFilePath(output,'exclusive_destination');
 
  // Docker can use remote daemons via DOCKER_HOST or selected context.
  // Only a local Unix socket is acceptable, checked AGAINST the active context.
