@@ -105,3 +105,31 @@ test('F183 rejects unsafe metric accumulation overflow',()=>{
  ]);
  assert.throws(()=>review(a),/F183: unsafe aggregated metrics/);
 });
+
+test('F183 private CLI returns HOLD and emits no original URL or file path',async()=>{
+ const {mkdtempSync,writeFileSync,rmSync}=await import('node:fs');
+ const {join}=await import('node:path');
+ const {tmpdir}=await import('node:os');
+ const {spawnSync}=await import('node:child_process');
+ const temp=mkdtempSync(join(tmpdir(),'seo-f183-'));
+ const old=join(temp,'SECRET-GSC.json'),plan=join(temp,'SECRET-301.json');
+ const exec=()=>spawnSync(process.execPath,[
+  new URL('../scripts/review-gsc-redirect-priority-offline.mjs',import.meta.url).pathname,
+  old,plan
+ ],{encoding:'utf8'});
+ try{
+  const sample=base([row('http://www.example.test/',3,134)]);
+  writeFileSync(old,JSON.stringify(sample.gscPageInput),{mode:0o600});
+  writeFileSync(plan,JSON.stringify(sample.legacyMigrationInput),{mode:0o600});
+  const report=exec();
+  assert.equal(report.status,1,report.stderr);
+  assert.equal(JSON.parse(report.stdout).atRiskImpressions,134);
+  assert.doesNotMatch(report.stdout,/example\.test|SECRET-GSC|SECRET-301/);
+  assert.doesNotMatch(report.stderr,/example\.test|SECRET-GSC|SECRET-301/);
+  const {chmodSync}=await import('node:fs');
+  chmodSync(old,0o644);
+  const refused=exec();
+  assert.equal(refused.status,2);
+  assert.doesNotMatch(refused.stderr,/SECRET-GSC|SECRET-301/);
+ }finally{rmSync(temp,{recursive:true,force:true})}
+});
