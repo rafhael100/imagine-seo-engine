@@ -80,12 +80,15 @@ export function reviewRunningStagingContainer(input){
  const portRefs=object(published)?Object.keys(published):[];
  const single=published?.['8080/tcp'];
  const netPortRefs=object(net.Ports)?Object.keys(net.Ports):[];
+ // Docker image EXPOSE can add internal-only (null) 80/tcp entries.
+ // Count only ACTUALLY PUBLISHED ports; any second non-null binding blocks.
+ const netPublishedRefs=netPortRefs.filter(key=>net.Ports[key]!==null);
  const netPort=net.Ports?.['8080/tcp'];
  deny(portRefs.length!==1||portRefs[0]!=='8080/tcp'||
       !Array.isArray(single)||single.length!==1||
       single[0]?.HostIp!=='127.0.0.1'||
       single[0]?.HostPort!==String(e.loopbackPort)||
-      netPortRefs.length!==1||netPortRefs[0]!=='8080/tcp'||
+      netPublishedRefs.length!==1||netPublishedRefs[0]!=='8080/tcp'||
       !Array.isArray(netPort)||netPort.length!==1||
       netPort[0]?.HostIp!=='127.0.0.1'||
       netPort[0]?.HostPort!==String(e.loopbackPort),
