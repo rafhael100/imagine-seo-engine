@@ -39,6 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           npm --prefix .qa/comercial-current ci --no-audit --no-fund
+          npm --prefix .qa/comercial-current test
           npm --prefix .qa/comercial-current run build
           npm --prefix .qa/comercial-current run check:dist
       - name: Verify actual SEO Engine crawler and all three real funnel languages
