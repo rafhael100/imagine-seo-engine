@@ -78,3 +78,46 @@ test('F179 rejects fabricated source receipts, missing original inputs and leake
  ])assert.throws(()=>pinned(input),/F179/);
  assert.throws(()=>compare({draftBatchInput:{...original,publishAllowed:true},rows}),/SEO F107/);
 });
+
+test('F182 rejects official-looking row getters without executing untrusted data',()=>{
+ let reads=0;
+ const unsafe={state:'CE'};
+ Object.defineProperty(unsafe,'city',{enumerable:true,
+  get(){reads++;throw Error('PRIVATE-EDITORIAL-GETTER');}});
+ assert.throws(()=>compare({
+  draftBatchInput:batch([candidate()]),rows:new Map([['2304400',unsafe]])
+ }),/F179: safe official row map/);
+ assert.equal(reads,0);
+ const inherited=Object.create({state:'CE',city:'Fortaleza'});
+ assert.throws(()=>compare({
+  draftBatchInput:batch([candidate()]),rows:new Map([['2304400',inherited]])
+ }),/F179: safe official row map/);
+ const hidden={state:'CE',city:'Fortaleza'};
+ Object.defineProperty(hidden,'personalEmail',{value:'PRIVATE@example.invalid'});
+ assert.throws(()=>compare({
+  draftBatchInput:batch([candidate()]),rows:new Map([['2304400',hidden]])
+ }),/F179: safe official row map/);
+ const subclass=new (class MaliciousRowMap extends Map {
+  get(){reads++;throw Error('PRIVATE-MAP-GETTER');}
+ })([['2304400',{state:'CE',city:'Fortaleza'}]]);
+ assert.throws(()=>compare({draftBatchInput:batch([candidate()]),rows:subclass}),/F179/);
+ assert.equal(reads,0);
+});
+
+test('F182 validates all row keys and structured official values without changing editorial HOLD',()=>{
+ const valid=Object.freeze({state:'CE',city:'Fortaleza',index:0});
+ const good=compare({draftBatchInput:batch([candidate()]),
+  rows:new Map([['2304400',valid]])});
+ assert.equal(good.matchedOfficialDtbCodes,1);
+ assert.equal(good.awaitingHumanEditorialReview,1);
+ assert.equal(good.publicationAuthorized,false);
+ for(const [code,row] of [
+  ['not-code',{state:'CE',city:'Fortaleza'}],
+  ['2304400',{state:'ce',city:'Fortaleza'}],
+  ['2304400',{state:'CE',city:'<PRIVATE>'}],
+  ['2304400',{state:'CE',city:'Fortaleza',index:-1}],
+  ['2304400',{state:'CE',city:'Fortaleza',index:5571}]
+ ])assert.throws(()=>compare({
+  draftBatchInput:batch([candidate()]),rows:new Map([[code,row]])
+ }),/F179: safe official row map/);
+});
