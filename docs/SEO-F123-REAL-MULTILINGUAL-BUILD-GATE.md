@@ -7,6 +7,8 @@ Continua a [F122 #178](https://github.com/rafhael100/imagine-seo-engine/pull/178
 1. F122: o inventário do operador contém PT-BR, EN-US e ES-ES para cada grupo serviço + município, sem colisões, UF incompatível ou prefixos de idioma errados.
 2. F114/F117: o **build local de HTML compilado** contém as rotas correspondentes, com idioma da tag `html` coerente, canonical, sitemap, robots e proteções contra prévias editoriais privadas.
 
+**Atualização na F124 (PR filha):** este mesmo gate também executa a prova de cluster obrigatório `hreflang` 3×3 em HTML real. Ausências, alvos errados e aliases ambíguos passam a bloquear o resultado. O relatório Ed25519 v1 do Portal continua intocado.
+
 O módulo `src/geo-multilingual-build-gate.mjs` exporta `reviewMunicipalMultilingualBuild({inventoryInput,buildDirectory,siteUrl})`. Valida o inventário antes de percorrer o sistema de arquivos e trabalha com uma cópia de todos os campos validados, para manter consistência caso o chamador altere seu objeto durante o `await`.
 
 ## Resultado

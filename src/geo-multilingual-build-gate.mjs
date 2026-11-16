@@ -7,6 +7,7 @@
  */
 import {reviewMunicipalI18nParity} from './geo-i18n-parity-review.mjs';
 import {reviewMunicipalStaticBuild} from './geo-static-build-review.mjs';
+import {reviewMunicipalHreflangCompleteness} from './geo-hreflang-completeness.mjs';
 
 function exactInput(input){
   if(input===null||typeof input!=='object'||Array.isArray(input)||
@@ -38,8 +39,11 @@ export async function reviewMunicipalMultilingualBuild(input){
     siteUrl:input.siteUrl
   };
   const staticBuild=await reviewMunicipalStaticBuild(pinned);
+  // F124 adds the mandatory 3x3 hreflang check omitted by optional
+  // reciprocity checks whenever all HTML pages omit their declarations.
+  const hreflang=await reviewMunicipalHreflangCompleteness(pinned);
   const blocked=parity.reviewStatus==='corrections_required'||
-    staticBuild.reviewStatus==='blocked';
+    staticBuild.reviewStatus==='blocked'||hreflang.reviewStatus==='blocked';
   return {
     contractVersion:'seo-municipal-multilingual-build-gate-offline-v1',
     reviewStatus:blocked?'blocked':'human_independent_review_required',
@@ -55,10 +59,14 @@ export async function reviewMunicipalMultilingualBuild(input){
       expectedRoutesMissing:staticBuild.summary.expectedRoutesMissing,
       expectedRoutesWrongLocale:staticBuild.summary.expectedRoutesWrongLocale,
       technicalErrors:staticBuild.summary.technicalErrors,
-      privateEditorialPreviewLeaks:staticBuild.summary.privateEditorialPreviewLeaks
+      privateEditorialPreviewLeaks:staticBuild.summary.privateEditorialPreviewLeaks,
+      missingHreflangLinks:hreflang.summary.missingHreflangLinks,
+      wrongHreflangTargets:hreflang.summary.wrongHreflangTargets,
+      ambiguousHreflangAliases:hreflang.summary.ambiguousAliases
     },
     localeParity:parity,
     staticBuild,
+    hreflangCompleteness:hreflang,
     auditedRealLocalFiles:true,
     actualPublishedSiteVerified:false,
     verifiedOfficialIbge:false,

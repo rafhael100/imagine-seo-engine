@@ -241,12 +241,15 @@ async function crawlTree(root,errors,limits,emit){
  * auditStaticSite(root, {siteUrl}) returns only local-artefact observations.
  * No ranking claims, no live HTTP requests and no guarantees of indexation.
  */
-export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'], checkHreflang=false } = {}) {
+export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunicacao.com.br/', strictPublicHead=false, crawlLimits={}, allowedLanguages=['pt-BR'], checkHreflang=false, includeHreflangDeclarations=false } = {}) {
   if (typeof root !== 'string' || !root) throw new Error('audit: local directory required');
   if(typeof strictPublicHead!=='boolean')throw new Error('audit: invalid strictPublicHead flag');
   const acceptedLanguages=validateAllowedLanguages(allowedLanguages);
   if(typeof checkHreflang!=='boolean'||(checkHreflang&&acceptedLanguages.size<2))
     throw Error('audit: invalid checkHreflang option');
+  if(typeof includeHreflangDeclarations!=='boolean'||
+     (includeHreflangDeclarations&&!checkHreflang))
+    throw Error('audit: hreflang evidence requires validated hreflang mode');
   const site = new URL(siteUrl);
   if (site.protocol !== 'https:' || site.pathname !== '/' || site.search || site.hash ||
     site.username || site.password || site.port) {
@@ -702,6 +705,12 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // Omitted unless the hreflang parser was explicitly enabled.
     ...(checkHreflang?{routeLocales:pages.map(page=>({
       path:page.path,language:page.language
+    })).sort((a,b)=>a.path.localeCompare(b.path))}:{}),
+    // F124: explicit opt-in returns raw paths ONLY to local trusted reviewers.
+    // Never forward this raw evidence to Portal, clients, or signed v1 DTO.
+    ...(includeHreflangDeclarations?{routeAlternates:pages.map(page=>({
+      path:page.path,
+      alternates:[...(page.alternates??new Map())].map(([language,path])=>({language,path}))
     })).sort((a,b)=>a.path.localeCompare(b.path))}:{}),
     graph, errors, warnings
   };

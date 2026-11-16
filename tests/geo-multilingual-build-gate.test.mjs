@@ -24,12 +24,16 @@ const manifest=enabled=>({
 });
 function html(path,lang,body,extra=''){
   const url=new URL(path,siteUrl).href;
+  const alternates=Object.values(paths).includes(path)
+    ?Object.entries(paths).map(([locale,target])=>
+      '<link rel="alternate" hreflang="'+locales[locale]+'" href="'+
+      new URL(target,siteUrl).href+'">').join(''):'';
   return '<!doctype html><html lang="'+lang+'"><head>'+
     '<meta charset="utf-8"><title>Imagine multilingual editorial '+lang+' '+path+'</title>'+
     '<meta name="description" content="Service guide '+lang+' '+path+' written for review.">'+
     '<meta name="robots" content="index,follow">'+
     '<meta property="og:url" content="'+url+'">'+
-    '<link rel="canonical" href="'+url+'">'+extra+
+    '<link rel="canonical" href="'+url+'">'+alternates+extra+
     '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>'+
     '</head><body><h1>Imagine marketing service '+lang+'</h1>'+
     body+'</body></html>';
@@ -65,6 +69,7 @@ test('F123 accepts only independent HUMAN review after 3-language real HTML audi
     assert.equal(output.summary.expectedRoutesMissing,0);
     assert.equal(output.summary.expectedRoutesWrongLocale,0);
     assert.equal(output.summary.technicalErrors,0);
+    assert.equal(output.summary.missingHreflangLinks,0);
     assert.equal(output.summary.auditedBuildPages,4);
     assert.equal(output.localeParity.summary.completeLocaleGroups,1);
     assert.equal(output.staticBuild.summary.expectedRoutesFound,3);
@@ -108,6 +113,17 @@ test('F123 blocks private preview in public HTML and does not leak it',async()=>
     assert.equal(result.reviewStatus,'blocked');
     assert.equal(result.summary.privateEditorialPreviewLeaks,1);
     assert.equal(result.publicationAuthorized,false);
+  });
+});
+test('F124 integration blocks missing hreflang in the combined F123 gate',async()=>{
+  await site(async({input,root})=>{
+    const file=join(root,'en','sites','onepage','fortaleza','index.html');
+    const html=await readFile(file,'utf8');
+    await writeFile(file,html.replace(/<link rel="alternate"[^>]*>/g,''));
+    const out=await review(input);
+    assert.equal(out.reviewStatus,'blocked');
+    assert.equal(out.summary.missingHreflangLinks,3);
+    assert.equal(out.publicationAuthorized,false);
   });
 });
 test('F123 rejects changed trust context and extra unvalidated permissions',async()=>{
