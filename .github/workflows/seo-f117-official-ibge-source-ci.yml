@@ -1,0 +1,88 @@
+# RC45 unified candidate: offline checks never substitute for the explicit live IBGE gate.
+name: SEO F120 - IBGE source contract and explicit live gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - '.github/workflows/seo-f117-official-ibge-source-ci.yml'
+      - 'src/ibge-localities-offline-import.mjs'
+      - 'src/ibge-official-https-capture.mjs'
+      - 'src/ibge-source-receipt-review.mjs'
+      - 'src/ibge-national-edition-coverage.mjs'
+      - 'src/ibge-receipt-national-crosscheck.mjs'
+      - 'scripts/review-ibge-receipt-national-offline.mjs'
+      - 'src/ibge-local-expected-digest.mjs'
+      - 'scripts/capture-official-ibge-reference.mjs'
+      - 'scripts/verify-ibge-official-receipt.mjs'
+      - 'tests/ibge-official-https-capture.test.mjs'
+      - 'tests/ibge-source-receipt-review.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contract:
+    name: IBGE source and receipt contracts - Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    steps:
+      - name: Checkout candidate source without retained GitHub credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run full offline source, privacy and integrity regressions
+        run: npm test
+
+  live-official-source:
+    if: github.event_name == 'workflow_dispatch' || (github.event.action == 'labeled' && github.event.label.name == 'verify-official-ibge')
+    needs: offline-contract
+    name: Explicit official IBGE HTTPS check - MUST pass before release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout candidate source without retained GitHub credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Capture public IBGE HTTPS data and exact SHA-256 receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/capture-official-ibge-reference.mjs \
+            "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f120-ibge-receipt.json"
+      - name: Independently verify original HTTPS download receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-ibge-official-receipt.mjs \
+            "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f120-ibge-receipt.json"
+      - name: F154/F153 reject incomplete official national dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/review-ibge-receipt-national-offline.mjs \
+            "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f120-ibge-receipt.json"
+      - name: Delete ephemeral source files even after a failure
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f120-ibge-receipt.json"

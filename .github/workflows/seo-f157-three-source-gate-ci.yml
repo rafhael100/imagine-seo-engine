@@ -1,0 +1,42 @@
+name: SEO F157 - official IBGE receipt, national coverage and independent DTB
+on:
+  pull_request:
+    paths:
+      - 'src/ibge-three-source-release-review.mjs'
+      - 'scripts/review-ibge-three-source-offline.mjs'
+      - 'tests/ibge-three-source-release-review.test.mjs'
+      - 'tests/ibge-three-source-cli.test.mjs'
+      - '.github/workflows/seo-f117-official-ibge-source-ci.yml'
+      - '.github/workflows/seo-f157-three-source-gate-ci.yml'
+      - 'docs/SEO-F157-THREE-SOURCE-IBGE-PREFLIGHT.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  crosscheck:
+    name: Triple-source evidence and exact local SHA / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout source without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check syntax and complete offline regression
+        run: |
+          set -euo pipefail
+          node --check src/ibge-three-source-release-review.mjs
+          node --check scripts/review-ibge-three-source-offline.mjs
+          node --check tests/ibge-three-source-release-review.test.mjs
+          node --check tests/ibge-three-source-cli.test.mjs
+          npm test
+      - name: Ensure unchanged Git checkout
+        run: test -z "$(git status --porcelain --untracked-files=no)"

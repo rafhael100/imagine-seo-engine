@@ -1,0 +1,105 @@
+name: SEO F192 - Comercial F344 to F346 immutable Astro and Chromium migration
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f192-comercial-f344-f346-ci.yml'
+      - 'docs/SEO-F192-COMERCIAL-F344-F346-REGRESSION.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression-and-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO read-only, no saved Git credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout reviewed Comercial F344 baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 873815411236ea6f0b333c5826661f177a5ad0c0
+          path: .qa/comercial-f344
+          persist-credentials: false
+      - name: Checkout independently reviewed Comercial F346 candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+          path: .qa/comercial-f346
+          persist-credentials: false
+      - name: Prove BOTH exact immutable checkout SHA revisions
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-f344 rev-parse HEAD)" = 873815411236ea6f0b333c5826661f177a5ad0c0
+          test "$(git -C .qa/comercial-f346 rev-parse HEAD)" = 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+      - name: Install lockfiles and compile BOTH real Astro sites
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f344 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f346 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f344 run build
+          npm --prefix .qa/comercial-f346 test
+          npm --prefix .qa/comercial-f346 run build
+          npm --prefix .qa/comercial-f346 run check:dist
+      - name: Detect SEO, canonical, hreflang and route-inventory regression
+        run: |
+          set -euo pipefail
+          node scripts/compare-astro-builds-offline.mjs \
+            .qa/comercial-f344/dist .qa/comercial-f346/dist \
+            873815411236ea6f0b333c5826661f177a5ad0c0 \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+      - name: Refuse unreviewed missing routes in F344 to F346 migration
+        run: |
+          set -euo pipefail
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/comercial-f344/dist .qa/comercial-f346/dist \
+            873815411236ea6f0b333c5826661f177a5ad0c0 \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+      - name: Verify real F346 PT EN ES static commercial quote journeys
+        run: |
+          set -euo pipefail
+          node --test tests/pinned-commercial-f346-static-journey.test.mjs
+          node --input-type=module <<'JS'
+          import {reviewPinnedCommercialF346Build,PINNED_COMERCIAL_F346_SHA}
+            from './src/pinned-commercial-f346-static-journey.mjs';
+          const r=await reviewPinnedCommercialF346Build(
+            '.qa/comercial-f346/dist',PINNED_COMERCIAL_F346_SHA
+          );
+          if(r.auditedCompiledLocales!==3||
+             r.anonymousFunnelAndQuoteAnchorPresent!==true||
+             r.copyProgressivelyEnhanced!==true||
+             r.publicationAuthorized!==false||
+             r.actualRedirectsInstalled!==0)
+            throw Error('SEO F192: F346 compiled multilingual funnel regression');
+          console.log(JSON.stringify({
+            auditedLocales:r.auditedCompiledLocales,
+            realF346AstroReviewed:true,
+            publicationAuthorized:false
+          }));
+          JS
+      - name: Install native Chromium for F346 Playwright journey tests
+        working-directory: .qa/comercial-f346
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+      - name: Execute native F346 browser tests including accessibility
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f346 run test:browser
+      - name: Ensure no source file was mutated
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f344 status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f346 status --porcelain --untracked-files=no)"

@@ -1,0 +1,41 @@
+name: SEO F154 - bind IBGE capture receipt to national municipal coverage
+on:
+  pull_request:
+    paths:
+      - 'src/ibge-receipt-national-crosscheck.mjs'
+      - 'scripts/review-ibge-receipt-national-offline.mjs'
+      - 'tests/ibge-receipt-national-crosscheck.test.mjs'
+      - 'tests/ibge-receipt-national-cli.test.mjs'
+      - 'docs/SEO-F154-IBGE-RECEIPT-NATIONAL-CROSSCHECK.md'
+      - '.github/workflows/seo-f154-receipt-national-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  national-ibge-evidence:
+    name: Receipt SHA and IBGE 2025 coverage / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout no stored token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify full offline national locality and source receipt contracts
+        run: |
+          set -euo pipefail
+          node --check src/ibge-receipt-national-crosscheck.mjs
+          node --check scripts/review-ibge-receipt-national-offline.mjs
+          node --check tests/ibge-receipt-national-crosscheck.test.mjs
+          node --check tests/ibge-receipt-national-cli.test.mjs
+          npm test
+      - name: Require clean tracked checkout
+        run: test -z "$(git status --porcelain --untracked-files=no)"
