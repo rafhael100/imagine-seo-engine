@@ -20,6 +20,21 @@ cleanup() {
 trap cleanup EXIT
 
 node labs/seo-f144-nginx/create-synthetic-fixture.mjs "$tempdir"
+# Exercise the F145 operator renderer against REAL compiled static assets,
+# instead of using only the hand-authored good Nginx fixture.
+node scripts/render-private-nginx-staging-config.mjs \
+  --manifest "$tempdir/legacy-private.json" \
+  --build "$tempdir/dist" \
+  --out "$tempdir/nginx-rendered-from-manifest.conf" \
+  > "$tempdir/rendered-sanitized-report.json"
+node --input-type=module -e '
+ import {readFileSync} from "node:fs";
+ const r=JSON.parse(readFileSync(process.argv[1],"utf8"));
+ if(r.reviewStatus!=="human_staging_proxy_review_required" ||
+    r.redirectsRendered!==2 || r.productionReleaseAuthorized!==false)
+   process.exit(1);
+' "$tempdir/rendered-sanitized-report.json"
+export SEO_F144_CONF="$tempdir/nginx-rendered-from-manifest.conf"
 docker compose -f "$compose_file" config --quiet
 docker compose -f "$compose_file" up -d --wait --no-build --pull always
 address="$(docker compose -f "$compose_file" port nginx 8080)"
