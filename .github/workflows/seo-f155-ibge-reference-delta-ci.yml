@@ -1,0 +1,39 @@
+name: SEO F155 - municipal reference edition delta no automatic deletion
+on:
+  pull_request:
+    paths:
+      - 'src/ibge-national-reference-delta.mjs'
+      - 'scripts/review-ibge-reference-delta-offline.mjs'
+      - 'tests/ibge-national-reference-delta.test.mjs'
+      - 'docs/SEO-F155-IBGE-EDITION-DELTA-REVIEW.md'
+      - '.github/workflows/seo-f155-ibge-reference-delta-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  edition-diff:
+    name: Offline IBGE geocode and slug drift / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout SHA without retained token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full regression
+        run: |
+          set -euo pipefail
+          node --check src/ibge-national-reference-delta.mjs
+          node --check scripts/review-ibge-reference-delta-offline.mjs
+          node --check tests/ibge-national-reference-delta.test.mjs
+          npm test
+      - name: Require unchanged tracked checkout
+        run: test -z "$(git status --porcelain --untracked-files=no)"
