@@ -37,11 +37,18 @@ export function compareOfflineTechnicalAudits({previous,current,previousRevision
  const beforeRoutes=new Set(previous.routes),afterRoutes=new Set(current.routes);
  const comparable=beforeRoutes.size===afterRoutes.size&&
    [...beforeRoutes].every(path=>afterRoutes.has(path));
+ // A changed inventory requires an editorial migration review, but operators
+ // can still see the exact aggregate scope without exposing private URLs.
+ const routeInventoryChanges=Object.freeze({
+  added:[...afterRoutes].filter(path=>!beforeRoutes.has(path)).length,
+  removed:[...beforeRoutes].filter(path=>!afterRoutes.has(path)).length
+ });
  const result={
   contractVersion:'seo-technical-regression-offline-v1',
   sourceType:'two_operator_supplied_static_audits_unverified',
   previousRevision,currentRevision,
   routeCoverageComparable:comparable,
+  routeInventoryChanges,
   status:'HOLD_ROUTE_COVERAGE_CHANGED',
   previous:summaryOf(before),current:summaryOf(after),
   reviewIncreases:[],
