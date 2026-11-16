@@ -76,6 +76,7 @@ test('F166: rejects identical revisions, malformed input, missing or repeated di
    [previous,current,beforeRevision,beforeRevision],
    [previous,current,'main',afterRevision],
    [previous,previous,beforeRevision,afterRevision],
+   [previous,join(folder,'PRIVATE-FILENAME','..','PRIVATE-FILENAME'),beforeRevision,afterRevision],
    [previous,join(folder,'SECRET-NOT-FOUND'),beforeRevision,afterRevision]
   ];
   for(const args of cases){
