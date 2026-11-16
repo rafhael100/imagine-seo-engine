@@ -1,0 +1,56 @@
+name: SEO F172 - pinned official DTB municipality roster and F156 CSV check
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f172-official-dtb-roster-ci.yml'
+      - 'scripts/normalize-official-dtb-2025.py'
+      - 'tests/test_normalize_official_dtb_2025.py'
+      - 'docs/SEO-F172-OFFICIAL-DTB-2025-ROSTER.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-roster:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout SEO code read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22 for independent F156 parser
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Test offline ODS extraction and malformed rows
+        run: python3 -m unittest discover -s tests -p test_normalize_official_dtb_2025.py -v
+      - name: Fetch original ZIP with previous F170 SHA and verify workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="${RUNNER_TEMP}/dtb-2025.zip"
+          csv="${RUNNER_TEMP}/dtb-2025-normalized-private.csv"
+          url='https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$zip" "$url"
+          printf '%s  %s\n' d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27 "$zip" | sha256sum --check --status
+          python3 scripts/normalize-official-dtb-2025.py "$zip" "$csv"
+          test "$(stat -c %a "$csv")" = 600
+          node --input-type=module - "$csv" <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {parseNormalizedDtb2025Csv} from './src/ibge-independent-dtb-crosscheck.mjs';
+          const csv=readFileSync(process.argv[2],'utf8');
+          const dtb=parseNormalizedDtb2025Csv(csv);
+          if(dtb.rows.size!==5571||dtb.specials!==2)
+            throw Error('F172: independent F156 normalized roster count mismatch');
+          console.log(JSON.stringify({
+            contractVersion:'seo-f172-independent-existing-f156-parser-confirmation',
+            f156NormalizedRows:dtb.rows.size,
+            f156SpecialUnits:dtb.specials,
+            bytesPinnedToF170Receipt:true,
+            independentlyAuthenticatedLocalitiesReference:false,
+            productionReleaseAuthorized:false
+          }));
+          JS
+          rm -f "$csv" "$zip"
