@@ -19,6 +19,7 @@ import {reviewRunningStagingContainer} from
 import {reviewInternalStagingDockerNetwork} from
  '../../src/private-bridge-network-review.mjs';
 
+let diagnosticPhase='preflight';
 const F348='5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444';
 const DOMAIN='imaginecomunicacao.com.br';
 const ORIGIN='https://'+DOMAIN+'/';
@@ -95,6 +96,7 @@ async function main(){
     process.env.SEO_F198_INTERNAL_LAB!=='YES_NO_PUBLISHED_PORTS'||
     process.argv.length!==3)
   throw Error('F198: no-published-ports lab opt-in required');
+ diagnosticPhase='checkout';
  const root=resolve(process.argv[2]);
  const build=await realpath(root);
  if(build!==root||build!==resolve(dirname(build),'dist'))
@@ -104,9 +106,11 @@ async function main(){
   stdio:['ignore','pipe','ignore']
  }).trim();
  if(head!==F348)throw Error('F198: wrong Comercial F348 checkout');
+ diagnosticPhase='private-folder';
  const temp=await mkdtemp(join(tmpdir(),'seo-f198-noport-'));
  let yaml=null;
  try{
+  diagnosticPhase='render-nginx';
   const migrationInput=plan();
   const rendered=await renderIsolatedNginxStagingConfig({
    migrationInput,buildDirectory:build
@@ -119,6 +123,7 @@ async function main(){
   await writeFile(conf,rendered.privateConfig,{mode:0o644,flag:'wx'});
   const loopbackPort=await port();
   const inventory=snapshot(loopbackPort);
+  diagnosticPhase='render-compose';
   const original=await renderPrivateStagingCompose({
    privateInventory:inventory,migrationInput,
    buildDirectory:build,nginxConfigPath:conf
@@ -126,13 +131,17 @@ async function main(){
   if(original.review.deploymentAuthorized||
      !original.review.localConfigMatchesAuditedBuild)
    throw Error('F198: invalid staged source');
+  diagnosticPhase='no-port-transform';
   const internal=noPortInternalVariant(original.privateCompose,loopbackPort);
   yaml=join(temp,'internal-only-compose.yml');
   await writeFile(yaml,internal,{mode:0o600,flag:'wx'});
+  diagnosticPhase='docker-config';
   exec('docker',['compose','-f',yaml,'config','--quiet']);
+  diagnosticPhase='docker-up';
   exec('docker',['compose','-f',yaml,'up','-d','--wait',
    '--pull','always','--no-build']);
 
+  diagnosticPhase='inspect-runtime';
   const id=execFileSync('docker',['compose','-f',yaml,'ps','-q','nginx'],{
    encoding:'utf8',timeout:15000,maxBuffer:2048,
    stdio:['ignore','pipe','ignore']
@@ -178,6 +187,7 @@ async function main(){
 
   // Inside-container GET requires NO network publishing or host access.
   // Nginx intentionally accepts plain loopback Host when proto is absent.
+  diagnosticPhase='internal-http';
   for(const [route,file] of [
    ['/','index.html'],['/en/','en/index.html'],['/es/','es/index.html']
   ]){
@@ -219,6 +229,6 @@ async function main(){
  }
 }
 main().catch(()=>{
- process.stderr.write('SEO F198: internal no-port Docker lab failed safely\n');
+ process.stderr.write('SEO F198: internal no-port Docker lab failed safely at '+diagnosticPhase+'\n');
  process.exitCode=1;
 });
