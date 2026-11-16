@@ -5,7 +5,7 @@ import {preparePortalSeoHandoff} from '../src/portal-handoff.mjs';
 const audit=()=>({
   summary:{pages:3,errors:1,warnings:0},
   errors:[{type:'wrong_canonical',file:'private/customer.html',message:'SECRET-PERSONAL'}],
-  warnings:[],routes:['/','/private/customer.html']
+  warnings:[],routes:['/','/service/','/private/customer.html']
 });
 const scope=(startDate,endDate)=>({tenantRef:'imagine-demo',
   propertyFingerprint:'a'.repeat(64),startDate,endDate,rowLimit:92});

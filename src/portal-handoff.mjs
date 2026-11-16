@@ -37,7 +37,7 @@ export function preparePortalSeoHandoff({tenantRef,propertyFingerprint,sourceRev
     brief.recommendedReviews.length>32)
     throw Error('SEO Portal handoff: compatible brief required');
   const t=brief.technical;
-  if(!STATUSES.has(t.status)||!count(t.pages,20000)||
+  if(!STATUSES.has(t.status)||!count(t.pages,20000)||t.pages===0||
     !count(t.errors)||!count(t.warnings)||
     (t.errors>0&&t.status!=='review_required')||
     (t.errors===0&&t.warnings>0&&t.status!=='attention')||
