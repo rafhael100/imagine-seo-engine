@@ -1,0 +1,114 @@
+name: SEO F167 - compare two immutable Comercial Astro builds
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f167-two-astro-builds-ci.yml'
+      - 'src/technical-audit-regression.mjs'
+      - 'scripts/compare-technical-audits-offline.mjs'
+      - 'scripts/compare-astro-builds-offline.mjs'
+      - 'tests/technical-audit-regression.test.mjs'
+      - 'tests/compare-astro-builds-offline.test.mjs'
+      - 'docs/SEO-F167-REAL-COMERCIAL-BUILD-REGRESSION.md'
+      - 'src/compiled-build-route-migration-review.mjs'
+      - 'scripts/review-two-astro-route-migration.mjs'
+      - 'src/gsc-private-compiled-redirect-drafts.mjs'
+      - 'scripts/propose-private-gsc-astro-redirects.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout SEO candidate read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Test F162 and F166 contracts
+        run: |
+          set -euo pipefail
+          node --test tests/technical-audit-regression.test.mjs tests/compare-astro-builds-offline.test.mjs
+      - name: Checkout immutable old Comercial F335
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: c33008d335901ba8aa1f5455f681bc4df13f45d7
+          path: .qa/comercial-before
+          persist-credentials: false
+      - name: Checkout immutable corrected Comercial F336
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-after
+          persist-credentials: false
+      - name: Verify exact immutable candidate revisions
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-before rev-parse HEAD)" = c33008d335901ba8aa1f5455f681bc4df13f45d7
+          test "$(git -C .qa/comercial-after rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Build actual old and corrected Astro sites
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-before ci --no-audit --no-fund
+          npm --prefix .qa/comercial-before run build
+          npm --prefix .qa/comercial-after ci --no-audit --no-fund
+          npm --prefix .qa/comercial-after run build
+      - name: Compare actual independent Astro output with SEO Engine
+        run: |
+          set -euo pipefail
+          node scripts/compare-astro-builds-offline.mjs             .qa/comercial-before/dist .qa/comercial-after/dist             c33008d335901ba8aa1f5455f681bc4df13f45d7             0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Reject silently lost routes between pinned real Comercial builds
+        run: |
+          set -euo pipefail
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/comercial-before/dist .qa/comercial-after/dist \
+            c33008d335901ba8aa1f5455f681bc4df13f45d7 \
+            0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: F185 propose private reviewed 301 for the real built Comercial homepage
+        shell: bash
+        run: |
+          set -euo pipefail
+          private="$(mktemp -d)"
+          chmod 700 "$private"
+          trap 'rm -rf "$private"' EXIT
+          cat > "$private/gsc.json" <<'JSON'
+          {"sourceType":"operator_supplied_gsc_pages_unverified","property":"sc-domain:imaginecomunicacao.com.br","canonicalOrigin":"https://imaginecomunicacao.com.br/","startDate":"2026-10-17","endDate":"2026-11-13","dataState":"final","dimensions":["page"],"rows":[{"keys":["http://www.imaginecomunicacao.com.br/"],"clicks":3,"impressions":134,"ctr":0.022388059701492536,"position":18.4}],"hasMore":false}
+          JSON
+          chmod 600 "$private/gsc.json"
+          code=0
+          node scripts/propose-private-gsc-astro-redirects.mjs \
+            "$private/gsc.json" .qa/comercial-after/dist "$private/candidates.json" \
+            > "$private/sanitized-report.json" || code=$?
+          test "$code" -eq 1
+          test "$(stat -c %a "$private/candidates.json")" = 600
+          node --input-type=module - "$private/candidates.json" "$private/sanitized-report.json" <<'JS'
+          import {readFileSync} from 'node:fs';
+          const plan=JSON.parse(readFileSync(process.argv[2],'utf8'));
+          const report=JSON.parse(readFileSync(process.argv[3],'utf8'));
+          if(plan.candidates.length!==1||plan.candidates[0].status!==301||
+            plan.candidates[0].toPath!=='/'||
+            report.proposedHostSchemeOnly301s!==1||
+            report.actualStaticHtmlAudited!==true||
+            report.publicationAuthorized!==false||
+            report.liveHttpRedirectsVerified!==false)
+            throw Error('F185: real compiled site/private GSC proposal contract regression');
+          console.log(JSON.stringify({
+            contractVersion:report.contractVersion,
+            compiledAstroReviewed:true,
+            proposedReviewOnly301s:plan.candidates.length,
+            deploymentAuthorized:false
+          }));
+          JS
+      - name: Confirm source files were not modified
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-before status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-after status --porcelain --untracked-files=no)"

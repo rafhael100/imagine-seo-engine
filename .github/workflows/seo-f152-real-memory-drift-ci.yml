@@ -1,0 +1,49 @@
+name: SEO F152 - adversarial real Docker resource-drift denial
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f152-adversarial-runtime/**'
+      - 'labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs'
+      - 'tests/docker-ci-memory-drift-fixture.test.mjs'
+      - 'docs/SEO-F152-ADVERSARIAL-RUNTIME-DRIFT-DRILL.md'
+      - '.github/workflows/seo-f152-real-memory-drift-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-runtime-drift:
+    name: Approved and drifted real Nginx runtime / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F150_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout without retained tokens
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Full regression with staging network disabled
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f152-adversarial-runtime/memory-drift-ci-only.mjs
+          node --check labs/seo-f152-adversarial-runtime/drill-real-docker-memory-drift.mjs
+          node --check labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+          node --check tests/docker-ci-memory-drift-fixture.test.mjs
+          npm test
+          docker compose version
+      - name: Real Docker accepts valid config but rejects 768 MiB drift against 512 MiB contract
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: node labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+      - name: Require immutable Git checkout
+        run: test -z "$(git status --porcelain --untracked-files=no)"

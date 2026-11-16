@@ -1,0 +1,28 @@
+name: SEO F161 - pinned Actions and privileged events audit
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f161-supply-chain-ci.yml'
+      - 'src/workflow-supply-chain-review.mjs'
+      - 'scripts/audit-github-actions-supply-chain.mjs'
+      - 'tests/workflow-supply-chain-review.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review-actions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout read-only candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Test strict workflow source checks
+        run: node --test tests/workflow-supply-chain-review.test.mjs
+      - name: Audit actual GitHub Actions inventory before release review
+        run: node scripts/audit-github-actions-supply-chain.mjs

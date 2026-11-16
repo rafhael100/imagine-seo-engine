@@ -1,0 +1,83 @@
+name: SEO F190 - compare real Comercial F336 to F344 and browser QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f190-comercial-f344-upgrade-ci.yml'
+      - 'docs/SEO-F190-COMERCIAL-F336-F344-UPGRADE-REVIEW.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  comercial-upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CI: 'true'
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout immutable Comercial F336 baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-f336
+          persist-credentials: false
+      - name: Checkout immutable Comercial F344 current candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 873815411236ea6f0b333c5826661f177a5ad0c0
+          path: .qa/comercial-f344
+          persist-credentials: false
+      - name: Assert immutable repository revision identity
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-f336 rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          test "$(git -C .qa/comercial-f344 rev-parse HEAD)" = 873815411236ea6f0b333c5826661f177a5ad0c0
+      - name: Install both locked dependency trees and build real sites
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f336 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f344 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f336 run build
+          npm --prefix .qa/comercial-f344 test
+          npm --prefix .qa/comercial-f344 run build
+          npm --prefix .qa/comercial-f344 run check:dist
+      - name: Compare actual F336 and F344 static SEO route and issue families
+        run: |
+          set -euo pipefail
+          node scripts/compare-astro-builds-offline.mjs \
+            .qa/comercial-f336/dist .qa/comercial-f344/dist \
+            0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38 \
+            873815411236ea6f0b333c5826661f177a5ad0c0
+      - name: Reject silent disappeared HTML routes between the two versions
+        run: |
+          set -euo pipefail
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/comercial-f336/dist .qa/comercial-f344/dist \
+            0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38 \
+            873815411236ea6f0b333c5826661f177a5ad0c0
+      - name: Install Chromium for actual reviewed F344 browser suite
+        working-directory: .qa/comercial-f344
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+      - name: Run native Chromium anonymous funnel PT EN ES on F344
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f344 run test:browser
+      - name: Check no tracked changes to SEO or Comercial source
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f336 status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f344 status --porcelain --untracked-files=no)"

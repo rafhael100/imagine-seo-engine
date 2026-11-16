@@ -1,0 +1,34 @@
+name: SEO F160 - RC60 cumulative release risk inventory (offline)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f160-release-diff-review.yml'
+      - 'src/release-diff-risk.mjs'
+      - 'scripts/review-cumulative-release-diff.mjs'
+      - 'tests/release-diff-risk.test.mjs'
+      - 'src/complete-git-diff-review.mjs'
+      - 'tests/complete-git-diff-review.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diff-risk-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout cumulative candidate and exact history read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Verify complete Git statuses, deletions, rename pairs, release HOLD
+        run: node --test tests/release-diff-risk.test.mjs tests/complete-git-diff-review.test.mjs
+      - name: Review full cumulative diff, including D and both rename endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/review-cumulative-release-diff.mjs abd9dbff0cf36a9f754e76e23b6825d6cc1c35fd

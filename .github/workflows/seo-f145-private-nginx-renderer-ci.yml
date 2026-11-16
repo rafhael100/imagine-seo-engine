@@ -1,0 +1,51 @@
+name: SEO F145 - render private legacy 301 map into real Nginx staging
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f145-nginx-render/**'
+      - 'scripts/render-private-nginx-staging-config.mjs'
+      - 'tests/private-nginx-staging-config.test.mjs'
+      - 'labs/seo-f144-nginx/run-compose-ci.sh'
+      - 'docs/SEO-F145-PRIVATE-NGINX-STAGING-RENDERER.md'
+      - '.github/workflows/seo-f145-private-nginx-renderer-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  nginx-generator-e2e:
+    name: Render F127 and run isolated Nginx / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F144_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout without retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Validate JS, shell syntax and Docker installation
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f145-nginx-render/render-staging-config.mjs
+          node --check scripts/render-private-nginx-staging-config.mjs
+          node --check tests/private-nginx-staging-config.test.mjs
+          bash -n labs/seo-f144-nginx/run-compose-ci.sh
+          docker compose version
+      - name: Full offline regression (network opt-in intentionally unset)
+        run: npm test
+      - name: Render exact private manifest and run real Nginx good/bad cases
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: bash labs/seo-f144-nginx/run-compose-ci.sh
+      - name: Verify source unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
