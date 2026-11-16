@@ -68,6 +68,20 @@ const SIGNAL_ACTIONS=Object.freeze({
 });
 const PRIORITY={critical:0,high:1,medium:2,low:3};
 const validCount=(v,max=1000000)=>Number.isSafeInteger(v)&&v>=0&&v<=max;
+/**
+ * F161 — validate local static route evidence without emitting any path.
+ * An attacker-supplied query, redirect authority or path traversal must not
+ * masquerade as a distinct compiled HTML page in the executive brief.
+ */
+const validAuditedRoute=path=>{
+  if(typeof path!=='string'||path.length>2048||!path.startsWith('/')||
+     path.startsWith('//')||/[?#%\\\s\x00-\x1f\x7f]/.test(path)||
+     path.includes('//'))return false;
+  if(path==='/')return true;
+  if(!path.endsWith('/')&&!path.endsWith('.html'))return false;
+  return !path.split('/').some(segment=>segment==='.'||segment==='..');
+};
+
 const delta=(before,after)=>before>0?Math.round(((after-before)/before)*1000)/1000:null;
 function technicalReport(audit){
   if(!audit||typeof audit!=='object'||Array.isArray(audit)||
@@ -85,7 +99,7 @@ function technicalReport(audit){
   // aggregate counts in the brief; never forward private paths to Portal.
   if(audit.routes!==undefined&&
     (!Array.isArray(audit.routes)||audit.routes.length!==pages||
-     audit.routes.some(path=>typeof path!=='string'||!path.startsWith('/'))||
+     audit.routes.some(path=>!validAuditedRoute(path))||
      new Set(audit.routes).size!==pages))
     throw Error('SEO brief: inconsistent route coverage');
   const tally=new Map();
