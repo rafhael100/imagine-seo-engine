@@ -128,7 +128,7 @@ fi
   assert.equal(result.status,1);
   assert.equal(result.stdout,'');
   assert.equal(result.stderr,
-    'SEO F148: failed to capture safe local Docker inventory\\n');
+    'SEO F148: failed to capture safe local Docker inventory'+String.fromCharCode(10));
   await assert.rejects(readFile(marker,'utf8'));
   await assert.rejects(readFile(out,'utf8'));
  });
