@@ -88,3 +88,26 @@ test('F166: rejects identical revisions, malformed input, missing or repeated di
   assert.equal(invoke([]).status,2);
  }finally{rmSync(folder,{recursive:true,force:true})}
 });
+
+test('F167: two equally broken Astro builds never pass the strict current-build cleanliness gate',()=>{
+ const folder=mkdtempSync(join(tmpdir(),'seo-f167-'));
+ const previous=join(folder,'before'),current=join(folder,'after');
+ const invoke=args=>spawnSync(process.execPath,[cli,...args],{encoding:'utf8'});
+ try{
+  build(previous,{noindex:true});
+  build(current,{noindex:true});
+  const argv=[previous,current,beforeRevision,afterRevision];
+  const aggregateOnly=invoke(argv);
+  assert.equal(aggregateOnly.status,0,aggregateOnly.stderr);
+  const unchanged=JSON.parse(aggregateOnly.stdout);
+  assert.equal(unchanged.status,'NO_NEW_AGGREGATE_FINDINGS_IN_SUPPLIED_AUDITS');
+  assert.equal(unchanged.currentBuildHasFindings,true);
+  assert.ok(unchanged.current.errors>0);
+  const strict=invoke([...argv,'--require-clean-current']);
+  assert.equal(strict.status,1);
+  assert.equal(JSON.parse(strict.stdout).currentBuildHasFindings,true);
+  assert.equal(JSON.parse(strict.stdout).releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
+  assert.equal(invoke([...argv,'--disable-checks']).status,2);
+  assert.doesNotMatch(strict.stdout+strict.stderr,/PRIVATE-FILENAME|PRIVATE-CUSTOMER|\/tmp\//);
+ }finally{rmSync(folder,{recursive:true,force:true})}
+});
