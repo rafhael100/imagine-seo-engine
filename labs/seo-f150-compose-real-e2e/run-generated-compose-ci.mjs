@@ -116,8 +116,12 @@ async function main(){
      }
    });
    if(runtime.reviewStatus!=='human_real_docker_runtime_review_required'||
-      runtime.blockedComponents.length||runtime.productionDeploymentAuthorized)
+      runtime.blockedComponents.length||runtime.productionDeploymentAuthorized){
+     // Fixed code identifiers only: no Docker IDs, environment or mount paths.
+     process.stderr.write('SEO F151: blocked runtime rules: '+
+       runtime.blockedComponents.join(',')+'\\n');
      throw Error('SEO F151: container differs from approved isolation contract');
+   }
    const cli=fileURLToPath(new URL(
      '../../scripts/run-served-html-staging-qa.mjs',import.meta.url
    ));
