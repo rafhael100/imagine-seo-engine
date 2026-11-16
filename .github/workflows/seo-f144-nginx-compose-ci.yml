@@ -19,8 +19,6 @@ jobs:
         node: ['22','24']
     env:
       CI: 'true'
-      APP_ENV: testing
-      SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
       F144_NODE: ${{ matrix.node }}
     steps:
       - name: Checkout without credentials
@@ -41,6 +39,9 @@ jobs:
       - name: Offline regression suite and local HTTP tests
         run: npm test
       - name: Real Nginx container / one healthy case and one stale HTML blocker
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
         run: bash labs/seo-f144-nginx/run-compose-ci.sh
       - name: No changes to tracked sources
         run: test -z "$(git status --porcelain --untracked-files=no)"
