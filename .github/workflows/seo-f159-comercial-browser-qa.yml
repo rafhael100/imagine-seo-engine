@@ -4,7 +4,6 @@ on:
     paths:
       - '.github/workflows/seo-f159-comercial-browser-qa.yml'
       - 'docs/SEO-F159-COMERCIAL-REAL-BROWSER-QA.md'
-      - 'scripts/diagnose-f159-contact-browser.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -65,10 +64,6 @@ jobs:
         run: |
           set -euo pipefail
           npm --prefix .qa/comercial-current run test:browser
-      - name: Diagnose browser contact failure without logging personal data
-        if: failure()
-        shell: bash
-        run: node scripts/diagnose-f159-contact-browser.mjs
       - name: Verify source files remain unchanged
         if: always()
         shell: bash
