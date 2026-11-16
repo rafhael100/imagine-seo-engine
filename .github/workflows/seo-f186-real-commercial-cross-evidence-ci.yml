@@ -6,6 +6,8 @@ on:
       - 'src/gsc-generated-301-cross-evidence.mjs'
       - 'scripts/review-gsc-http-astro-preflight.mjs'
       - 'tests/gsc-generated-301-cross-evidence.test.mjs'
+      - 'labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs'
+      - 'tests/gsc-real-loopback-cross-evidence.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -85,6 +87,38 @@ jobs:
             proposed301Reviews:report.proposedRedirects,
             releaseStatus:'HOLD_EXTERNAL_HUMAN_AUTHORIZATION'
           }));
+          JS
+      - name: F187 probe actual isolated HEAD 301 then re-audit real F344 Astro
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {reviewGscLoopbackAgainstRealAstro} from './labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs';
+          for(const mode of ['valid','temporary','wrong-location','second-hop','missing-final']){
+            const result=await reviewGscLoopbackAgainstRealAstro({
+              buildDirectory:'.qa/comercial-f344/dist',mode
+            });
+            const expected=mode==='valid'
+              ?'human_independent_release_review_required':'blocked';
+            if(result.independentCrossEvidenceStatus!==expected||
+               result.actualLocalHttpHeadRequests!==2||
+               result.checkedHttpReceipts!==1||
+               result.proposed301s!==1||
+               result.actualCompiledHtmlPages<1||
+               result.redirectDeploymentAuthorized!==false||
+               result.publicationAuthorized!==false)
+              throw Error('F187: real F344/loopback HEAD cross-evidence regression');
+            console.log(JSON.stringify({
+              contractVersion:result.contractVersion,
+              scenario:mode,
+              localHttpHEAD:result.actualLocalHttpHeadRequests,
+              compiledPages:result.actualCompiledHtmlPages,
+              reviewStatus:result.independentCrossEvidenceStatus,
+              releaseStatus:result.releaseStatus
+            }));
+          }
           JS
       - name: Confirm checkouts contain no tracked changes
         if: always()
