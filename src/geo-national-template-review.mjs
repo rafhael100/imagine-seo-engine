@@ -15,9 +15,20 @@ const exact=(v,keys)=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&
  Reflect.ownKeys(v).length===keys.length&&keys.every(k=>own(v,k)&&
   Object.getOwnPropertyDescriptor(v,k)?.enumerable===true&&
   own(Object.getOwnPropertyDescriptor(v,k),'value'));
-const dense=(items)=>Array.isArray(items)&&Object.getPrototypeOf(items)===Array.prototype&&
- items.length>0&&items.length<=MAX&&Reflect.ownKeys(items).length===items.length+1&&
- items.every((_,i)=>Object.getOwnPropertyDescriptor(items,String(i))?.enumerable===true);
+// F181: never iterate an untrusted editorial array before validating its
+// own indexed data descriptors. Array.every() would invoke accessor getters
+// and silently skip holes (which could be masked by custom fields).
+const dense=(items)=>{
+ if(!Array.isArray(items)||Object.getPrototypeOf(items)!==Array.prototype||
+    items.length===0||items.length>MAX||
+    Reflect.ownKeys(items).length!==items.length+1)return false;
+ for(let i=0;i<items.length;i++){
+  const descriptor=Object.getOwnPropertyDescriptor(items,String(i));
+  if(descriptor?.enumerable!==true||
+     !Object.hasOwn(descriptor,'value'))return false;
+ }
+ return true;
+};
 const clean=text=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
  .toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
 const wordPattern=word=>new RegExp('(?:^| )'+word.split(' ').join(' ')+ '(?= |$)','g');
