@@ -8,7 +8,7 @@ const audit=()=>({
   summary:{pages:2,errors:1,warnings:0},
   errors:[{type:'wrong_canonical',file:'PRIVATE-F88-PAGE.html',
     message:'PRIVATE-F88-AUDIT'}],
-  warnings:[],routes:['/','/PRIVATE-F88-ROUTE']
+  warnings:[],routes:['/','/PRIVATE-F88-ROUTE/']
 });
 const fixture=()=>({
   audit:audit(),
