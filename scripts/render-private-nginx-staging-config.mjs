@@ -2,7 +2,7 @@
 /** SEO F145 — render a private Nginx staging conf, never deploy or print it. */
 import {open,lstat,realpath,rm} from 'node:fs/promises';
 import {constants} from 'node:fs';
-import {dirname,isAbsolute,sep} from 'node:path';
+import {dirname,isAbsolute,resolve,sep} from 'node:path';
 import {renderIsolatedNginxStagingConfig} from
   '../labs/seo-f145-nginx-render/render-staging-config.mjs';
 
@@ -16,17 +16,37 @@ async function main(){
       typeof p==='string'&&isAbsolute(p)&&p.length<2048))
     throw Error('SEO F145: private absolute paths required');
   const root=await realpath(process.cwd());
-  const parent=await realpath(dirname(output));
+  const outParentPath=dirname(output),inputParentPath=dirname(manifest);
+  const [parent,inputParent,outMeta,inMeta]=await Promise.all([
+    realpath(outParentPath),realpath(inputParentPath),
+    lstat(outParentPath),lstat(inputParentPath)
+  ]);
   if(parent===root||parent.startsWith(root+sep))
     throw Error('SEO F145: cannot write nginx conf inside Git checkout');
+  // F189: a 0644 Nginx file is readable to a nonroot container. It must
+  // NEVER be placed under a shared/traversable host directory, because its
+  // legacy routes and hostnames are PRIVATE operator staging material.
+  // The container receives only the individual file as a read-only bind.
+  if([outMeta,inMeta].some(x=>!x.isDirectory()||x.isSymbolicLink())||
+     parent!==resolve(outParentPath)||inputParent!==resolve(inputParentPath)||
+     (process.platform!=='win32'&&
+      [outMeta,inMeta].some(x=>(x.mode&0o077)!==0||
+        (typeof process.getuid==='function'&&x.uid!==process.getuid()))))
+    throw Error('SEO F189: input and output directories must be operator-private 0700');
   const meta=await lstat(manifest);
   if(!meta.isFile()||meta.isSymbolicLink()||meta.size<2||
-     meta.size>4*1024*1024)throw Error('SEO F145: untrusted manifest');
+     meta.size>4*1024*1024||
+     (process.platform!=='win32'&&
+       ((meta.mode&0o077)!==0||
+        (typeof process.getuid==='function'&&meta.uid!==process.getuid()))))
+    throw Error('SEO F145: untrusted private manifest');
   const file=await open(manifest,constants.O_RDONLY|constants.O_NOFOLLOW);
   let bytes;
   try{
     const s=await file.stat();
-    if(!s.isFile()||s.size<2||s.size>4*1024*1024)
+    if(!s.isFile()||s.size<2||s.size>4*1024*1024||
+       s.ino!==meta.ino||s.dev!==meta.dev||
+       (process.platform!=='win32'&&(s.mode&0o077)!==0))
       throw Error('SEO F145: bounded input required');
     bytes=await file.readFile();
   }finally{await file.close();}
