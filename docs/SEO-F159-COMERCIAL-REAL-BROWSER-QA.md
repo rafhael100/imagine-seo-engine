@@ -3,11 +3,11 @@
 **Status: DRAFT / NO-GO / NO-MERGE / NO-DEPLOY.** Parte da [issue #236](https://github.com/rafhael100/imagine-seo-engine/issues/236), sobre a candidata [RC60 #235](https://github.com/rafhael100/imagine-seo-engine/pull/235).
 
 ## Por que existe
-A F158 constrói HTML Astro real e audita a estrutura da versão Comercial F335. A F159 adiciona outra camada de integração: executa os **testes de navegador nativos do próprio Comercial** sobre o build compilado, usando Chromium de CI. Assim, não se substitui um teste de interação real por leitura estática ou por cenários inventados.
+A F158 constrói HTML Astro real e audita a estrutura da versão Comercial F336 (sobre F335). A F159 adiciona outra camada de integração: executa os **testes de navegador nativos do próprio Comercial** sobre o build compilado, usando Chromium de CI. Assim, não se substitui um teste de interação real por leitura estática ou por cenários inventados.
 
 ## Contrato
 
-- Checkout da candidata Comercial na SHA exata `c33008d335901ba8aa1f5455f681bc4df13f45d7`, sem refs móveis nem token persistente.
+- Checkout da candidata Comercial na SHA exata `fb95b6684226d78c03f692ea499c72b8e1c3cc53`, sem refs móveis nem token persistente.
 - Dependências do Comercial pelo lockfile (`npm ci`), Chromium instalado usando o Playwright **já declarado** pelo Comercial; nenhuma dependência Playwright adicionada ao SEO.
 - Executa testes nativos, `astro build`, `check:dist`, auditor F158 no HTML real e `test:browser` do Comercial, que exercita os cenários do funil PT/EN/ES, cálculos, cópia voluntária, invalidação de estimativas e navegação.
 - Testes usam servidor de preview `127.0.0.1` em runner descartável. Não conectam GSC/GA4, CRM, pagamentos, VPS nem serviços do cliente por conta desta integração.
