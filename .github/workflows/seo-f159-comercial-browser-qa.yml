@@ -31,14 +31,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rafhael100/imagine-comercial
-          ref: 8ace0224679ddaee09ff342d27c19aa8bd6ecac6
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
           path: .qa/comercial-current
           persist-credentials: false
       - name: Check exact revision before installation
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C .qa/comercial-current rev-parse HEAD)" = 8ace0224679ddaee09ff342d27c19aa8bd6ecac6
+          test "$(git -C .qa/comercial-current rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
           test -z "$(git -C .qa/comercial-current status --porcelain --untracked-files=no)"
       - name: Install locked Comercial dependencies
         shell: bash
