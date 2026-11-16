@@ -62,3 +62,10 @@ test('rejects contradictory status and recalculates trend deltas from aggregate 
   assert.equal(value.organic.impressionsChangeFraction,-.2);
   assert.doesNotMatch(JSON.stringify(value),/LEAK-ME|999/);
 });
+
+test('F156: Portal must reject a forged zero-page clean audit, even with a valid-looking offline envelope',()=>{
+ const forged={...brief(),technical:{status:'no_findings_in_supplied_audit',pages:0,errors:0,warnings:0},
+  recommendedReviews:[]};
+ assert.throws(()=>preparePortalSeoHandoff({...scope,brief:forged}),
+  /inconsistent technical summary/);
+});
