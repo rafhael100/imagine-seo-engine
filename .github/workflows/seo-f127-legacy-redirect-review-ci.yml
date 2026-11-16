@@ -1,0 +1,44 @@
+name: SEO F127 - legacy scheme WWW and EN-US redirect review
+
+on:
+  pull_request:
+    paths:
+      - 'src/legacy-origin-locale-redirect-review.mjs'
+      - 'scripts/review-legacy-origin-migration-offline.mjs'
+      - 'tests/legacy-origin*.test.mjs'
+      - 'docs/SEO-F127-LEGACY-ORIGIN-LOCALE-REDIRECTS.md'
+      - '.github/workflows/seo-f127-legacy-redirect-review-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legacy-redirect-preflight:
+    name: No-network legacy URLs / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout source read only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Select Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax validation
+        run: |
+          set -euo pipefail
+          node --check src/legacy-origin-locale-redirect-review.mjs
+          node --check scripts/review-legacy-origin-migration-offline.mjs
+          node --check tests/legacy-origin-locale-redirect-review.test.mjs
+          node --check tests/legacy-origin-migration-cli.test.mjs
+      - name: Entire offline regression suite
+        run: npm test
+      - name: No modifications to tracked files
+        run: test -z "$(git status --porcelain --untracked-files=no)"
