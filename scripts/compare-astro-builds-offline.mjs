@@ -10,11 +10,12 @@ import {safeCliDiagnostic} from '../src/cli-diagnostics.mjs';
 import {realpath,stat} from 'node:fs/promises';
 
 const args=process.argv.slice(2);
-if(args.length!==4){
- console.error('Usage: node scripts/compare-astro-builds-offline.mjs <before-dist> <after-dist> <before-40hex-sha> <after-40hex-sha>');
+if(args.length!==4 && (args.length!==5||args[4]!=='--require-clean-current')){
+ console.error('Usage: node scripts/compare-astro-builds-offline.mjs <before-dist> <after-dist> <before-40hex-sha> <after-40hex-sha> [--require-clean-current]');
  process.exitCode=2;
 }else try{
- const [beforeDir,afterDir,previousRevision,currentRevision]=args;
+ const [beforeDir,afterDir,previousRevision,currentRevision,option]=args;
+ const requireCleanCurrent=option==='--require-clean-current';
  if(!/^[0-9a-f]{40}$/.test(previousRevision)||
     !/^[0-9a-f]{40}$/.test(currentRevision)||
     previousRevision===currentRevision)
@@ -40,7 +41,11 @@ if(args.length!==4){
   previous,current,previousRevision,currentRevision
  });
  console.log(JSON.stringify(report,null,2));
- if(report.status!=='NO_NEW_AGGREGATE_FINDINGS_IN_SUPPLIED_AUDITS')
+ // Distinguish absence of NEW findings from an inherited broken build.
+ // Release preflight must use --require-clean-current; even then it never
+ // authorizes customer display, production or DNS changes.
+ if(report.status!=='NO_NEW_AGGREGATE_FINDINGS_IN_SUPPLIED_AUDITS'||
+    (requireCleanCurrent&&report.currentBuildHasFindings))
    process.exitCode=1;
 }catch(error){
  console.error('SEO compiled-build comparison failed:',safeCliDiagnostic(error));
