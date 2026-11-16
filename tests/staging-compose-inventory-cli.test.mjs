@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,symlink,rm} from 'node:fs/promises';
+import {mkdtemp,writeFile,symlink,rm,chmod,mkdir,access,stat} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -70,5 +70,54 @@ test('F147 CLI refuses symlinked or malformed inventory without printing data',a
   assert.equal(b.status,1);
   assert.equal(b.stdout,'');
   assert.equal(b.stderr,'SEO F147: invalid or unsafe private Docker inventory\n');
+ });
+});
+
+test('F196 accepts operator-only 0700 directory and 0600 Docker topology file',async()=>{
+ await fixture(async({path,dir})=>{
+  assert.equal((await stat(dir)).mode&0o777,0o700);
+  assert.equal((await stat(path)).mode&0o777,0o600);
+  const result=run(path);
+  assert.equal(result.status,0);
+  assert.equal(JSON.parse(result.stdout).vpsChangesApplied,false);
+ });
+});
+test('F196 refuses 0644 inventory and 0755 input parent with zero topology disclosure',async()=>{
+ await fixture(async({path,dir})=>{
+  await chmod(path,0o644);
+  const exposedFile=run(path);
+  assert.equal(exposedFile.status,1);
+  assert.equal(exposedFile.stdout,'');
+  assert.doesNotMatch(exposedFile.stderr,/crm-secret|18313|private\.json/);
+  await chmod(path,0o600);
+  await chmod(dir,0o755);
+  const exposedParent=run(path);
+  assert.equal(exposedParent.status,1);
+  assert.equal(exposedParent.stdout,'');
+  await chmod(dir,0o700);
+ });
+});
+test('F196 rejects private Docker inventory inside another Git checkout/worktree',async()=>{
+ await fixture(async({path,dir})=>{
+  const git=join(dir,'foreign-git');
+  const privateDir=join(git,'operator');
+  await mkdir(join(git,'.git'),{recursive:true,mode:0o700});
+  await mkdir(privateDir,{mode:0o700});
+  const nested=join(privateDir,'docker-topology.json');
+  const {readFile}=await import('node:fs/promises');
+  await writeFile(nested,await readFile(path),{mode:0o600});
+  const result=run(nested);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.doesNotMatch(result.stderr,/crm-secret|foreign-git/);
+ });
+});
+test('F196 refuses symbolic private directory aliases even for 0600 source files',async()=>{
+ await fixture(async({path,dir})=>{
+  const alias=join(dir,'symlink-parent');
+  await symlink(dir,alias);
+  const result=run(join(alias,'docker-inventory-private.json'));
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
  });
 });
