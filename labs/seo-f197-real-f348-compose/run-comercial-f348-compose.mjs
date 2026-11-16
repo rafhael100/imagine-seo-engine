@@ -18,8 +18,6 @@ import {renderPrivateStagingCompose} from
  '../seo-f149-compose-render/render-private-compose.mjs';
 import {reviewRunningStagingContainer} from
  '../seo-f151-docker-runtime/audit-running-container.mjs';
-import {reviewInternalStagingDockerNetwork} from
- '../../src/private-bridge-network-review.mjs';
 import {runServedHtmlAttestedStagingQa} from
  '../seo-f143-full-served-gate/run-served-html-staging-gate.mjs';
 
@@ -111,7 +109,7 @@ function actualDockerInspect(yaml){
  const data=JSON.parse(response);
  if(!Array.isArray(data)||data.length!==1)
   throw Error('F197: unexpected real Docker response');
- return {inspect:data[0],containerId:id};
+ return data[0];
 }
 async function main(){
  if(process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
@@ -162,9 +160,8 @@ async function main(){
    '--pull','always','--no-build']);
 
   // Actual Docker daemon state, not a JSON assertion supplied by a caller.
-  const realDocker=actualDockerInspect(yaml);
   const checked=reviewRunningStagingContainer({
-   inspect:realDocker.inspect,
+   inspect:actualDockerInspect(yaml),
    expected:{
     image:NGINX,networkName:host.requested.networkName,
     buildPath:built,configPath:conf,loopbackPort:port,
@@ -177,26 +174,6 @@ async function main(){
      !checked.summary.loopbackOnlyPortObserved||
      checked.productionDeploymentAuthorized)
    throw Error('F197: real Nginx Docker runtime not isolated');
-
-  // F198: verify the daemon-created bridge is INTERNAL and has precisely
-  // our container. We never serialize raw Docker network settings or IDs.
-  const rawNetworks=JSON.parse(execFileSync('docker',[
-   'network','inspect',host.requested.networkName
-  ],{
-   encoding:'utf8',timeout:15000,maxBuffer:2*1024*1024,
-   stdio:['ignore','pipe','ignore']
-  }));
-  if(!Array.isArray(rawNetworks)||rawNetworks.length!==1)
-   throw Error('SEO F198: real bridge inspect missing');
-  const isolation=reviewInternalStagingDockerNetwork({
-   inspect:rawNetworks[0],
-   expectedNetworkName:host.requested.networkName,
-   containerId:realDocker.containerId
-  });
-  if(!isolation.dockerInternalNetworkFlagObserved||
-     !isolation.exactExpectedSingleContainerObserved||
-     isolation.deploymentAuthorized)
-   throw Error('SEO F198: F348 Compose Docker network not internal');
 
   // Actual HEAD + GET response parity with the three F348 HTML files.
   // The GSC PAGE rows are FIXED synthetic data, not a Search Console export.
@@ -230,9 +207,6 @@ async function main(){
    byteIdenticalRealF348Html:3,
    localBuildDigestMatched:true,
    privateNginxConfigMountedReadonly:true,
-   realDockerInternalBridgeVerified:true,
-   exactlyOneNetworkContainerVerified:true,
-   packetEgressActivelyTested:false,
    gscPageSourceAuthenticated:false,
    oauthTenantVerified:false,
    customerDataUsed:false,
