@@ -1,0 +1,34 @@
+name: SEO F169 - compiled Astro URL route loss gate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f169-compiled-migration-ci.yml'
+      - 'src/compiled-build-route-migration-review.mjs'
+      - 'scripts/review-two-astro-route-migration.mjs'
+      - 'tests/compiled-build-route-migration-review.test.mjs'
+      - 'docs/SEO-F169-TWO-BUILD-ROUTE-MIGRATION.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  route-loss:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout with no persisted token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Exercise actual compiled HTML routes with adversarial mappings
+        run: |
+          set -euo pipefail
+          node --test tests/compiled-build-route-migration-review.test.mjs
+          node --check scripts/review-two-astro-route-migration.mjs
