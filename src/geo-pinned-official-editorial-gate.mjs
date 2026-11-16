@@ -23,14 +23,45 @@ const name=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
  .toLocaleLowerCase('pt-BR').replace(/[’‘]/g,"'")
  .replace(/\s+/g,' ').trim();
 
+// F182: this public laboratory helper accepts a Map, but a Map subclass or
+// an accessor-bearing row must never execute caller code while looking up
+// official-looking names. The production wrapper still pins exact CSV bytes.
+function reviewedRowMap(rows){
+ if(!(rows instanceof Map)||Object.getPrototypeOf(rows)!==Map.prototype||
+    rows.size===0||rows.size>5571)return false;
+ for(const [code,row] of rows){
+  if(typeof code!=='string'||!/^\d{7}$/.test(code)||
+     row===null||typeof row!=='object'||Array.isArray(row)||
+     ![Object.prototype,null].includes(Object.getPrototypeOf(row)))return false;
+  const keys=Reflect.ownKeys(row);
+  if((keys.length!==2&&keys.length!==3)||
+     keys.some(key=>!['state','city','index'].includes(key)))return false;
+  for(const key of ['state','city',...(keys.length===3?['index']:[])]){
+   const descriptor=Object.getOwnPropertyDescriptor(row,key);
+   if(descriptor?.enumerable!==true||!Object.hasOwn(descriptor,'value'))
+    return false;
+  }
+  const state=Object.getOwnPropertyDescriptor(row,'state').value;
+  const city=Object.getOwnPropertyDescriptor(row,'city').value;
+  if(typeof state!=='string'||!/^[A-Z]{2}$/.test(state)||
+     typeof city!=='string'||city.length<2||city.length>120||
+     /[\x00-\x1f\x7f<>]/.test(city))return false;
+  if(keys.length===3){
+   const index=Object.getOwnPropertyDescriptor(row,'index').value;
+   if(!Number.isSafeInteger(index)||index<0||index>5570)return false;
+  }
+ }
+ return true;
+}
+
 /**
  * The input batch must first pass the original F107 contract. No batch
  * payload or name is serialized in the result. This helper is also used
  * by synthetic unit tests, but DOES NOT establish source provenance.
  */
 export function compareDraftBatchToDtbRows({draftBatchInput,rows}={}){
- if(!(rows instanceof Map))
-  throw Error('F179: official row map required');
+ if(!reviewedRowMap(rows))
+  throw Error('F179: safe official row map required');
  // Recompute original editorial gate; never accept self-reported approvals.
  const batch=reviewMunicipalSeoDraftBatch(draftBatchInput);
  const entries=draftBatchInput.candidates;

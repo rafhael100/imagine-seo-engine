@@ -62,3 +62,38 @@ test('F168 refuses malformed entries, injections and unbounded inputs',()=>{
  for(const k of ['ibgeCode','city','state','locale','localContent'])getter[k]=valid[k];
  assert.throws(()=>check(envelope([getter])),/F168/);
 });
+
+
+test('F181 rejects indexed getters without evaluating private editorial content',()=>{
+ let getterCalls=0;
+ const items=[entry('Fortaleza','CE','2304400')];
+ Object.defineProperty(items,'0',{enumerable:true,configurable:true,
+  get(){getterCalls++;throw Error('PRIVATE-EDITORIAL-SECRET-GETTER');}
+ });
+ assert.throws(()=>check(envelope(items)),/F168/);
+ assert.equal(getterCalls,0,'never read untrusted array index getters');
+});
+
+test('F181 detects a missing indexed entry even when a custom property masks the key count',()=>{
+ const hiddenGap=[entry('Fortaleza','CE','2304400'),,];
+ // Reflect.ownKeys length now coincides with array.length+1;
+ // Array.every silently skips the hole in the old validator.
+ Object.defineProperty(hiddenGap,'clientEmail',{
+  value:'PRIVATE-USER@EXAMPLE.invalid',enumerable:false
+ });
+ assert.equal(Reflect.ownKeys(hiddenGap).length,hiddenGap.length+1);
+ assert.throws(()=>check(envelope(hiddenGap)),/F168/);
+ const additional=Object.freeze(Object.assign(
+  [entry('Fortaleza','CE','2304400')],{opaqueToken:'PRIVATE'}));
+ assert.throws(()=>check(envelope(additional)),/F168/);
+});
+
+test('F181 maintains valid immutable arrays with normal entries and strict editorial HOLD',()=>{
+ const good=Object.freeze([Object.freeze(entry('Fortaleza','CE','2304400'))]);
+ const review=check(Object.freeze(envelope(good)));
+ assert.equal(review.examinedEntries,1);
+ assert.equal(review.publicationAuthorized,false);
+ assert.equal(review.indexingAuthorized,false);
+ assert.equal(review.releaseStatus,'HOLD_EDITORIAL_IBGE_AND_INDEPENDENT_REVIEW');
+ assert.doesNotMatch(JSON.stringify(review),/Fortaleza|PRIVATE-/);
+});
