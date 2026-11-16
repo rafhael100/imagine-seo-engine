@@ -136,7 +136,7 @@ test('F138 CLI writes private 0600 evidence outside Git and emits only sanitized
   assert.equal(response.stderr,'');
   const clean=JSON.parse(response.stdout);
   assert.equal(clean.summary.matched301ToCanonical,2);
-  assert.equal(clean.stagingOriginVerified,undefined);
+  assert.equal(clean.stagingOriginVerified,false);
   assert.doesNotMatch(response.stdout,/example.test|www\.|127\.0\.0\.1/);
   const info=await stat(output);
   assert.equal(info.mode&0o777,0o600);
