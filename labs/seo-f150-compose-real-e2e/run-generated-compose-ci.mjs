@@ -17,6 +17,8 @@ import {reviewRunningStagingContainer} from
   '../seo-f151-docker-runtime/audit-running-container.mjs';
 import {runCiOnlyMemoryDriftDrill} from
   '../seo-f152-adversarial-runtime/drill-real-docker-memory-drift.mjs';
+import {reviewInternalStagingDockerNetwork} from
+  '../../src/private-bridge-network-review.mjs';
 
 const MAX_WAIT=120000;
 const execute=(bin,args,options={})=>execFileSync(bin,args,{
@@ -117,6 +119,26 @@ async function main(){
    const runtime=reviewRunningStagingContainer({
      inspect:inspected[0],expected:expectedRuntime
    });
+   // F198: prove Docker actually created a dedicated INTERNAL bridge, not
+   // just a separate network name, and attached ONLY this Nginx container.
+   // Never print raw inspect (it contains IDs, subnets and host topology).
+   const networkRecord=JSON.parse(execFileSync('docker',[
+     'network','inspect',snapshot.requested.networkName
+   ],{
+     encoding:'utf8',timeout:15000,maxBuffer:2*1024*1024,
+     stdio:['ignore','pipe','ignore']
+   }));
+   if(!Array.isArray(networkRecord)||networkRecord.length!==1)
+     throw Error('SEO F198: real Docker network unavailable');
+   const isolation=reviewInternalStagingDockerNetwork({
+     inspect:networkRecord[0],
+     expectedNetworkName:snapshot.requested.networkName,
+     containerId:ident
+   });
+   if(!isolation.dockerInternalNetworkFlagObserved||
+      !isolation.exactExpectedSingleContainerObserved||
+      isolation.deploymentAuthorized)
+     throw Error('SEO F198: actual staging Docker network not isolated');
    if(runtime.reviewStatus!=='human_real_docker_runtime_review_required'||
       runtime.blockedComponents.length||runtime.productionDeploymentAuthorized){
      // Fixed code identifiers only: no Docker IDs, environment or mount paths.
