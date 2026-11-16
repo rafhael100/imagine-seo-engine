@@ -41,8 +41,8 @@ def uf_of_api(record):
   fail()
  return found[0]
 
-def parse_api(payload):
- if not isinstance(payload,list) or len(payload)<5500 or len(payload)>6000:
+def parse_api(payload,min_rows=5500):
+ if not isinstance(payload,list) or len(payload)<min_rows or len(payload)>6000:
   fail()
  result={}
  for record in payload:
