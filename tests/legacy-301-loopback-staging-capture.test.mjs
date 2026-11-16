@@ -7,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {captureLoopbackStaging301} from
-  '../src/legacy-301-loopback-staging-capture.mjs';
+  '../labs/seo-f138-loopback/loopback-capture.mjs';
 
 const cli=fileURLToPath(new URL('../scripts/capture-staging-301-loopback.mjs',import.meta.url));
 function manifest(){
