@@ -9,6 +9,9 @@ on:
       - 'src/ibge-localities-offline-import.mjs'
       - 'src/ibge-official-https-capture.mjs'
       - 'src/ibge-source-receipt-review.mjs'
+      - 'src/ibge-national-edition-coverage.mjs'
+      - 'src/ibge-receipt-national-crosscheck.mjs'
+      - 'scripts/review-ibge-receipt-national-offline.mjs'
       - 'src/ibge-local-expected-digest.mjs'
       - 'scripts/capture-official-ibge-reference.mjs'
       - 'scripts/verify-ibge-official-receipt.mjs'
@@ -68,6 +71,13 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/verify-ibge-official-receipt.mjs \
+            "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
+            "$RUNNER_TEMP/seo-f120-ibge-receipt.json"
+      - name: F154/F153 reject incomplete official national dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/review-ibge-receipt-national-offline.mjs \
             "$RUNNER_TEMP/seo-f120-ibge-ref.json" \
             "$RUNNER_TEMP/seo-f120-ibge-receipt.json"
       - name: Delete ephemeral source files even after a failure
