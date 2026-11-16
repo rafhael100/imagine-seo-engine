@@ -3,8 +3,6 @@ on:
   pull_request:
     paths:
       - 'labs/seo-f149-compose-render/**'
-      - 'src/private-bridge-network-review.mjs'
-      - 'tests/private-bridge-network-review.test.mjs'
       - 'scripts/render-private-staging-compose.mjs'
       - 'tests/private-staging-compose-renderer.test.mjs'
       - 'docs/SEO-F149-PRIVATE-STAGING-COMPOSE-RENDERER.md'
@@ -39,7 +37,6 @@ jobs:
           node --check labs/seo-f149-compose-render/validate-compose-ci.mjs
           node --check scripts/render-private-staging-compose.mjs
           node --check tests/private-staging-compose-renderer.test.mjs
-          node --test tests/private-bridge-network-review.test.mjs
           npm test
       - name: Docker Compose schema validation without docker up/down
         run: |
