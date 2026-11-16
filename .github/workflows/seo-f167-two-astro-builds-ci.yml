@@ -9,6 +9,8 @@ on:
       - 'tests/technical-audit-regression.test.mjs'
       - 'tests/compare-astro-builds-offline.test.mjs'
       - 'docs/SEO-F167-REAL-COMERCIAL-BUILD-REGRESSION.md'
+      - 'src/compiled-build-route-migration-review.mjs'
+      - 'scripts/review-two-astro-route-migration.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -59,6 +61,13 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/compare-astro-builds-offline.mjs             .qa/comercial-before/dist .qa/comercial-after/dist             c33008d335901ba8aa1f5455f681bc4df13f45d7             0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Reject silently lost routes between pinned real Comercial builds
+        run: |
+          set -euo pipefail
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/comercial-before/dist .qa/comercial-after/dist \
+            c33008d335901ba8aa1f5455f681bc4df13f45d7 \
+            0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
       - name: Confirm source files were not modified
         if: always()
         run: |
