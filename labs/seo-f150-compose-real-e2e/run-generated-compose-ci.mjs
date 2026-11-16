@@ -13,6 +13,8 @@ import {renderIsolatedNginxStagingConfig} from
   '../seo-f145-nginx-render/render-staging-config.mjs';
 import {renderPrivateStagingCompose} from
   '../seo-f149-compose-render/render-private-compose.mjs';
+import {reviewRunningStagingContainer} from
+  '../seo-f151-docker-runtime/audit-running-container.mjs';
 
 const MAX_WAIT=120000;
 const execute=(bin,args,options={})=>execFileSync(bin,args,{
@@ -84,6 +86,42 @@ async function main(){
    execute('docker',['compose','-f',yaml,'config','--quiet']);
    // The CI runner owns this synthetic project. It is NOT a deployment API.
    execute('docker',['compose','-f',yaml,'up','-d','--wait','--pull','always','--no-build']);
+   // F151: inspect the REAL container that Docker started. Never print
+   // raw inspect (which includes Env, IDs, IPs and mount source paths).
+   const ident=execFileSync('docker',[
+     'compose','-f',yaml,'ps','-q','nginx'
+   ],{
+     encoding:'utf8',timeout:15000,maxBuffer:256*1024,
+     stdio:['ignore','pipe','ignore']
+   }).trim();
+   if(!/^[a-f0-9]{12,64}$/.test(ident))
+     throw Error('SEO F151: no unique local test Nginx');
+   const inspected=JSON.parse(execFileSync('docker',[
+     'inspect',ident
+   ],{
+     encoding:'utf8',timeout:15000,maxBuffer:2*1024*1024,
+     stdio:['ignore','pipe','ignore']
+   }));
+   if(!Array.isArray(inspected)||inspected.length!==1)
+     throw Error('SEO F151: unexpected Docker runtime snapshot');
+   const runtime=reviewRunningStagingContainer({
+     inspect:inspected[0],
+     expected:{
+       image:'nginx:1.29.5-alpine@sha256:1eff5a5f3fcf8431a0abb7eddf5471fec24e5e1905a2581aeacdb07a4479b92b',
+       networkName:snapshot.requested.networkName,
+       buildPath:build,configPath:conf,
+       loopbackPort:port,
+       memoryLimitMiB:snapshot.requested.memoryLimitMiB,
+       cpuLimit:snapshot.requested.cpuLimit
+     }
+   });
+   if(runtime.reviewStatus!=='human_real_docker_runtime_review_required'||
+      runtime.blockedComponents.length||runtime.productionDeploymentAuthorized){
+     // Fixed code identifiers only: no Docker IDs, environment or mount paths.
+     process.stderr.write('SEO F151: blocked runtime rules: '+
+       runtime.blockedComponents.join(',')+'\\n');
+     throw Error('SEO F151: container differs from approved isolation contract');
+   }
    const cli=fileURLToPath(new URL(
      '../../scripts/run-served-html-staging-qa.mjs',import.meta.url
    ));
@@ -106,7 +144,7 @@ async function main(){
       report.buildDigestMatchedInLocalProxy!==true||
       report.productionReleaseAuthorized!==false)
      throw Error('SEO F150: real Nginx generated Compose did not pass F143');
-   process.stdout.write('SEO F150: generated private Compose served correct synthetic 301 and HTML on local-only Nginx\n');
+   process.stdout.write('SEO F151: actual Docker container isolation, resource limits, 301 and HTML verified in disposable CI\n');
  }finally{
    if(yaml!==null){
      try{execute('docker',['compose','-f',yaml,'down','--volumes','--remove-orphans']);}
