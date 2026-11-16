@@ -30,7 +30,7 @@ function container(){
   },
   NetworkSettings:{
    Networks:{[e.networkName]:{IPAddress:'172.22.0.8'}},
-   Ports:{'8080/tcp':[{
+   Ports:{'80/tcp':null,'8080/tcp':[{
      HostIp:'127.0.0.1',HostPort:String(e.loopbackPort)
    }]}
   },
@@ -123,4 +123,15 @@ test('F151 refuses fabricated expected runtime properties and invalid source',()
   enumerable:true,get(){throw Error('secret getter')}
  });
  assert.throws(()=>review({inspect:data,expected:accessor}),/SEO F151/);
+});
+
+test('F151 refuses a second actually published container port, not internal EXPOSE',()=>{
+ const r=container();
+ assert.equal(run(r).reviewStatus,'human_real_docker_runtime_review_required');
+ r.NetworkSettings.Ports['443/tcp']=[{
+  HostIp:'0.0.0.0',HostPort:'12443'
+ }];
+ const out=run(r);
+ assert.equal(out.reviewStatus,'blocked');
+ assert.ok(out.blockedComponents.includes('public_or_wrong_host_port_binding'));
 });
