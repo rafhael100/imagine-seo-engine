@@ -1,0 +1,39 @@
+name: SEO F141 - release HOLD after attested local build and 301
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f141-staging/**'
+      - 'scripts/run-attested-local-staging-qa.mjs'
+      - 'tests/attested-loopback-staging-qa.test.mjs'
+      - 'docs/SEO-F141-ATTESTED-STAGING-RELEASE-GATE.md'
+      - '.github/workflows/seo-f141-attested-staging-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  attested-local-release-gate:
+    name: GSC HTML SHA256 and actual local redirect / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout immutable commit without retained token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full local staging plus offline regression
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f141-staging/attested-full-migration-qa.mjs
+          node --check scripts/run-attested-local-staging-qa.mjs
+          node --check tests/attested-loopback-staging-qa.test.mjs
+          npm test
+      - name: Keep the reviewed checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
