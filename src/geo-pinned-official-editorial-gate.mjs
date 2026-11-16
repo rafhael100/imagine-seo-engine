@@ -28,11 +28,12 @@ const name=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
  * payload or name is serialized in the result. This helper is also used
  * by synthetic unit tests, but DOES NOT establish source provenance.
  */
-export function compareDraftBatchToDtbRows({entries,rows,batch}={}){
- if(!Array.isArray(entries)||!rows||!(rows instanceof Map)||
-   !batch||!Array.isArray(batch.items)||batch.items.length!==entries.length||
-   entries.length<1||entries.length>25)
-  throw Error('F179: validated original draft batch and DTB rows required');
+export function compareDraftBatchToDtbRows({draftBatchInput,rows}={}){
+ if(!(rows instanceof Map))
+  throw Error('F179: official row map required');
+ // Recompute original editorial gate; never accept self-reported approvals.
+ const batch=reviewMunicipalSeoDraftBatch(draftBatchInput);
+ const entries=draftBatchInput.candidates;
  const reviews=[];let matched=0,specials=0,blocked=0;
  for(let i=0;i<entries.length;i++){
   const candidate=entries[i],item=batch.items[i];
@@ -89,11 +90,8 @@ export function reviewDraftBatchAgainstPinnedDtb(input){
  const dtb=parseNormalizedDtb2025Csv(input.normalizedDtbCsv);
  if(dtb.rows.size!==5571||dtb.specials!==2)
   throw Error('F179: incomplete official 2025 territorial roster');
- const batch=reviewMunicipalSeoDraftBatch(input.draftBatchInput);
  return Object.freeze({
-  ...compareDraftBatchToDtbRows({
-   entries:input.draftBatchInput.candidates,rows:dtb.rows,batch
-  }),
+  ...compareDraftBatchToDtbRows({draftBatchInput:input.draftBatchInput,rows:dtb.rows}),
   officialDtbCsvShaPinned:true,
   officialDtbRows:dtb.rows.size,
   knownSpecialTerritorialUnits:dtb.specials,
