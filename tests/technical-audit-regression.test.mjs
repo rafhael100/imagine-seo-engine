@@ -21,6 +21,7 @@ test('F162 detects new indexation and navigation failures without exposing paths
  const current=audit(['unexpected_noindex','wrong_canonical'],['orphan_page']);
  const report=run(previous,current);
  assert.equal(report.routeCoverageComparable,true);
+ assert.deepEqual(report.routeInventoryChanges,{added:0,removed:0});
  assert.equal(report.status,'REVIEW_AGGREGATE_REGRESSION');
  assert.equal(report.releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
  assert.equal(report.customerDisplayAuthorized,false);
@@ -55,6 +56,7 @@ test('F162 does not invent a regression when both same-route audits have equal e
 test('F162 changed HTML route inventory is HOLD, not comparable or silently healthy',()=>{
  const report=run(audit(),audit(['unexpected_noindex'],[],['/','/contato/']));
  assert.equal(report.routeCoverageComparable,false);
+ assert.deepEqual(report.routeInventoryChanges,{added:1,removed:1});
  assert.equal(report.status,'HOLD_ROUTE_COVERAGE_CHANGED');
  assert.deepEqual(report.reviewIncreases,[]);
  assert.doesNotMatch(JSON.stringify(report),/contato|servicos/);
