@@ -1,0 +1,73 @@
+name: SEO F159 - pinned Comercial real Chromium browser QA
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f159-comercial-browser-qa.yml'
+      - 'docs/SEO-F159-COMERCIAL-REAL-BROWSER-QA.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: seo-f159-browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pinned-browser:
+    name: Chromium PT EN ES anonymous funnel and navigation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO revision without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout immutable reviewed Comercial F335 candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: c33008d335901ba8aa1f5455f681bc4df13f45d7
+          path: .qa/comercial-current
+          persist-credentials: false
+      - name: Check exact revision before installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-current rev-parse HEAD)" = c33008d335901ba8aa1f5455f681bc4df13f45d7
+          test -z "$(git -C .qa/comercial-current status --porcelain --untracked-files=no)"
+      - name: Install locked Comercial dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-current ci --no-audit --no-fund
+      - name: Install Chromium for native pinned browser tests
+        shell: bash
+        working-directory: .qa/comercial-current
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+      - name: Build and audit real pinned Astro output
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-current test
+          npm --prefix .qa/comercial-current run build
+          npm --prefix .qa/comercial-current run check:dist
+          node scripts/qa-current-comercial-pinned-funnel-build.mjs .qa/comercial-current/dist
+      - name: Execute Comercial native full Chromium test suite (PT EN ES)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-current run test:browser
+      - name: Verify source files remain unchanged
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C .qa/comercial-current status --porcelain --untracked-files=no)"
+          test -z "$(git status --porcelain --untracked-files=no)"
