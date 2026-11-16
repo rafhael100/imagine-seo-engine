@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {mkdtemp,mkdir,writeFile,readFile,stat,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,stat,rm,chmod,symlink,access} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
@@ -238,4 +238,72 @@ test('F143 blocks stale HTML body even when proxy announces correct SHA',async()
   assert.equal(args.seen.length,4);
   assert.doesNotMatch(JSON.stringify(result.report),/example\\.test|Other___/);
  }),{staleServedHtml:true});
+});
+
+
+test('F199 denies world-readable GSC or redirect source BEFORE any local HEAD',async()=>{
+ await fixture(async a=>{
+  await chmod(a.gscPath,0o644);
+  const badGsc=await cliRun(a);
+  assert.equal(badGsc.status,1);
+  assert.equal(badGsc.stdout,'');
+  assert.equal(a.seen.length,0);
+  assert.doesNotMatch(badGsc.stderr,/example\.test|gsc-private|\/tmp\//);
+  await chmod(a.gscPath,0o600);
+  await chmod(a.planPath,0o644);
+  const badManifest=await cliRun(a);
+  assert.equal(badManifest.status,1);
+  assert.equal(badManifest.stdout,'');
+  assert.equal(a.seen.length,0);
+ });
+});
+test('F199 denies 0755 parent folder before any private evidence is loaded',async()=>{
+ await fixture(async a=>{
+  await chmod(a.dir,0o755);
+  const result=await cliRun(a);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(a.seen.length,0);
+  await chmod(a.dir,0o700);
+ });
+});
+test('F199 refuses HTTP receipt output in ANY Git worktree, even private 0700',async()=>{
+ await fixture(async a=>{
+  const work=join(a.dir,'foreign-private-git');
+  const safe=join(work,'operator');
+  await mkdir(join(work,'.git'),{recursive:true,mode:0o700});
+  await mkdir(safe,{mode:0o700});
+  a.out=join(safe,'hidden-receipts.json');
+  const result=await cliRun(a);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(a.seen.length,0);
+  await assert.rejects(access(a.out));
+ });
+});
+test('F199 refuses GSC source inside a Git worktree even with 0600 permissions',async()=>{
+ await fixture(async a=>{
+  const work=join(a.dir,'foreign-gsc-repository');
+  const safe=join(work,'private');
+  await mkdir(join(work,'.git'),{recursive:true,mode:0o700});
+  await mkdir(safe,{mode:0o700});
+  a.gscPath=join(safe,'gsc.json');
+  await writeFile(a.gscPath,JSON.stringify(gsc()),{mode:0o600});
+  const result=await cliRun(a);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(a.seen.length,0);
+ });
+});
+test('F199 rejects symbolic operator directory aliases and never creates receipts',async()=>{
+ await fixture(async a=>{
+  const alias=join(a.dir,'symlinked-private');
+  await symlink(a.dir,alias);
+  a.out=join(alias,'receipts.json');
+  const result=await cliRun(a);
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.equal(a.seen.length,0);
+  await assert.rejects(access(join(a.dir,'receipts.json')));
+ });
 });
