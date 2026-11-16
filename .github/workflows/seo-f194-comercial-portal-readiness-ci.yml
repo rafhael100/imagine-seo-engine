@@ -1,0 +1,80 @@
+name: SEO F194 - pinned Comercial F346 to F348 Portal checkout readiness real Astro
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f194-comercial-portal-readiness-ci.yml'
+      - 'scripts/review-two-comercial-portal-readiness-builds.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-commercial-readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout SEO current PR without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Check offline gate syntax
+        run: |
+          set -euo pipefail
+          node --check scripts/review-two-comercial-portal-readiness-builds.mjs
+      - name: Checkout immutable Comercial F346
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+          path: .qa/comercial-before
+          persist-credentials: false
+      - name: Checkout immutable Comercial F348
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          path: .qa/comercial-after
+          persist-credentials: false
+      - name: Prove exact independent source revisions
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-before rev-parse HEAD)" = 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+          test "$(git -C .qa/comercial-after rev-parse HEAD)" = 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+      - name: Build actual Astro multilingual commercial site twice
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-before ci --no-audit --no-fund
+          npm --prefix .qa/comercial-before run build
+          npm --prefix .qa/comercial-after ci --no-audit --no-fund
+          npm --prefix .qa/comercial-after run build
+      - name: Verify compiled PT EN ES checkout scope truth and no private link leakage
+        run: |
+          set -euo pipefail
+          node scripts/review-two-comercial-portal-readiness-builds.mjs \
+            .qa/comercial-before/dist .qa/comercial-after/dist \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          code=0
+          node scripts/review-two-comercial-portal-readiness-builds.mjs \
+            .qa/comercial-after/dist .qa/comercial-after/dist \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444 \
+            >/dev/null 2>&1 || code=$?
+          test "$code" -eq 1
+      - name: Reject route, canonical and hreflang regressions in two real Astro builds
+        run: |
+          set -euo pipefail
+          node scripts/compare-astro-builds-offline.mjs \
+            .qa/comercial-before/dist .qa/comercial-after/dist \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+      - name: Confirm no Git writes in either checkout
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-before status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-after status --porcelain --untracked-files=no)"
