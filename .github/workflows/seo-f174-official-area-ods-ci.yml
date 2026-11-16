@@ -1,0 +1,68 @@
+name: SEO F174 - one-shot independent IBGE Area 2025 ODS structure
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f174-official-area-ods-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-area-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: One direct TLS read of separate IBGE 2025 area workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/area-2025-official.ods"
+          url='https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/areas_territoriais/2025/AR_BR_RG_UF_RGINT_RGI_MUN_2025.ods'
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 40 --max-filesize 1000000 \
+            --output "$out" "$url"
+          python3 - "$out" <<'PY'
+          import hashlib,json,re,sys,zipfile,xml.etree.ElementTree as ET
+          p=sys.argv[1]
+          with open(p,'rb') as f:data=f.read(1000001)
+          if len(data)>1000000 or not zipfile.is_zipfile(p):
+              raise SystemExit('F174: invalid area workbook')
+          with zipfile.ZipFile(p) as workbook:
+              if workbook.testzip() is not None:
+                  raise SystemExit('F174: invalid area ODS CRC')
+              xml=workbook.read('content.xml')
+          if len(xml)>12000000:
+              raise SystemExit('F174: oversized ODS XML')
+          root=ET.fromstring(xml)
+          t='urn:oasis:names:tc:opendocument:xmlns:table:1.0'
+          tx='urn:oasis:names:tc:opendocument:xmlns:text:1.0'
+          office='urn:oasis:names:tc:opendocument:xmlns:office:1.0'
+          sheets=[]
+          for table in root.findall('.//{%s}table'%t):
+              rows=table.findall('.//{%s}table-row'%t)
+              samples=[];codes=set();nonempty=0
+              for row in rows:
+                  cells=[]
+                  for item in row:
+                      if item.tag!='{%s}table-cell'%t:continue
+                      v=item.get('{%s}value'%office)
+                      if v is None:
+                          v=' '.join(''.join(x.itertext()) for x in item.findall('.//{%s}p'%tx))
+                      cells.append(v.strip())
+                      if re.fullmatch(r'[0-9]{7}',v.strip()):codes.add(v.strip())
+                  if any(cells):
+                      nonempty+=1
+                      if len(samples)<7:samples.append([v[:80] for v in cells[:12]])
+              sheets.append({'name':str(table.get('{%s}name'%t,''))[:70],
+                  'xmlRows':len(rows),'nonemptyRows':nonempty,
+                  'distinctSevenDigitTokens':len(codes),'firstSevenRows':samples})
+          print(json.dumps({
+            'contractVersion':'seo-f174-ibge-area-2025-independent-product-source-v1',
+            'source':'geoftp.ibge.gov.br',
+            'product':'AR_BR_RG_UF_RGINT_RGI_MUN_2025.ods',
+            'edition':'2025','bytes':len(data),
+            'sha256':hashlib.sha256(data).hexdigest(),
+            'sheets':sheets,'compareAgainstDtbPerformed':False,
+            'publicationAuthorized':False,'sourceFileUploaded':False
+          },ensure_ascii=False))
+          PY
+          rm -f "$out"
