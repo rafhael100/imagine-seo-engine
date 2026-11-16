@@ -4,13 +4,15 @@ on:
     paths:
       - '.github/workflows/seo-f194-comercial-portal-readiness-ci.yml'
       - 'scripts/review-two-comercial-portal-readiness-builds.mjs'
+      - 'tests/pinned-commercial-f348-git-identity.test.mjs'
+      - 'docs/SEO-F195-COMERCIAL-F348-BROWSER-HEAD-INTEGRATION.md'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   pinned-commercial-readiness:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: Checkout SEO current PR without persisted credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,10 +51,13 @@ jobs:
           npm --prefix .qa/comercial-before ci --no-audit --no-fund
           npm --prefix .qa/comercial-before run build
           npm --prefix .qa/comercial-after ci --no-audit --no-fund
+          npm --prefix .qa/comercial-after test
           npm --prefix .qa/comercial-after run build
+          npm --prefix .qa/comercial-after run check:dist
       - name: Verify compiled PT EN ES checkout scope truth and no private link leakage
         run: |
           set -euo pipefail
+          node --test tests/pinned-commercial-f348-git-identity.test.mjs
           node scripts/review-two-comercial-portal-readiness-builds.mjs \
             .qa/comercial-before/dist .qa/comercial-after/dist \
             9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
@@ -71,6 +76,52 @@ jobs:
             .qa/comercial-before/dist .qa/comercial-after/dist \
             9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
             5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+      - name: Check no missing real routes in F346 to F348 transition
+        run: |
+          set -euo pipefail
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/comercial-before/dist .qa/comercial-after/dist \
+            9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+      - name: F195 run actual isolated HEAD/301 evidence over compiled F348
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {reviewGscLoopbackAgainstRealAstro} from './labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs';
+          for(const mode of ['valid','temporary','wrong-location','second-hop','missing-final']){
+            const r=await reviewGscLoopbackAgainstRealAstro({
+              buildDirectory:'.qa/comercial-after/dist',mode
+            });
+            if(r.independentCrossEvidenceStatus!==
+                 (mode==='valid'?'human_independent_release_review_required':'blocked')||
+               r.actualLocalHttpHeadRequests!==2||
+               r.proposed301s!==1||
+               r.checkedHttpReceipts!==1||
+               r.actualCompiledHtmlPages<1||
+               r.publicationAuthorized!==false||
+               r.redirectDeploymentAuthorized!==false)
+              throw Error('F195: real F348 build and local HEAD/301 chain failed');
+            console.log(JSON.stringify({
+              contractVersion:r.contractVersion,
+              scenario:mode,
+              checkedHead:r.actualLocalHttpHeadRequests,
+              reviewStatus:r.independentCrossEvidenceStatus,
+              publicationAuthorized:false
+            }));
+          }
+          JS
+      - name: Install Chromium for native F348 browser integration
+        working-directory: .qa/comercial-after
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+      - name: Run F348 native anonymous PT EN ES browser and a11y tests
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-after run test:browser
       - name: Confirm no Git writes in either checkout
         if: always()
         run: |
