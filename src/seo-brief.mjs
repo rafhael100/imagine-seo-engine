@@ -53,6 +53,17 @@ function technicalReport(audit){
   if(!validCount(pages,20000)||!validCount(errors)||!validCount(warnings)||
     errors!==audit.errors.length||warnings!==audit.warnings.length)
     throw Error('SEO brief: inconsistent audit counts');
+  // Zero HTML pages is not a successful technical audit: a missing/empty
+  // build must never become an all-clear report or Portal recommendation.
+  if(pages===0)throw Error('SEO brief: no pages audited');
+  // When the auditor supplies its private route inventory, the page count
+  // must agree with the exact number of distinct routes audited. Expose only
+  // aggregate counts in the brief; never forward private paths to Portal.
+  if(audit.routes!==undefined&&
+    (!Array.isArray(audit.routes)||audit.routes.length!==pages||
+     audit.routes.some(path=>typeof path!=='string'||!path.startsWith('/'))||
+     new Set(audit.routes).size!==pages))
+    throw Error('SEO brief: inconsistent route coverage');
   const tally=new Map();
   for(const issue of [...audit.errors,...audit.warnings]){
     if(!issue||typeof issue!=='object'||Array.isArray(issue))
