@@ -27,13 +27,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rafhael100/imagine-comercial
-          ref: fb95b6684226d78c03f692ea499c72b8e1c3cc53
+          ref: 8ace0224679ddaee09ff342d27c19aa8bd6ecac6
           path: .qa/comercial-current
           persist-credentials: false
       - name: Confirm pinned Comercial commit identity
         run: |
           set -euo pipefail
-          test "$(git -C .qa/comercial-current rev-parse HEAD)" = fb95b6684226d78c03f692ea499c72b8e1c3cc53
+          test "$(git -C .qa/comercial-current rev-parse HEAD)" = 8ace0224679ddaee09ff342d27c19aa8bd6ecac6
           node --check scripts/qa-current-comercial-pinned-funnel-build.mjs
       - name: Build current static Astro pages and verify own site contracts
         run: |
