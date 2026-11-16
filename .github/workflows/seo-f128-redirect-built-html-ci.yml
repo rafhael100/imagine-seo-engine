@@ -1,0 +1,40 @@
+name: SEO F128 - legacy redirects resolve to audited compiled HTML
+
+on:
+  pull_request:
+    paths:
+      - 'src/legacy-redirect-built-site-gate.mjs'
+      - 'tests/legacy-redirect-built-site-gate.test.mjs'
+      - 'docs/SEO-F128-REDIRECT-REAL-HTML-REVIEW.md'
+      - '.github/workflows/seo-f128-redirect-built-html-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  built-html:
+    name: Legacy destination real HTML / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node.js ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax checks and full regression
+        run: |
+          set -euo pipefail
+          node --check src/legacy-redirect-built-site-gate.mjs
+          node --check tests/legacy-redirect-built-site-gate.test.mjs
+          npm test
+      - name: Ensure tracked source unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
