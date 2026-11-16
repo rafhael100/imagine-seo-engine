@@ -15,6 +15,8 @@ import {renderPrivateStagingCompose} from
   '../seo-f149-compose-render/render-private-compose.mjs';
 import {reviewRunningStagingContainer} from
   '../seo-f151-docker-runtime/audit-running-container.mjs';
+import {runCiOnlyMemoryDriftDrill} from
+  '../seo-f152-adversarial-runtime/drill-real-docker-memory-drift.mjs';
 
 const MAX_WAIT=120000;
 const execute=(bin,args,options={})=>execFileSync(bin,args,{
@@ -104,16 +106,16 @@ async function main(){
    }));
    if(!Array.isArray(inspected)||inspected.length!==1)
      throw Error('SEO F151: unexpected Docker runtime snapshot');
+   const expectedRuntime={
+     image:'nginx:1.29.5-alpine@sha256:1eff5a5f3fcf8431a0abb7eddf5471fec24e5e1905a2581aeacdb07a4479b92b',
+     networkName:snapshot.requested.networkName,
+     buildPath:build,configPath:conf,
+     loopbackPort:port,
+     memoryLimitMiB:snapshot.requested.memoryLimitMiB,
+     cpuLimit:snapshot.requested.cpuLimit
+   };
    const runtime=reviewRunningStagingContainer({
-     inspect:inspected[0],
-     expected:{
-       image:'nginx:1.29.5-alpine@sha256:1eff5a5f3fcf8431a0abb7eddf5471fec24e5e1905a2581aeacdb07a4479b92b',
-       networkName:snapshot.requested.networkName,
-       buildPath:build,configPath:conf,
-       loopbackPort:port,
-       memoryLimitMiB:snapshot.requested.memoryLimitMiB,
-       cpuLimit:snapshot.requested.cpuLimit
-     }
+     inspect:inspected[0],expected:expectedRuntime
    });
    if(runtime.reviewStatus!=='human_real_docker_runtime_review_required'||
       runtime.blockedComponents.length||runtime.productionDeploymentAuthorized){
@@ -144,7 +146,16 @@ async function main(){
       report.buildDigestMatchedInLocalProxy!==true||
       report.productionReleaseAuthorized!==false)
      throw Error('SEO F150: real Nginx generated Compose did not pass F143');
-   process.stdout.write('SEO F151: actual Docker container isolation, resource limits, 301 and HTML verified in disposable CI\n');
+   // F152: the SAME temporary Docker Compose project must now reject
+   // a resource limit applied differently than the approved F149 contract.
+   const rejected=await runCiOnlyMemoryDriftDrill({
+     baselineYaml:yaml,baselineCompose:candidate.privateCompose,
+     temporaryDirectory:dir,expectedRuntime
+   });
+   if(rejected.reviewStatus!=='expected_runtime_drift_blocked_in_lab'||
+      rejected.productionReleaseAuthorized)
+     throw Error('SEO F152: adversarial runtime did not stay blocked');
+   process.stdout.write('SEO F152: real Docker isolation and adversarial resource drift verified on disposable runner\n');
  }finally{
    if(yaml!==null){
      try{execute('docker',['compose','-f',yaml,'down','--volumes','--remove-orphans']);}
