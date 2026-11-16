@@ -1,0 +1,44 @@
+name: SEO F122 - municipal PT EN ES parity offline
+
+on:
+  pull_request:
+    paths:
+      - 'src/geo-i18n-parity-review.mjs'
+      - 'scripts/review-municipal-i18n-offline.mjs'
+      - 'tests/geo-i18n-parity*.test.mjs'
+      - 'docs/SEO-F122-MUNICIPAL-I18N-PARITY.md'
+      - '.github/workflows/seo-f122-i18n-parity-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-multilingual:
+    name: Offline parity / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout exact candidate without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax checks
+        run: |
+          set -euo pipefail
+          node --check src/geo-i18n-parity-review.mjs
+          node --check scripts/review-municipal-i18n-offline.mjs
+          node --check tests/geo-i18n-parity-review.test.mjs
+          node --check tests/geo-i18n-parity-cli.test.mjs
+      - name: Full offline suite including 5,600 municipality stress test
+        run: npm test
+      - name: Source remains unchanged after tests
+        run: test -z "$(git status --porcelain --untracked-files=no)"

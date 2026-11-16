@@ -1,0 +1,63 @@
+name: SEO F180 - pinned Comercial catalog and municipal editorial scope
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f180-comercial-editorial-catalog-ci.yml'
+      - 'src/geo-comercial-service-catalog-gate.mjs'
+      - 'tests/geo-comercial-service-catalog-gate.test.mjs'
+      - 'docs/SEO-F180-COMERCIAL-MUNICIPAL-EDITORIAL-SCOPE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  catalog-scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout SEO read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Checkout immutable Comercial F336 service catalog
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-service-catalog
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify immutable checkout identity and original source catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-service-catalog rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          node --input-type=module <<'JS'
+          import {services} from './.qa/comercial-service-catalog/src/data/services.mjs';
+          import {reviewDraftsAgainstCommercialCatalog} from './src/geo-comercial-service-catalog-gate.mjs';
+          const candidate={
+            serviceSlug:'landing-pages',ibgeCode:'2304400',city:'Fortaleza',state:'CE',
+            availabilityConfirmed:false,
+            reasonForLocalPage:'Exemplo de laboratorio sem confirmacao de servicos locais ou de demanda, usado somente para testes de seguranca.',
+            localContent:'Laboratorio de revisao de paginas municipais da Imagine, com exemplos de estrutura de site, acessibilidade, navegacao e planejamento. A equipe precisa confirmar cada produto, cidade, servico e finalidade antes de publicar qualquer URL. Nenhum atendimento, dado de trafego ou pesquisa do Google pode ser inferido deste ensaio. '.repeat(2),
+            demandEvidence:[]
+          };
+          const result=reviewDraftsAgainstCommercialCatalog({
+            draftBatchInput:{candidates:[candidate],existing:[],maxSimilarity:0.75},
+            services
+          });
+          if(result.catalogServices<2||result.reviewedDrafts!==1||
+             result.blockedDrafts!==1||result.publicationAuthorized!==false)
+            throw Error('F180: pinned Comercial catalog scope regression');
+          console.log(JSON.stringify({contractVersion:result.contractVersion,
+            pinnedCatalogCheckoutVerified:true,catalogServices:result.catalogServices,
+            blockedDrafts:result.blockedDrafts,publicationAuthorized:false}));
+          JS
+      - name: Test adversarial catalog inputs and initial scope
+        run: node --test tests/geo-comercial-service-catalog-gate.test.mjs

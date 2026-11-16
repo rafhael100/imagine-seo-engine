@@ -1,0 +1,50 @@
+name: SEO F150 - actually boot F149 generated Compose in disposable CI
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f150-compose-real-e2e/**'
+      - 'scripts/run-served-html-staging-qa.mjs'
+      - 'src/private-staging-artifact-custody.mjs'
+      - 'tests/served-html-attested-staging-gate.test.mjs'
+      - 'labs/seo-f149-compose-render/render-private-compose.mjs'
+      - 'scripts/render-private-staging-compose.mjs'
+      - 'tests/private-staging-compose-renderer.test.mjs'
+      - 'docs/SEO-F150-GENERATED-COMPOSE-NGINX-REAL-TEST.md'
+      - '.github/workflows/seo-f150-generated-compose-e2e-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-generated-compose:
+    name: Boot F149 private Compose and verify F143 / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F150_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout reviewed code without retained credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify full offline regression and E2E source syntax
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+          npm test
+          docker compose version
+      - name: Boot generated Compose in disposable CI only and verify 301 HTML GET
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: node labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+      - name: Assert Git checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"

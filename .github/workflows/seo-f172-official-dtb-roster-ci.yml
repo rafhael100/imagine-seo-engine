@@ -1,0 +1,124 @@
+name: SEO F172 - pinned official DTB municipality roster and F156 CSV check
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f172-official-dtb-roster-ci.yml'
+      - 'scripts/normalize-official-dtb-2025.py'
+      - 'tests/test_normalize_official_dtb_2025.py'
+      - 'docs/SEO-F172-OFFICIAL-DTB-2025-ROSTER.md'
+      - 'src/geo-pinned-official-editorial-gate.mjs'
+      - 'scripts/review-pinned-dtb-editorial-batch-offline.mjs'
+      - 'src/geo-comercial-service-catalog-gate.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-roster:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout SEO code read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22 for independent F156 parser
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout immutable Comercial F336 catalog read-only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-service-catalog
+          persist-credentials: false
+      - name: Confirm exact Comercial revision
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-service-catalog rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+      - name: Test offline ODS extraction and malformed rows
+        run: python3 -m unittest discover -s tests -p test_normalize_official_dtb_2025.py -v
+      - name: Fetch original ZIP with previous F170 SHA and verify workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="${RUNNER_TEMP}/dtb-2025.zip"
+          csv="${RUNNER_TEMP}/dtb-2025-normalized-private.csv"
+          url='https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$zip" "$url"
+          printf '%s  %s\n' d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27 "$zip" | sha256sum --check --status
+          python3 scripts/normalize-official-dtb-2025.py "$zip" "$csv"
+          test "$(stat -c %a "$csv")" = 600
+          node --input-type=module - "$csv" <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {parseNormalizedDtb2025Csv} from './src/ibge-independent-dtb-crosscheck.mjs';
+          const csv=readFileSync(process.argv[2],'utf8');
+          const dtb=parseNormalizedDtb2025Csv(csv);
+          if(dtb.rows.size!==5571||dtb.specials!==2)
+            throw Error('F172: independent F156 normalized roster count mismatch');
+          console.log(JSON.stringify({
+            contractVersion:'seo-f172-independent-existing-f156-parser-confirmation',
+            f156NormalizedRows:dtb.rows.size,
+            f156SpecialUnits:dtb.specials,
+            bytesPinnedToF170Receipt:true,
+            independentlyAuthenticatedLocalitiesReference:false,
+            productionReleaseAuthorized:false
+          }));
+          JS
+          # F179: prove that a real SHA-pinned DTB row is consumed by the
+          # original F107 editorial contract without ever approving release.
+          draft="${RUNNER_TEMP}/f179-private-editorial-fixture.json"
+          summary="${RUNNER_TEMP}/f179-private-edition-review.json"
+          umask 077
+          node --input-type=module - "$csv" "$draft" <<'JS'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {parseNormalizedDtb2025Csv} from './src/ibge-independent-dtb-crosscheck.mjs';
+          const roster=parseNormalizedDtb2025Csv(readFileSync(process.argv[2],'utf8'));
+          const row=roster.rows.get('2304400');
+          if(!row)throw Error('F179: public CI sample municipality missing');
+          const draft={
+            candidates:[{
+              serviceSlug:'landing-pages',ibgeCode:'2304400',
+              city:row.city,state:row.state,availabilityConfirmed:false,
+              reasonForLocalPage:'Laboratorio de triagem de qualidade regional; este teste nao comprova prestacao de servicos.',
+              localContent:'Estudo de estrutura editorial para uma pagina de servicos e projetos digitais, apenas no laboratorio isolado. Nao ha atendimento comprovado, contratacao, demanda real, ranqueamento ou resultados de clientes. A revisao humana e obrigatoria antes de qualquer uso, e nenhuma informacao de municipio deve virar URL automaticamente. '.repeat(2),
+              demandEvidence:[]
+            }],existing:[],maxSimilarity:0.75
+          };
+          writeFileSync(process.argv[3],JSON.stringify(draft),{flag:'wx',mode:0o600});
+          JS
+          result=0
+          node scripts/review-pinned-dtb-editorial-batch-offline.mjs "$csv" "$draft" > "$summary" || result=$?
+          test "$result" -eq 1
+          node --input-type=module - "$summary" <<'JS'
+          import {readFileSync} from 'node:fs';
+          const x=JSON.parse(readFileSync(process.argv[2],'utf8'));
+          if(x.matchedOfficialDtbCodes!==1||x.blockedDrafts!==1||
+             x.officialDtbCsvShaPinned!==true||x.publicationAuthorized!==false)
+            throw Error('F179: official source/editorial HOLD contract failed');
+          console.log(JSON.stringify({contractVersion:x.contractVersion,
+            officialRosterSourceBound:true,examinedDrafts:x.examinedDrafts,
+            blockedDrafts:x.blockedDrafts,publicationAuthorized:false}));
+          JS
+          node --input-type=module - "$csv" "$draft" <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {services} from './.qa/comercial-service-catalog/src/data/services.mjs';
+          import {reviewPinnedMunicipalServiceDrafts} from './src/geo-comercial-service-catalog-gate.mjs';
+          const result=reviewPinnedMunicipalServiceDrafts({
+            normalizedDtbCsv:readFileSync(process.argv[2],'utf8'),
+            draftBatchInput:JSON.parse(readFileSync(process.argv[3],'utf8')),
+            services
+          });
+          if(result.oficialDtbShaPinned!==true||result.sourceBoundMunicipalityRows!==5571||
+             result.catalogServices<2||result.reviewedDrafts!==1||
+             result.blockedDrafts!==1||result.publicationAuthorized!==false)
+            throw Error('F180: official DTB and Comercial source integration failed');
+          console.log(JSON.stringify({contractVersion:result.contractVersion,
+            verifiedInputDtbSha:true,pinnedComercialCheckoutVerified:true,
+            catalogServices:result.catalogServices,blockedDrafts:result.blockedDrafts,
+            publicationAuthorized:false}));
+          JS
+          rm -f "$draft" "$summary"
+          rm -f "$csv" "$zip"
