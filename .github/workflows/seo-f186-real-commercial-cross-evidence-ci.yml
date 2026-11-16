@@ -27,22 +27,44 @@ jobs:
           set -euo pipefail
           node --test tests/gsc-generated-301-cross-evidence.test.mjs
           node --check scripts/review-gsc-http-astro-preflight.mjs
-      - name: Checkout immutable Comercial F344 with real anonymous funnel
+      - name: Checkout immutable Comercial F346 with real anonymous funnel
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: rafhael100/imagine-comercial
-          ref: 873815411236ea6f0b333c5826661f177a5ad0c0
-          path: .qa/comercial-f344
+          ref: 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+          path: .qa/comercial-f346
           persist-credentials: false
       - name: Prove immutable independent Comercial source revision
         run: |
           set -euo pipefail
-          test "$(git -C .qa/comercial-f344 rev-parse HEAD)" = 873815411236ea6f0b333c5826661f177a5ad0c0
+          test "$(git -C .qa/comercial-f346 rev-parse HEAD)" = 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
       - name: Build actual multi-language Astro public site
         run: |
           set -euo pipefail
-          npm --prefix .qa/comercial-f344 ci --no-audit --no-fund
-          npm --prefix .qa/comercial-f344 run build
+          npm --prefix .qa/comercial-f346 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f346 run build
+      - name: F187 audit three actual compiled Comercial F346 locale journeys
+        run: |
+          set -euo pipefail
+          node --test tests/pinned-commercial-f346-static-journey.test.mjs
+          node --input-type=module - <<'JS'
+          import {reviewPinnedCommercialF346Build} from './src/pinned-commercial-f346-static-journey.mjs';
+          const report=await reviewPinnedCommercialF346Build(
+            '.qa/comercial-f346/dist',
+            '9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a'
+          );
+          if(report.auditedCompiledLocales!==3||
+             !report.copyProgressivelyEnhanced||
+             !report.matchingCanonicalQuoteTarget||
+             report.publicationAuthorized!==false||
+             report.customerDataCaptured!==false)
+            throw Error('F187: pinned Comercial site has incomplete quote journey');
+          console.log(JSON.stringify({
+            contractVersion:report.contractVersion,
+            auditedCompiledLocales:report.auditedCompiledLocales,
+            releaseStatus:report.releaseStatus
+          }));
+          JS
       - name: F186 review synthetic GSC and independent HTTP over actual Astro build
         shell: bash
         run: |
@@ -59,7 +81,7 @@ jobs:
           chmod 600 "$private/gsc.json" "$private/http.json"
           code=0
           node scripts/review-gsc-http-astro-preflight.mjs \
-            "$private/gsc.json" "$private/http.json" .qa/comercial-f344/dist \
+            "$private/gsc.json" "$private/http.json" .qa/comercial-f346/dist \
             > "$private/report.json" || code=$?
           test "$code" -eq 1
           test "$(find "$private" -maxdepth 1 -type f | wc -l)" -eq 3
@@ -91,4 +113,4 @@ jobs:
         run: |
           set -euo pipefail
           test -z "$(git status --porcelain --untracked-files=no)"
-          test -z "$(git -C .qa/comercial-f344 status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f346 status --porcelain --untracked-files=no)"
