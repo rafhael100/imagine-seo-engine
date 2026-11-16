@@ -153,3 +153,52 @@ test('F156: locally supplied route evidence must match pages without leaking pat
  assert.equal(clean.technical.pages,3);
  assert.doesNotMatch(JSON.stringify(clean),/private\/|service\//);
 });
+
+test('F160: important static audit findings become actionable review priorities, not generic noise',()=>{
+ const errors=[
+  issue('missing_homepage'),issue('private_editorial_preview_in_public_build'),
+  issue('duplicate_sitemap_url'),issue('broken_local_fragment')
+ ];
+ const warnings=[
+  issue('page_not_in_sitemap'),issue('sitemap_not_in_robots'),
+  issue('hreflang_missing_return'),issue('invalid_hreflang_url'),
+  issue('duplicate_description'),issue('duplicate_html_id')
+ ];
+ const brief=buildOfflineSeoBrief({audit:audit(errors,warnings)});
+ assert.equal(brief.technical.status,'review_required');
+ assert.deepEqual(brief.recommendedReviews,[
+  {code:'review_indexation',priority:'critical',count:2},
+  {code:'fix_sitemap',priority:'high',count:3},
+  {code:'review_page_metadata',priority:'high',count:3},
+  {code:'repair_internal_links',priority:'high',count:1},
+  {code:'review_page_structure',priority:'medium',count:1}
+ ]);
+ const portal=preparePortalSeoHandoff({
+  tenantRef:'imagine-demo',propertyFingerprint:'a'.repeat(64),
+  sourceRevision:'b'.repeat(40),brief
+ });
+ assert.deepEqual(portal.suggestedReviews,brief.recommendedReviews);
+ assert.equal(portal.customerDisplayAuthorized,false);
+ assert.equal(portal.releaseStatus,'HOLD_EXTERNAL_AUTHORIZATION');
+ assert.doesNotMatch(JSON.stringify(portal),/private\/pessoa|SECRET-USER-DATA/);
+});
+
+test('F160: multilingual findings retain existing Portal contract and unknown types remain generic',()=>{
+ const hreflang=[
+  'invalid_hreflang','invalid_hreflang_attributes','duplicate_hreflang',
+  'hreflang_missing_self','hreflang_missing_target',
+  'hreflang_language_mismatch','hreflang_cluster_inconsistent',
+  'hreflang_x_default_foreign_cluster'
+ ];
+ const result=buildOfflineSeoBrief({
+  audit:audit(hreflang.map(type=>issue(type)),[
+   issue('unsafe_symlink'),issue('unsafe_html_file'),issue('oversize_html'),
+   issue('unknown_PRIVATE-SENSITIVE')
+  ])
+ });
+ assert.deepEqual(result.recommendedReviews,[
+  {code:'review_page_metadata',priority:'high',count:hreflang.length},
+  {code:'review_other_technical_findings',priority:'high',count:4}
+ ]);
+ assert.doesNotMatch(JSON.stringify(result),/unknown_PRIVATE|SECRET-USER-DATA/);
+});
