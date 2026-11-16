@@ -210,6 +210,6 @@ test('F141 blocks a stale local proxy build header before any redirect HEADs',as
   assert.equal(result.capture,null);
   assert.equal(args.seen.length,1);
   assert.deepEqual(args.seen.map(x=>x.host),['example.test']);
-  assert.doesNotMatch(JSON.stringify(result.report),/example\\.test|https:\\/\\//);
+  assert.doesNotMatch(JSON.stringify(result.report),/example\.test|https:\/\/\//);
  }),{staleDigest:true});
 });
