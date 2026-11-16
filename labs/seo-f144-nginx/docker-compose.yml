@@ -1,0 +1,35 @@
+# SEO F144 — GitHub Actions/lab isolated Nginx. NO production deploy.
+# Required absolute host paths: SEO_F144_BUILD and SEO_F144_CONF.
+# Dynamic host port bound to IPv4 loopback only; read with:
+#   docker compose -f ... port nginx 8080
+services:
+  nginx:
+    image: nginx:1.29.5-alpine@sha256:1eff5a5f3fcf8431a0abb7eddf5471fec24e5e1905a2581aeacdb07a4479b92b
+    user: "101:101"
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - "no-new-privileges:true"
+    tmpfs:
+      - "/tmp:rw,nosuid,nodev,uid=101,gid=101,mode=1777,size=16m"
+    ports:
+      - "127.0.0.1::8080"
+    volumes:
+      - type: bind
+        source: ${SEO_F144_BUILD:?set private absolute build path}
+        target: /usr/share/nginx/html
+        read_only: true
+      - type: bind
+        source: ${SEO_F144_CONF:?set private absolute nginx configuration path}
+        target: /etc/nginx/nginx.conf
+        read_only: true
+    networks: [seo_f144_internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+networks:
+  seo_f144_internal:
+    internal: true
