@@ -1,0 +1,67 @@
+name: SEO F171 - inspect pinned original IBGE DTB 2025 ODS structure
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f171-dtb-ods-structure.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-original-ods:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - name: Re-fetch official DTB ZIP once and pin bytes to F170 receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          out="${RUNNER_TEMP}/official-dtb-2025.zip"
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$out" "$url"
+          printf '%s  %s\n' d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27 "$out" | sha256sum --check --status
+          python3 - "$out" <<'PY'
+          import io,json,re,sys,zipfile,xml.etree.ElementTree as ET
+          archive=sys.argv[1]
+          t='urn:oasis:names:tc:opendocument:xmlns:table:1.0'
+          tx='urn:oasis:names:tc:opendocument:xmlns:text:1.0'
+          office='urn:oasis:names:tc:opendocument:xmlns:office:1.0'
+          with zipfile.ZipFile(archive) as outer:
+              filenames=[x for x in outer.namelist() if 'MUNICIPIOS' in x.upper() and x.lower().endswith('.ods')]
+              if len(filenames)!=1:
+                  raise SystemExit('F171: expected one municipality ODS')
+              workbook=outer.read(filenames[0])
+          with zipfile.ZipFile(io.BytesIO(workbook)) as ods:
+              document=ET.fromstring(ods.read('content.xml'))
+          sheets=[]
+          for table in document.findall('.//{%s}table'%t):
+              rows=table.findall('.//{%s}table-row'%t)
+              samples=[];codes=set();nonempty=0
+              for row in rows:
+                  cells=[]
+                  for cell in row:
+                      if cell.tag!='{%s}table-cell'%t:continue
+                      raw=cell.get('{%s}value'%office)
+                      if raw is None:
+                          raw=' '.join(''.join(p.itertext()) for p in cell.findall('.//{%s}p'%tx))
+                      raw=raw.strip()
+                      cells.append(raw)
+                      if re.fullmatch(r'[0-9]{7}',raw):codes.add(raw)
+                  if any(cells):
+                      nonempty+=1
+                      if len(samples)<5:
+                          samples.append([x[:85] for x in cells[:11]])
+              sheets.append({'sheet':str(table.get('{%s}name'%t,''))[:60],
+                             'xmlRows':len(rows),'nonemptyRows':nonempty,
+                             'distinctSevenDigitTokens':len(codes),
+                             'firstFiveRows':samples})
+          if not sheets:raise SystemExit('F171: ODS sheets absent')
+          print(json.dumps({'contractVersion':'seo-f171-pinned-dtb-ods-structure-v1',
+             'sourceSha256':'d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27',
+             'workbookFound':True,'sheets':sheets,
+             'municipalityRosterValidated':False,
+             'independentApiCrosschecked':False,
+             'releaseAuthorized':False},ensure_ascii=False))
+          PY
+          rm -f "$out"

@@ -1,0 +1,41 @@
+name: SEO F156 - independent official DTB municipality CSV crosscheck
+on:
+  pull_request:
+    paths:
+      - 'src/ibge-independent-dtb-crosscheck.mjs'
+      - 'scripts/review-independent-dtb-reference-offline.mjs'
+      - 'tests/ibge-independent-dtb-crosscheck.test.mjs'
+      - 'tests/ibge-independent-dtb-cli.test.mjs'
+      - 'docs/SEO-F156-INDEPENDENT-DTB-MUNICIPALITY-CROSSCHECK.md'
+      - '.github/workflows/seo-f156-independent-dtb-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  strict-offline-dtb:
+    name: Independent IBGE DTB structure / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout reviewed source without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full offline regression, no network
+        run: |
+          set -euo pipefail
+          node --check src/ibge-independent-dtb-crosscheck.mjs
+          node --check scripts/review-independent-dtb-reference-offline.mjs
+          node --check tests/ibge-independent-dtb-crosscheck.test.mjs
+          node --check tests/ibge-independent-dtb-cli.test.mjs
+          npm test
+      - name: Require pristine repository
+        run: test -z "$(git status --porcelain --untracked-files=no)"
