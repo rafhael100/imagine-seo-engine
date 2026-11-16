@@ -1,0 +1,37 @@
+name: SEO F135 - offline HTTP301 staging receipt CLI
+on:
+  pull_request:
+    paths:
+      - 'scripts/review-staging-http301-receipts-offline.mjs'
+      - 'tests/staging-http301-receipts-cli.test.mjs'
+      - 'docs/SEO-F135-HTTP301-RECEIPTS-OPERATOR-CLI.md'
+      - '.github/workflows/seo-f135-staging-receipts-cli-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staging-operator-cli:
+    name: Private offline staging receipt CLI / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Full offline regression and CLI syntax
+        run: |
+          set -euo pipefail
+          node --check scripts/review-staging-http301-receipts-offline.mjs
+          node --check tests/staging-http301-receipts-cli.test.mjs
+          npm test
+      - name: Do not mutate tracked source
+        run: test -z "$(git status --porcelain --untracked-files=no)"

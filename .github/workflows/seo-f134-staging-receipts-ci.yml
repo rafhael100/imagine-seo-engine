@@ -1,0 +1,37 @@
+name: SEO F134 - staging HTTP301 receipt review offline
+on:
+  pull_request:
+    paths:
+      - 'src/legacy-http301-receipt-review.mjs'
+      - 'tests/legacy-http301-receipt-review.test.mjs'
+      - 'docs/SEO-F134-STAGING-301-RECEIPT-EVIDENCE.md'
+      - '.github/workflows/seo-f134-staging-receipts-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  receipts:
+    name: Offline HTTP receipt evidence / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout locked candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Parse and full offline regression suite
+        run: |
+          set -euo pipefail
+          node --check src/legacy-http301-receipt-review.mjs
+          node --check tests/legacy-http301-receipt-review.test.mjs
+          npm test
+      - name: Source must remain unmodified
+        run: test -z "$(git status --porcelain --untracked-files=no)"
