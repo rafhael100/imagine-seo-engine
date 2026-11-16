@@ -8,9 +8,9 @@
  */
 import {request} from 'node:http';
 import {reviewLegacyOriginAndLocaleRedirects} from
-  './legacy-origin-locale-redirect-review.mjs';
+  '../../src/legacy-origin-locale-redirect-review.mjs';
 import {reviewOfflineLegacyHttp301Receipts} from
-  './legacy-http301-receipt-review.mjs';
+  '../../src/legacy-http301-receipt-review.mjs';
 
 const MAX_PROBES=100;
 function exact(x,fields){
