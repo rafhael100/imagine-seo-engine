@@ -69,7 +69,9 @@ test('F185 treats pagination as incomplete and never implies full coverage',()=>
  const x=draft(source([row('http://www.example.test/',1,10)],true));
  assert.equal(x.publicReport.paginationIncomplete,true);
  assert.equal(x.publicReport.deploymentAuthorized,false);
- assert.equal(x.privateManifest.candidates.length,1);
+ assert.equal(x.privateManifest,null);
+ assert.equal(x.publicReport.proposedHostSchemeOnly301s,null);
+ assert.equal(x.publicReport.publicationAuthorized,false);
 });
 test('F185 refuses mismatched canonical domain, forged privilege and invalid target',()=>{
  const wrong=source([row('http://www.example.test/',2,10)]);
