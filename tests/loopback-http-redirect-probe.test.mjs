@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {probeLoopbackLegacyRedirects as probe} from
-  '../src/loopback-http-redirect-probe.mjs';
+  '../labs/seo-f138-loopback/probe-loopback.mjs';
 
 const manifest=()=>({
   sourceType:'operator_supplied_legacy_urls_unverified',
