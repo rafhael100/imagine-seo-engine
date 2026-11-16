@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,chmod,readFile,stat,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,chmod,readFile,stat,rm,access,symlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
@@ -11,6 +11,9 @@ const cli=fileURLToPath(new URL(
 ));
 const docker=`#!/bin/sh
 set -eu
+if [ -n "$MOCK_DOCKER_COMMAND_MARKER" ]; then
+ printf "called" > "$MOCK_DOCKER_COMMAND_MARKER"
+fi
 case "$1 $2" in
   "context inspect") printf 'unix:///var/run/docker.sock\\n' ;;
   "container ls") printf 'imagine-crm-private\\nimagine-sites-private\\n' ;;
@@ -51,7 +54,8 @@ async function fixture(fn){
   const env={...process.env,
    PATH:bin+':'+(process.env.PATH??'/usr/bin:/bin'),
    DOCKER_HOST:'unix:///var/run/docker.sock',
-   SEO_F148_LOCAL_INVENTORY:'YES_READ_ONLY_DOCKER_HOST'
+   SEO_F148_LOCAL_INVENTORY:'YES_READ_ONLY_DOCKER_HOST',
+   MOCK_DOCKER_COMMAND_MARKER:''
   };
   await fn({root,bin,out,args,env});
  }finally{await rm(root,{recursive:true,force:true});}
@@ -131,5 +135,46 @@ fi
     'SEO F148: failed to capture safe local Docker inventory'+String.fromCharCode(10));
   await assert.rejects(readFile(marker,'utf8'));
   await assert.rejects(readFile(out,'utf8'));
+ });
+});
+
+test('F200 refuses public 0755 snapshot output parent before ANY Docker command',async()=>{
+ await fixture(async({root,out,args,env})=>{
+  const marker=join(root,'DENIED_DOCKER_QUERY');
+  await chmod(root,0o755);
+  const result=run(args,{...env,MOCK_DOCKER_COMMAND_MARKER:marker});
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(marker));
+  await assert.rejects(access(out));
+  await chmod(root,0o700);
+ });
+});
+test('F200 refuses snapshot output inside another Git checkout before querying host',async()=>{
+ await fixture(async({root,args,env})=>{
+  const repo=join(root,'another-private-checkout');
+  const operator=join(repo,'private');
+  await mkdir(join(repo,'.git'),{recursive:true,mode:0o700});
+  await mkdir(operator,{mode:0o700});
+  const target=join(operator,'network.json');
+  const altered=[...args];altered[13]=target;
+  const marker=join(root,'DENIED_GIT_DOCKER_QUERY');
+  const result=run(altered,{...env,MOCK_DOCKER_COMMAND_MARKER:marker});
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(marker));
+  await assert.rejects(access(target));
+ });
+});
+test('F200 refuses symbolic parent aliases and never contacts Docker',async()=>{
+ await fixture(async({root,args,env})=>{
+  const alias=join(root,'alias');
+  await symlink(root,alias);
+  const altered=[...args];altered[13]=join(alias,'network.json');
+  const marker=join(root,'DENIED_ALIAS_DOCKER_QUERY');
+  const result=run(altered,{...env,MOCK_DOCKER_COMMAND_MARKER:marker});
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  await assert.rejects(access(marker));
  });
 });

@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'labs/seo-f148-docker-host/**'
+      - 'src/private-staging-artifact-custody.mjs'
+      - 'tests/docker-readonly-capture-cli.test.mjs'
       - 'tests/docker-local-inventory-parser.test.mjs'
       - 'docs/SEO-F148-READONLY-LEASEWEB-HOST-INVENTORY.md'
       - '.github/workflows/seo-f148-local-docker-capture-ci.yml'
@@ -33,6 +35,7 @@ jobs:
           node --check labs/seo-f148-docker-host/parse-readonly-inventory.mjs
           node --check labs/seo-f148-docker-host/capture-readonly-host.mjs
           node --check tests/docker-local-inventory-parser.test.mjs
+          node --test tests/docker-readonly-capture-cli.test.mjs
           npm test
       - name: Verify checked-out code unchanged
         run: test -z "$(git status --porcelain --untracked-files=no)"
