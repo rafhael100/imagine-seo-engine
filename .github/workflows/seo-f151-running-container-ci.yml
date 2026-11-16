@@ -1,0 +1,48 @@
+name: SEO F151 - audit actual running Docker container isolation
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f151-docker-runtime/**'
+      - 'labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs'
+      - 'tests/docker-running-staging-runtime-audit.test.mjs'
+      - 'docs/SEO-F151-RUNNING-DOCKER-RUNTIME-AUDIT.md'
+      - '.github/workflows/seo-f151-running-container-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docker-actual-runtime:
+    name: Inspect real Nginx / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      F150_NODE: ${{ matrix.node }}
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Syntax and full offline regression
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f151-docker-runtime/audit-running-container.mjs
+          node --check labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+          node --check tests/docker-running-staging-runtime-audit.test.mjs
+          npm test
+          docker compose version
+      - name: Boot isolated Nginx and inspect actual Docker runtime
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: node labs/seo-f150-compose-real-e2e/run-generated-compose-ci.mjs
+      - name: Require no tracked source edits
+        run: test -z "$(git status --porcelain --untracked-files=no)"
