@@ -6,22 +6,56 @@
  */
 import {open,lstat,realpath} from 'node:fs/promises';
 import {constants} from 'node:fs';
-import {dirname} from 'node:path';
+import {dirname,isAbsolute,join,resolve} from 'node:path';
 import {auditStaticSite} from '../src/audit-static.mjs';
 import {proposePrivateGscBuildRedirects}
  from '../src/gsc-private-compiled-redirect-drafts.mjs';
 
+// F193: source exports and generated URL manifests must never be written
+// anywhere below a Git checkout, even an unrelated worktree or submodule.
+// No git invocation or network; .git may be a directory or worktree file.
+async function denyGitParentTree(parent){
+ let directory=parent;
+ while(true){
+  try{
+   await lstat(join(directory,'.git'));
+   throw Error('F193: GSC evidence must remain outside any Git checkout');
+  }catch(error){
+   if(error?.code!=='ENOENT')
+    throw Error('F193: private Git checkout boundary refused');
+  }
+  const next=dirname(directory);
+  if(next===directory)break;
+  directory=next;
+ }
+}
+async function privateDirectory(path){
+ if(typeof path!=='string'||!isAbsolute(path)||path!==resolve(path)||
+    path.length>2048)throw Error('F193: private absolute canonical path required');
+ const p=dirname(path);
+ const [source,canonical]=await Promise.all([lstat(p),realpath(p)]);
+ if(p!==canonical||!source.isDirectory()||source.isSymbolicLink()||
+    (process.platform!=='win32'&&((source.mode&0o077)!==0||
+      (typeof process.getuid==='function'&&source.uid!==process.getuid()))))
+  throw Error('F193: operator-only private folder required');
+ await denyGitParentTree(canonical);
+ return source;
+}
+
 async function loadPrivate(path){
  if(typeof path!=='string'||!path||path.startsWith('-')||path.length>2048)
   throw Error('F185: private page source required');
+ await privateDirectory(path);
  const st=await lstat(path);
  if(!st.isFile()||st.isSymbolicLink()||st.size<2||st.size>5*1024*1024||
-    (process.platform!=='win32'&&(st.mode&0o077)!==0))
+    (process.platform!=='win32'&&((st.mode&0o077)!==0||
+     (typeof process.getuid==='function'&&st.uid!==process.getuid()))))
   throw Error('F185: private page source must be 0600');
  const handle=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
  try{
   const info=await handle.stat();
-  if(!info.isFile()||info.size<2||info.size>5*1024*1024)
+  if(!info.isFile()||info.size<2||info.size>5*1024*1024||
+     info.ino!==st.ino||info.dev!==st.dev)
    throw Error('F185: bounded source required');
   const data=await handle.readFile();
   if(data.length>5*1024*1024)throw Error('F185: oversized source');
@@ -31,10 +65,7 @@ async function loadPrivate(path){
 async function writePrivate(path,value){
  if(typeof path!=='string'||!path||path.startsWith('-')||path.length>2048)
   throw Error('F185: private destination path required');
- const parent=await lstat(dirname(path));
- if(!parent.isDirectory()||parent.isSymbolicLink()||
-    (process.platform!=='win32'&&(parent.mode&0o077)!==0))
-  throw Error('F185: destination folder must be private 0700');
+ await privateDirectory(path);
  const bytes=Buffer.from(JSON.stringify(value),'utf8');
  if(bytes.length>5*1024*1024)
   throw Error('F185: private draft oversized');
@@ -49,9 +80,11 @@ async function main(){
   throw Error('F185: private GSC, audited build and private destination required');
  const [sourceFile,buildDirectory,draftFile]=process.argv.slice(2);
  const input=await loadPrivate(sourceFile);
+ const original=await lstat(buildDirectory);
  const dir=await realpath(buildDirectory);
  const info=await lstat(dir);
- if(!info.isDirectory())throw Error('F185: real local build required');
+ if(original.isSymbolicLink()||!original.isDirectory()||!info.isDirectory())
+  throw Error('F185: real local build required');
  const audit=await auditStaticSite(dir,{
   siteUrl:input.canonicalOrigin,
   strictPublicHead:true,
