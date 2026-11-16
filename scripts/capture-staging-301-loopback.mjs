@@ -8,7 +8,7 @@ import {lstat,open,realpath,rm} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {dirname,isAbsolute,resolve,sep} from 'node:path';
 import {captureLoopbackStaging301} from
-  '../src/legacy-301-loopback-staging-capture.mjs';
+  '../labs/seo-f138-loopback/loopback-capture.mjs';
 
 const MAX_INPUT=20*1024*1024;
 async function main(){
