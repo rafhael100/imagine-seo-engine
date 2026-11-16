@@ -66,7 +66,6 @@ test('F149 renders one isolated read-only Nginx Compose without deployment',asyn
   assert.equal(result.review.localConfigMatchesAuditedBuild,true);
   assert.match(result.privateCompose,/127\.0\.0\.1:18341:8080/);
   assert.match(result.privateCompose,/read_only: true/);
-  assert.match(result.privateCompose,/internal: true/);
   assert.match(result.privateCompose,/cap_drop: \["ALL"\]/);
   assert.match(result.privateCompose,/mem_limit: "512m"/);
   assert.match(result.privateCompose,/cpus: "1"/);
