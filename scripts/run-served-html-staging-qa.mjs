@@ -3,26 +3,26 @@
  * SEO F143 — one-command GSC + built HTML + loopback 301 review.
  * PRIVATE inputs/output; stdout prints only a sanitized summary.
  */
-import {open,lstat,realpath,rm} from 'node:fs/promises';
+import {open,lstat,rm} from 'node:fs/promises';
 import {constants} from 'node:fs';
-import {dirname,isAbsolute,sep} from 'node:path';
+import {isAbsolute} from 'node:path';
+import {reviewPrivateOperatorFilePath} from
+  '../src/private-staging-artifact-custody.mjs';
 import {runServedHtmlAttestedStagingQa} from
   '../labs/seo-f143-full-served-gate/run-served-html-staging-gate.mjs';
 
 const MAX_INPUT=20*1024*1024;
 async function safeJson(path){
-  if(!isAbsolute(path)||path.length>2048)
-    throw Error('SEO F143: private absolute path required');
-  const before=await lstat(path);
-  if(!before.isFile()||before.isSymbolicLink()||
-     before.size<2||before.size>MAX_INPUT)
-    throw Error('SEO F143: input file unsafe');
+  const before=await reviewPrivateOperatorFilePath(
+    path,'source',MAX_INPUT
+  );
   const f=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
   let raw;
   try{
     const st=await f.stat();
-    if(!st.isFile()||st.size<2||st.size>MAX_INPUT)
-      throw Error('SEO F143: invalid input size');
+    if(!st.isFile()||st.size!==before.size||
+       st.ino!==before.ino||st.dev!==before.dev)
+      throw Error('SEO F199: source swapped after private evidence preflight');
     raw=await f.readFile();
   }finally{await f.close();}
   if(raw.length>MAX_INPUT)throw Error('SEO F143: input oversized');
@@ -44,10 +44,9 @@ async function main(){
      buildDirectory.length>2048||outPath.length>2048)
     throw Error('SEO F143: private absolute paths required');
 
-  const checkout=await realpath(process.cwd());
-  const outputParent=await realpath(dirname(outPath));
-  if(outputParent===checkout||outputParent.startsWith(checkout+sep))
-    throw Error('SEO F143: refuse Git checkout output');
+  // Both GSC PAGE and 301 plan are already checked by safeJson, and
+  // private HTTP receipts must also remain outside ALL Git worktrees.
+  await reviewPrivateOperatorFilePath(outPath,'exclusive_destination');
   const build=await lstat(buildDirectory);
   if(!build.isDirectory()||build.isSymbolicLink())
     throw Error('SEO F143: unsafe build directory');
