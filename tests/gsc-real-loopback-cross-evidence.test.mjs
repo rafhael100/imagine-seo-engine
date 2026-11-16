@@ -18,6 +18,7 @@ async function withBuild(fn){
    '<meta charset="utf-8"><title>Imagine sample homepage reviewed</title>'+
    '<meta name="description" content="Conteúdo de laboratório, revisado para testar links canônicos, rotas estáticas e resposta 301 em servidor local isolado.">'+
    '<meta name="robots" content="index,follow">'+
+   '<meta property="og:url" content="'+ORIGIN+'">'+
    '<link rel="canonical" href="'+ORIGIN+'">'+
    '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage"}</script>'+
    '</head><body><h1>Site de serviços digitais</h1></body></html>';
