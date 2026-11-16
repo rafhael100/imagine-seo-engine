@@ -66,7 +66,9 @@ export function proposePrivateGscBuildRedirects(input){
   ...sensitive,
   releaseStatus:'HOLD_PRIVATE_301_EQUIVALENCE_HTTP_AND_BACKEND_GSC_AUTHORIZATION'
  };
- if(out.metricsWithheld)
+ // F193: never create a candidate redirect manifest from an incomplete
+ // PAGE export. The partially observed URLs cannot prove migration coverage.
+ if(out.metricsWithheld||out.paginationIncomplete)
   return Object.freeze({privateManifest:null,publicReport:Object.freeze(out)});
  const legacyUrls=[],candidates=[];
  let other=0,unsafe=0,aliases=0;
