@@ -4,8 +4,6 @@ on:
     paths:
       - '.github/workflows/seo-f197-real-f348-nginx-compose-ci.yml'
       - 'labs/seo-f197-real-f348-compose/**'
-      - 'src/private-bridge-network-review.mjs'
-      - 'tests/private-bridge-network-review.test.mjs'
       - 'docs/SEO-F197-REAL-COMERCIAL-F348-DOCKER-NGINX-REVIEW.md'
   workflow_dispatch:
 permissions:
