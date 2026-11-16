@@ -7,6 +7,7 @@ on:
       - 'src/gsc-private-compiled-redirect-drafts.mjs'
       - 'scripts/propose-private-gsc-astro-redirects.mjs'
       - 'tests/gsc-private-compiled-redirect-drafts.test.mjs'
+      - 'tests/gsc-private-manifest-guard.test.mjs'
       - 'docs/SEO-F185-PRIVATE-GSC-ASTRO-301-DRAFTS.md'
   workflow_dispatch:
 permissions:
@@ -31,5 +32,5 @@ jobs:
       - name: Verify original PAGE, only exact build routes, and private redaction
         run: |
           set -euo pipefail
-          node --test tests/gsc-private-compiled-redirect-drafts.test.mjs
+          node --test tests/gsc-private-compiled-redirect-drafts.test.mjs tests/gsc-private-manifest-guard.test.mjs
           node --check scripts/propose-private-gsc-astro-redirects.mjs
