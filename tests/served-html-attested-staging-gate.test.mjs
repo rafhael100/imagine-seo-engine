@@ -45,7 +45,7 @@ function html(){
   '</head><body><h1>Regional business services</h1>'+
   '<p>Original text about the services and their benefits.</p></body></html>';
 }
-async function fixture(fn,{redirectStatus=301,missingHtml=false,staleDigest=false,staleServedHtml=false}={}){
+async function fixture(fn,{redirectStatus=301,missingHtml=false,staleDigest=false,staleServedHtml=false,httpRobots=null}={}){
  const dir=await mkdtemp(join(tmpdir(),'seo-f139-'));
  const build=join(dir,'compiled-html');
  await mkdir(build);
@@ -70,7 +70,8 @@ async function fixture(fn,{redirectStatus=301,missingHtml=false,staleDigest=fals
   }else if(req.headers.host==='example.test'){
    res.writeHead(200,{
     'X-Imagine-SEO-Build-SHA256':staleDigest?'0'.repeat(64):buildDigest,
-    'Content-Type':'text/html; charset=utf-8'
+    'Content-Type':'text/html; charset=utf-8',
+    ...(httpRobots===null?{}:{'X-Robots-Tag':httpRobots})
    });
    res.end(req.method==='GET'?
     (staleServedHtml?html().replace('Original','Other___'):html()):'');
@@ -238,6 +239,26 @@ test('F143 blocks stale HTML body even when proxy announces correct SHA',async()
   assert.equal(args.seen.length,4);
   assert.doesNotMatch(JSON.stringify(result.report),/example\\.test|Other___/);
  }),{staleServedHtml:true});
+});
+
+test('F207 full staging gate identifies HTTP robots restriction despite identical build bytes',async()=>{
+ await fixture(async args=>envLab(async()=>{
+  const result=await runServedHtmlAttestedStagingQa({
+   gscPageInput:gsc(),migrationInput:manifest(),
+   buildDirectory:args.build,stagingPort:args.port,timeoutMs:2000
+  });
+  assert.equal(result.report.reviewStatus,'blocked');
+  assert.deepEqual(result.report.blockedComponents,
+    ['served_html_http_robots_policy_blocked']);
+  assert.equal(result.report.buildDigestMatchedInLocalProxy,true);
+  assert.equal(result.report.buildStableDuringGetAudit,true);
+  assert.equal(result.report.summary.servedGetRoutesChecked,1);
+  assert.equal(result.report.summary.identicalServedHtmlRoutes,1);
+  assert.equal(result.report.summary.alteredServedHtmlRoutes,0);
+  assert.equal(result.report.productionReleaseAuthorized,false);
+  assert.equal(args.seen.length,4);
+  assert.doesNotMatch(JSON.stringify(result.report),/example\.test|googlebot|noindex/);
+ }),{httpRobots:'googlebot: noindex'});
 });
 
 

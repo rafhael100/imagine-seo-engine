@@ -13,6 +13,8 @@ import {createHash} from 'node:crypto';
 import {resolve,join,sep} from 'node:path';
 import {reviewLegacyOriginAndLocaleRedirects} from
   '../../src/legacy-origin-locale-redirect-review.mjs';
+import {inspectHttpRobotsDirectives} from
+  '../../src/http-robots-directives.mjs';
 
 const MAX_ROUTES=80,MAX_BODY=2*1024*1024,MAX_TOTAL=16*1024*1024;
 const CODES=Object.freeze({
@@ -20,7 +22,10 @@ const CODES=Object.freeze({
   encoding:'unexpected_content_encoding',
   type:'non_html_content_type',
   size:'served_html_size_mismatch',
-  digest:'served_html_digest_mismatch'
+  digest:'served_html_digest_mismatch',
+  noindex:'http_robots_indexing_blocked',
+  nofollow:'http_robots_following_blocked',
+  robotsReview:'http_robots_policy_review_required'
 });
 function exact(obj,fields){
   if(!obj||typeof obj!=='object'||Array.isArray(obj)||
@@ -110,6 +115,7 @@ function getLoopbackHtml(route,hostname,port,timeoutMs){
           contentEncoding:res.headers['content-encoding'],
           // A correct first MIME type cannot hide a second conflicting field.
           contentType:contentTypes.length===1?contentTypes[0]:undefined,
+          robotsHeaders:res.headersDistinct['x-robots-tag']??[],
           body:Buffer.concat(chunks,size)
         });
       });
@@ -168,11 +174,17 @@ export async function reviewLoopbackServedHtmlParity(input){
     }else if(createHash('sha256').update(live.body).digest('hex')!==
       local[i].sha256){
       wrongHash++;code=CODES.digest;
-    }else matching++;
+    }else{
+      matching++;
+      const robots=inspectHttpRobotsDirectives(live.robotsHeaders);
+      if(robots.noindex)code=CODES.noindex;
+      else if(robots.nofollow)code=CODES.nofollow;
+      else if(robots.scheduled||robots.ambiguous)code=CODES.robotsReview;
+    }
     if(code!==null&&failureIndices.length<80)
       failureIndices.push({targetRouteIndex:i,code});
   }
-  const blocked=matching!==routes.length;
+  const blocked=failureIndices.length>0;
   return {
     contractVersion:'seo-f142-loopback-real-html-body-parity-v1',
     reviewStatus:blocked?'blocked':'human_independent_served_html_review_required',

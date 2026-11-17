@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'labs/seo-f142-body-parity/**'
+      - 'src/http-robots-directives.mjs'
+      - 'tests/loopback-http-robots.test.mjs'
+      - 'docs/SEO-F207-HTTP-ROBOTS-DIRECTIVES.md'
       - 'tests/loopback-served-html-body-parity.test.mjs'
       - 'docs/SEO-F142-LOOPBACK-HTML-BODY-PARITY.md'
       - '.github/workflows/seo-f142-body-parity-ci.yml'
