@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,iterateOpeningHtmlTags,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -459,9 +459,9 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // interpret dynamic hash-based UI states such as "#comparar:a:b".
     const localIds=new Set();
     let inspectedTags=0;
-    for(const match of visibleBody.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)){
+    for(const tag of iterateOpeningHtmlTags(body)){
       if(++inspectedTags>50000)throw Error('audit: HTML tag budget exceeded');
-      const id=attrs(match[0]).id;
+      const id=attrs(tag.markup).id;
       if(typeof id==='string'&&id){
         if(localIds.has(id))
           emit(warnings,{type:'duplicate_html_id',file:rel,
@@ -474,12 +474,13 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // site as the trusted origin; canonical/hreflang/sitemap retain their base.
     const navigationBase = new URL(path, site);
     let anchorCount=0;
-    for (const tag of tagIterator(visibleBody,'a')) {
+    for (const tag of iterateOpeningHtmlTags(body)) {
+      if(tag.name!=='a')continue;
       if(++totalAnchors>MAX_TOTAL_ANCHORS)
         throw Error('audit: total anchor budget exceeded');
       if(++anchorCount>MAX_ANCHORS_PER_PAGE)
         throw Error('audit: page anchor budget exceeded');
-      const href = attrs(tag).href;
+      const href = attrs(tag.markup).href;
       if (!href)continue;
       if(href.startsWith('#')){
         // Only simple literal ASCII hash links can be checked confidently

@@ -221,13 +221,29 @@ function* htmlRanges(markup){
     const name=asciiLower(match[2]),closing=Boolean(match[1]);
     let end=tagEnd(markup,opening.lastIndex);
     if(!closing&&HTML_RAW.has(name)){
+      const openingEnd=end;
       const close=new RegExp('</'+name+'(?=[\\t\\n\\f\\r />])','gi');
       close.lastIndex=end;
       const found=close.exec(markup);
       end=found?tagEnd(markup,close.lastIndex):markup.length;
-      yield {kind:'raw',name,start,end};cursor=end;continue;
+      yield {kind:'raw',name,start,end,openingEnd};cursor=end;continue;
     }
     yield {kind:'tag',name,closing,start,end};cursor=end;
+  }
+}
+/**
+ * Opening tags in already filtered document/body HTML. Raw/RCDATA elements
+ * contribute their actual opening tag (and its attributes), never tags from
+ * their text. Quoted pseudo-markup remains inside its owning opening tag.
+ * Comments/templates must be filtered first; no DOM tree is reconstructed.
+ */
+export function* iterateOpeningHtmlTags(markup){
+  for(const token of htmlRanges(markup)){
+    if(token.kind==='raw'){
+      yield {name:token.name,markup:markup.slice(token.start,token.openingEnd)};
+    }else if(token.kind==='tag'&&!token.closing){
+      yield {name:token.name,markup:markup.slice(token.start,token.end)};
+    }
   }
 }
 /**
