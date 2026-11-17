@@ -339,11 +339,26 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     const robots = headMeta('robots');
     const googlebotMeta=headMeta('googlebot');
+    const applicableRobots=[...robots,...bodyMeta('robots')];
+    const applicableGooglebot=[...googlebotMeta,...bodyMeta('googlebot')];
     const directiveTokens=items=>items.flatMap(item=>
-      typeof item.content==='string'?item.content.toLowerCase().split(/[,\s]+/):[])
+      typeof item.content==='string'?item.content.toLowerCase()
+        // "none" is also a valid max-image-preview parameter. Consume that
+        // complete parameter without hiding a separate none/noindex/nofollow.
+        // Invalid/unknown parameter syntax retains the conservative old path.
+        .replace(/(^|[,\s])max-image-preview\s*:\s*(?:none|standard|large)(?=$|[,\s])/g,'$1')
+        .split(/[,\s]+/):[])
       .filter(Boolean);
-    const publicRobots=directiveTokens([...robots,...bodyMeta('robots')]);
-    const googlebotDirectives=directiveTokens([...googlebotMeta,...bodyMeta('googlebot')]);
+    const publicRobots=directiveTokens(applicableRobots);
+    const googlebotDirectives=directiveTokens(applicableGooglebot);
+    // Match the directive name after metadata decoding, not its date value.
+    // As in F207, every schedule needs review regardless of the current time.
+    // META has no HTTP agent-prefix semantics; HEAD/BODY restrictions combine.
+    if([...applicableRobots,...applicableGooglebot].some(item=>
+      typeof item.content==='string'&&
+      /(?:^|[,\s])unavailable_after\s*:/i.test(item.content)))
+      emit(errors,{type:'meta_robots_policy_review_required',file:rel,
+        message:'Scheduled meta robots restriction requires explicit indexation review'});
     // "none" is defined as noindex,nofollow; Googlebot-specific directives
     // can override a general robots "index,follow" declaration.
     if(publicRobots.includes('noindex')||publicRobots.includes('none'))
