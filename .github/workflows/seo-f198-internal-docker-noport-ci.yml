@@ -1,0 +1,61 @@
+name: SEO F198 - separate internal Docker network with ZERO host published ports
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f198-internal-docker-noport-ci.yml'
+      - 'src/private-bridge-network-review.mjs'
+      - 'tests/private-bridge-network-review.test.mjs'
+      - 'labs/seo-f198-internal-noport/**'
+      - 'docs/SEO-F198-INTERNAL-DOCKER-BRIDGE-ISOLATION.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  internal-no-host-port:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      APP_ENV: testing
+      SEO_F198_INTERNAL_LAB: YES_NO_PUBLISHED_PORTS
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO without persisting credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Checkout immutable Comercial F348
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          path: .qa/comercial-f348
+          persist-credentials: false
+      - name: Compile real F348 and validate no-public-port source
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-f348 rev-parse HEAD)" = 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          npm --prefix .qa/comercial-f348 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f348 run build
+          npm --prefix .qa/comercial-f348 run check:dist
+          node --check labs/seo-f198-internal-noport/run-f348-internal-noport.mjs
+          node --test tests/private-bridge-network-review.test.mjs
+          docker compose version
+      - name: Verify real internal Docker bridge with no host-published port and byte-identical F348
+        run: |
+          set -euo pipefail
+          node labs/seo-f198-internal-noport/run-f348-internal-noport.mjs .qa/comercial-f348/dist
+      - name: Require no modifications in Git sources
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f348 status --porcelain --untracked-files=no)"

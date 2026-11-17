@@ -1,0 +1,34 @@
+name: SEO F183 - original GSC legacy redirect priority offline
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f183-gsc-priority-ci.yml'
+      - 'src/gsc-legacy-migration-priority.mjs'
+      - 'scripts/review-gsc-redirect-priority-offline.mjs'
+      - 'tests/gsc-legacy-migration-priority.test.mjs'
+      - 'docs/SEO-F183-GSC-REDIRECT-PRIORITY.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-migration-priority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Exercise risk-weighted original GSC page contracts and private CLI
+        run: |
+          set -euo pipefail
+          node --test tests/gsc-legacy-migration-priority.test.mjs
+          node --check scripts/review-gsc-redirect-priority-offline.mjs

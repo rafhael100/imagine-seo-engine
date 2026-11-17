@@ -1,0 +1,43 @@
+name: SEO F140 - compiled build digest and local staging identity
+on:
+  pull_request:
+    paths:
+      - 'src/compiled-site-fingerprint.mjs'
+      - 'labs/seo-f140-build-attestation/**'
+      - 'scripts/fingerprint-compiled-site-offline.mjs'
+      - 'scripts/verify-staging-build-fingerprint.mjs'
+      - 'tests/compiled-site-build-attestation.test.mjs'
+      - 'docs/SEO-F140-STAGING-STATIC-BUILD-ATTESTATION.md'
+      - '.github/workflows/seo-f140-build-attestation-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-static-build:
+    name: Offline build hash plus real local HEAD / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout without persisted tokens
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Strict syntax and all offline integration tests
+        run: |
+          set -euo pipefail
+          node --check src/compiled-site-fingerprint.mjs
+          node --check labs/seo-f140-build-attestation/verify-loopback-build.mjs
+          node --check scripts/fingerprint-compiled-site-offline.mjs
+          node --check scripts/verify-staging-build-fingerprint.mjs
+          node --check tests/compiled-site-build-attestation.test.mjs
+          npm test
+      - name: Assert tracked checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"
