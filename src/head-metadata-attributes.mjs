@@ -1,5 +1,5 @@
 /**
- * F205: lexical inspection of audited META/LINK attributes, not a DOM parser.
+ * F205: lexical inspection of audited META/LINK and BASE attributes, not a DOM parser.
  * First values are retained; ambiguous critical attributes fail closed.
  */
 const SPACE=/[\t\n\f\r ]/;
@@ -38,7 +38,7 @@ function inspectSeoHeadTag(markup){
     invalid:false,markup
   };
   const fail=()=>{result.invalid=true;return result;};
-  const opening=/^<(meta|link)(?=[\t\n\f\r />])/i.exec(markup);
+  const opening=/^<(meta|link|base)(?=[\t\n\f\r />])/i.exec(markup);
   if(!opening)return fail();
   result.tag=asciiLower(opening[1]);
   let i=opening[0].length,needsSpace=false,closed=false;
@@ -119,6 +119,23 @@ export function inspectHeadMetadata(head){
     else if(tag.tag==='link')links.push(tag.attributes);
   }
   return {metas,links,linkMarkup,invalidCount};
+}
+
+/**
+ * Inspect the filtered whole document, including BODY, for a BASE that could
+ * change URL resolution. This auditor does not emulate document.baseURI.
+ * A valid target-only BASE is harmless to URL resolution; malformed BASE
+ * attributes require review because an href may not have been parsed safely.
+ * Comments/templates must already be filtered; raw text and quoted values
+ * stay opaque in the shared lexer. No attribute value leaves this helper.
+ */
+export function hasUnsupportedDocumentBase(markup){
+  for(const token of htmlRanges(markup)){
+    if(token.kind!=='tag'||token.closing||token.name!=='base')continue;
+    const tag=inspectSeoHeadTag(markup.slice(token.start,token.end));
+    if(tag.invalid||Object.hasOwn(tag.attributes,'href'))return true;
+  }
+  return false;
 }
 
 const BODY_INDEXING_META=new Set(['robots','googlebot','imagine:editorial-preview']);
