@@ -30,6 +30,7 @@ const ISSUE_ACTIONS=Object.freeze({
   broken_local_fragment:['high','repair_internal_links'],
   invalid_hreflang:['high','review_page_metadata'],
   invalid_hreflang_attributes:['high','review_page_metadata'],
+  ambiguous_head_metadata:['high','review_page_metadata'],
   invalid_hreflang_url:['high','review_page_metadata'],
   duplicate_hreflang:['high','review_page_metadata'],
   hreflang_missing_self:['high','review_page_metadata'],

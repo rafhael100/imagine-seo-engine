@@ -4,6 +4,7 @@ import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {auditStaticSite} from '../src/audit-static.mjs';
+import {buildOfflineSeoBrief} from '../src/seo-brief.mjs';
 
 const ORIGIN='https://imaginecomunicacao.com.br';
 function page(){
@@ -78,4 +79,43 @@ test('F205 quoted editorial text containing greater-than and apparent attributes
     "A > B; name='googlebot' content='noindex'; <meta name='robots' content='none'> as quoted prose.");
   const report=await audit(html);
   assert.equal(report.summary.errors,0);
+});
+
+for(const rel of [
+  'rel="canonical" rel="stylesheet"',
+  'rel="stylesheet" rel="canonical"'
+]){
+  test('F205 duplicate canonical relation is ambiguous in either order: '+rel,async()=>{
+    const report=await audit(page().replace('rel="canonical"',rel));
+    assert.ok(report.errors.some(x=>x.type==='ambiguous_head_metadata'));
+  });
+}
+test('F205 character references are decoded only once',async()=>{
+  const report=await audit(page().replace('</head>',
+    '<meta name="googlebot" content="no&amp;#x69;ndex"></head>'));
+  assert.equal(report.summary.errors,0);
+});
+test('F205 apparent meta inside title RCDATA is only title text',async()=>{
+  const report=await audit(page().replace('Imagine SEO fixture</title>',
+    'Example <meta name=googlebot content=noindex></title>'));
+  assert.equal(report.summary.errors,0);
+});
+test('F205 glued critical attributes fail explicitly',async()=>{
+  const report=await audit(page().replace(
+    'name="robots" content="index,follow"',
+    'name="robots"content="index,follow"'));
+  assert.ok(report.errors.some(x=>x.type==='ambiguous_head_metadata'));
+});
+test('F205 excessive per-tag attributes fail without unbounded evidence',async()=>{
+  const extras=Array.from({length:129},(_,i)=>' data-test-'+i).join('');
+  const report=await audit(page().replace('name="robots"','name="robots"'+extras));
+  assert.ok(report.errors.some(x=>x.type==='ambiguous_head_metadata'));
+});
+test('F205 ambiguous metadata becomes a high-priority sanitized review in the brief',async()=>{
+  const report=await audit(page().replace('</head>',
+    '<meta name="googlebot" name="PRIVATE_MARKER" content="noindex"></head>'));
+  const brief=buildOfflineSeoBrief({audit:report});
+  const review=brief.recommendedReviews.find(x=>x.code==='review_page_metadata');
+  assert.equal(review?.priority,'high');
+  assert.doesNotMatch(JSON.stringify(brief),/PRIVATE_MARKER|index\.html|imaginecomunicacao/);
 });
