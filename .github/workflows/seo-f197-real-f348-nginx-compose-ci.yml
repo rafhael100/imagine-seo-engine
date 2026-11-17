@@ -1,0 +1,71 @@
+name: SEO F197 - real pinned Comercial F348 served by isolated Docker Nginx
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f197-real-f348-nginx-compose-ci.yml'
+      - 'labs/seo-f197-real-f348-compose/**'
+      - 'labs/seo-f138-loopback/**'
+      - 'labs/seo-f140-build-attestation/**'
+      - 'labs/seo-f142-body-parity/**'
+      - 'tests/loopback-absolute-deadlines.test.mjs'
+      - 'src/audit-static.mjs'
+      - 'src/head-metadata-attributes.mjs'
+      - 'tests/head-metadata-ambiguity.test.mjs'
+      - 'labs/seo-f201-served-metadata/**'
+      - 'tests/served-seo-metadata-http.test.mjs'
+      - 'docs/SEO-F197-REAL-COMERCIAL-F348-DOCKER-NGINX-REVIEW.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-f348-nginx-head-get:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      APP_ENV: testing
+      SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+      SEO_F197_REAL_COMERCIAL_LAB: YES_SYNTHETIC_GSC_ONLY
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO read-only without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Checkout immutable real Comercial F348
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          path: .qa/comercial-f348
+          persist-credentials: false
+      - name: Confirm exact source revision
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-f348 rev-parse HEAD)" = 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+      - name: Compile actual F348 Astro PT EN ES and validate bundled SEO
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f348 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f348 run build
+          npm --prefix .qa/comercial-f348 run check:dist
+          node --check labs/seo-f197-real-f348-compose/run-comercial-f348-compose.mjs
+          docker compose version
+      - name: Start Nginx real with reviewed F149 Compose and validate F348 body hashes
+        run: |
+          set -euo pipefail
+          node labs/seo-f197-real-f348-compose/run-comercial-f348-compose.mjs .qa/comercial-f348/dist
+      - name: Ensure neither repository tracked files changed
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f348 status --porcelain --untracked-files=no)"

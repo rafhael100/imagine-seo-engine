@@ -1,0 +1,42 @@
+name: SEO F176 - inspect only two exceptional public Area 2025 units
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f176-public-area-exceptions.yml'
+      - 'scripts/identify-unmatched-public-ibge-area-units.py'
+      - 'tests/test_identify_unmatched_public_ibge_area_units.py'
+      - 'docs/SEO-F176-AREA-2025-PUBLIC-EXCEPTIONS.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-units:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Read-only candidate checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Validate exceptional public-code review contract
+        run: python3 -m unittest discover -s tests -p test_identify_unmatched_public_ibge_area_units.py -v
+      - name: Check two original official source SHAs and classify exactly two public codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="${RUNNER_TEMP}/dtb-original.zip"
+          csv="${RUNNER_TEMP}/dtb-normalized.csv"
+          area="${RUNNER_TEMP}/areas-original.ods"
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 5000000 \
+            --output "$zip" \
+            'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip'
+          printf '%s  %s\n' d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27 "$zip" | sha256sum --check --status
+          curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+            --retry 0 --connect-timeout 10 --max-time 45 --max-filesize 1000000 \
+            --output "$area" \
+            'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/areas_territoriais/2025/AR_BR_RG_UF_RGINT_RGI_MUN_2025.ods'
+          printf '%s  %s\n' 029219bb994d87750fbe7d26c31217152a7e95449ddd2d2f26b504cb32a425f1 "$area" | sha256sum --check --status
+          python3 scripts/normalize-official-dtb-2025.py "$zip" "$csv"
+          python3 scripts/identify-unmatched-public-ibge-area-units.py "$csv" "$area"
+          rm -f "$zip" "$csv" "$area"

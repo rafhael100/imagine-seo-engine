@@ -1,0 +1,40 @@
+name: SEO F125 - operational offline build review CLI
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/review-municipal-build-offline.mjs'
+      - 'tests/geo-multilingual-build-cli.test.mjs'
+      - 'docs/SEO-F125-OPERATOR-CLI-BUILD-REVIEW.md'
+      - '.github/workflows/seo-f125-build-review-cli-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: Operator CLI / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout read only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Validate CLI syntax
+        run: |
+          node --check scripts/review-municipal-build-offline.mjs
+          node --check tests/geo-multilingual-build-cli.test.mjs
+      - name: Full offline regression suite
+        run: npm test
+      - name: No tracked mutation
+        run: test -z "$(git status --porcelain --untracked-files=no)"
