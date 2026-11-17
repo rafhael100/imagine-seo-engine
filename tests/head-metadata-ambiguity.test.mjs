@@ -119,3 +119,20 @@ test('F205 ambiguous metadata becomes a high-priority sanitized review in the br
   assert.equal(review?.priority,'high');
   assert.doesNotMatch(JSON.stringify(brief),/PRIVATE_MARKER|index\.html|imaginecomunicacao/);
 });
+
+for(const [label,open,close] of [
+  ['comment','<!--','-->'],
+  ['template','<template>','</template>'],
+  ['script','<script>','</script>'],
+  ['style','<style>','</style>']
+]){
+  test('F205 quoted '+label+' markers cannot erase an active Googlebot restriction',async()=>{
+    const replacement='<meta name="description" content="Original '+open+' literal">'+
+      '<meta name="googlebot" content="noindex">'+
+      '<meta name="unused" content="literal '+close+'">';
+    const html=page().replace(
+      '<meta name="description" content="Original descriptive page text.">',replacement);
+    const report=await audit(html);
+    assert.ok(report.errors.some(x=>x.type==='googlebot_indexing_blocked'));
+  });
+}
