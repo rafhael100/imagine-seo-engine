@@ -1,17 +1,41 @@
 # Imagine SEO Engine
 
-## RC40 — integração diária GSC offline com prova Portal (NO-GO)
+## Estado vigente — 17/11/2026: RC79 em revisão
+
+A candidata RC79 reúne as correções de leitura do HTML e de indexação HTTP
+com a integração do auditor atual ao build real do Comercial F354. A rodada
+acrescenta 54 testes: a suíte local cumulativa aprova **935/935** em Node 24.
+Os resultados de CI devem ser conferidos na SHA e na PR correspondentes.
+
+- [F206 #309](https://github.com/rafhael100/imagine-seo-engine/pull/309):
+  limites reais de HEAD/BODY, sem truncar em textos literais dentro de scripts,
+  atributos ou RCDATA.
+- [F207 #310](https://github.com/rafhael100/imagine-seo-engine/pull/310):
+  restrições `X-Robots-Tag` na resposta HTTP, inclusive com HTML idêntico.
+- [F209 #311](https://github.com/rafhael100/imagine-seo-engine/pull/311):
+  robots/Googlebot efetivos no BODY e detecção de marcador privado editorial.
+- [F208](docs/SEO-F208-COMERCIAL-F354-PARITY.md): builds F348/F354 por SHA,
+  auditoria estrita das 63 rotas públicas, seleção inicial de serviços em
+  PT/EN/ES, controles negativos, Nginx isolado e Chromium em CI.
+
+[Índice de revisão e operação RC79](docs/SEO-RC79-COMERCIAL-READINESS.md).
+O pin do auditor no workflow principal do Comercial tem promoção independente,
+com PR e CI próprias. A conexão GSC existente no OpenSEO não concede OAuth
+ao Portal/Engine. Permanecem a homologação privada e a decisão humana de release.
+**DRAFT / REVIEW ONLY: sem merge, deploy, DNS ou alteração da VPS.**
+
+## Histórico RC40 — integração diária GSC offline com prova Portal (NO-GO)
 
 A RC40 consolida F103 (`x-default` seguro) e F104 (ponte local somente de
 métricas diárias agregadas do OpenSEO), com prova de consumo PHP sintético
 no Imagine Portal. Os testes não concedem OAuth, propriedade, tenant nem
 direito de exibição aos clientes. [Revisão e gates RC40](docs/SEO-RC40-GSC-PORTAL-RELEASE-REVIEW.md).
 
-## RC39 multilíngue — candidata de revisão (NO-GO)
+## Histórico RC39 multilíngue — candidata de revisão (NO-GO)
 
 F99–F102 estão consolidadas para revisão estática, com suporte opt-in a `pt-BR`, `en`, `es`, variantes regionais e auditoria dos grupos `hreflang`. A [checklist RC39](docs/SEO-RC39-MULTILINGUAL-RELEASE-REVIEW.md) documenta CI, paridade com o Comercial e bloqueios de liberação. **Sem merge `main`, deploy, OAuth/GSC real ou publicação.**
 
-## Estado vigente — 12/11/2026
+## Estado registrado em 12/11/2026 — histórico
 
 - **RC38 de desenvolvimento**: [PR #129](https://github.com/rafhael100/imagine-seo-engine/pull/129), evoluída de F88 até F96; release ainda **DRAFT/NO-GO** sem merge na `main` ou deploy.
 - **F99 (proposta em revisão)**: auditor de idioma HTML com modo explícito `--multilingual` (`pt-BR`, `en`, `es`, `en-US`, `es-ES`), mantendo o padrão `pt-BR`; não traduz páginas nem valida `hreflang`. [Manual F99](docs/SEO-F99-MULTILINGUAL-ROOT-LANG.md).

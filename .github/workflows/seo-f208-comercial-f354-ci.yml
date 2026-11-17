@@ -1,0 +1,108 @@
+name: SEO F208 - pinned F348 to F354 Astro browser and real Nginx
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f208-comercial-f354-ci.yml'
+      - 'labs/seo-f208-comercial-f354/**'
+      - 'labs/seo-f197-real-f348-compose/**'
+      - 'labs/seo-f138-loopback/**'
+      - 'labs/seo-f140-build-attestation/**'
+      - 'labs/seo-f142-body-parity/**'
+      - 'labs/seo-f143-full-served-gate/**'
+      - 'labs/seo-f201-served-metadata/**'
+      - 'src/**'
+      - 'scripts/compare-astro-builds-offline.mjs'
+      - 'scripts/review-two-astro-route-migration.mjs'
+      - 'docs/SEO-F208-COMERCIAL-F354-PARITY.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-f354-real-build-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    env:
+      CI: 'true'
+      APP_ENV: testing
+      SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+      SEO_F197_REAL_COMERCIAL_LAB: YES_SYNTHETIC_GSC_ONLY
+      PUBLIC_PORTAL_LOGIN_URL: ''
+    steps:
+      - name: Checkout SEO read-only without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Checkout immutable baseline Comercial F348
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          path: .qa/f208-before
+          persist-credentials: false
+      - name: Checkout immutable candidate Comercial F354
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 9a91afe119fbc5166e9ae94b3e85496e393c38db
+          path: .qa/f208-after
+          persist-credentials: false
+      - name: Confirm both exact source revisions
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/f208-before rev-parse HEAD)" = 5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444
+          test "$(git -C .qa/f208-after rev-parse HEAD)" = 9a91afe119fbc5166e9ae94b3e85496e393c38db
+      - name: Build real Astro sources and run F354 native contracts
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/f208-before ci --no-audit --no-fund
+          npm --prefix .qa/f208-before run build
+          npm --prefix .qa/f208-after ci --no-audit --no-fund
+          npm --prefix .qa/f208-after test
+          npm --prefix .qa/f208-after run build
+          npm --prefix .qa/f208-after run check:dist
+      - name: Verify actual SSR selection and reject nine compiled HTML mutations
+        run: |
+          set -euo pipefail
+          node labs/seo-f208-comercial-f354/review-pinned-builds.mjs .qa/f208-before/dist .qa/f208-after/dist
+          code=0
+          node labs/seo-f208-comercial-f354/review-pinned-builds.mjs .qa/f208-after/dist .qa/f208-before/dist >/dev/null 2>&1 || code=$?
+          test "$code" -eq 1
+      - name: Compare current SEO auditor and route inventory on both real builds
+        run: |
+          set -euo pipefail
+          node scripts/audit-dist.mjs .qa/f208-after/dist https://imaginecomunicacao.com.br/ --fail-on-warnings --strict-public-head --multilingual --check-hreflang
+          node scripts/compare-astro-builds-offline.mjs \
+            .qa/f208-before/dist .qa/f208-after/dist \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444 \
+            9a91afe119fbc5166e9ae94b3e85496e393c38db
+          node scripts/review-two-astro-route-migration.mjs \
+            .qa/f208-before/dist .qa/f208-after/dist \
+            5ec2f92fd0b16b8ef4ea2d582cfbb69c0cd15444 \
+            9a91afe119fbc5166e9ae94b3e85496e393c38db
+      - name: Serve same F354 build in isolated real Nginx and verify HEAD GET robots sitemap
+        run: |
+          set -euo pipefail
+          docker compose version
+          node labs/seo-f208-comercial-f354/run-pinned-nginx.mjs .qa/f208-after/dist
+      - name: Install Chromium for native F354 browser checks
+        working-directory: .qa/f208-after
+        run: |
+          set -euo pipefail
+          npx --no-install playwright install --with-deps chromium
+      - name: Exercise current F354 anonymous PT EN ES selections in Chromium
+        run: npm --prefix .qa/f208-after run test:browser
+      - name: Confirm every checkout remains unchanged
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/f208-before status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/f208-after status --porcelain --untracked-files=no)"

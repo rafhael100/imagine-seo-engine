@@ -12,6 +12,7 @@ import {tmpdir} from 'node:os';
 import {join,dirname,resolve} from 'node:path';
 import {createServer} from 'node:net';
 import {execFileSync} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
 import {renderIsolatedNginxStagingConfig} from
  '../seo-f145-nginx-render/render-staging-config.mjs';
 import {renderPrivateStagingCompose} from
@@ -113,15 +114,19 @@ function actualDockerInspect(yaml){
   throw Error('F197: unexpected real Docker response');
  return data[0];
 }
-async function main(){
+// F208 reuses this CI-only lifecycle with a different immutable source SHA.
+// Only source identity and build directory vary; network/image/env guards do not.
+export async function runPinnedComercialNginxLab({buildDirectory,expectedCommitSha}){
  if(process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||
     process.env.APP_ENV!=='testing'||
     process.env.SEO_F138_LOOPBACK_STAGING!=='YES_I_CONTROL_THIS_LOOPBACK'||
-    process.env.SEO_F197_REAL_COMERCIAL_LAB!=='YES_SYNTHETIC_GSC_ONLY'||
-    process.argv.length!==3)
+    process.env.SEO_F197_REAL_COMERCIAL_LAB!=='YES_SYNTHETIC_GSC_ONLY')
   throw Error('F197: explicit CI-only Docker lab required');
- const original=resolve(process.argv[2]);
- const built=await realpath(process.argv[2]);
+ if(typeof buildDirectory!=='string'||!buildDirectory||
+    typeof expectedCommitSha!=='string'||!(/^[0-9a-f]{40}$/).test(expectedCommitSha))
+  throw Error('F197: immutable source identity and build directory required');
+ const original=resolve(buildDirectory);
+ const built=await realpath(buildDirectory);
  const st=await stat(built);
  if(built!==original||!st.isDirectory()||
     built!==resolve(dirname(built),'dist'))
@@ -131,7 +136,7 @@ async function main(){
   encoding:'utf8',timeout:10000,maxBuffer:1024,
   stdio:['ignore','pipe','ignore']
  }).trim();
- if(head!==F348)throw Error('F197: required immutable Comercial F348 checkout absent');
+ if(head!==expectedCommitSha)throw Error('F197: required immutable Comercial checkout absent');
  const temp=await mkdtemp(join(tmpdir(),'seo-f197-f348-docker-'));
  let yaml=null;
  try{
@@ -142,7 +147,7 @@ async function main(){
   if(rendered.review.redirectsRendered!==2||
      rendered.review.compiledTargetRoutes!==3||
      rendered.review.productionReleaseAuthorized!==false)
-   throw Error('F197: real compiled F348 must have three reviewed target routes');
+   throw Error('F197: real compiled Comercial must have three reviewed target routes');
   const conf=join(temp,'nginx-f197-private.conf');
   await writeFile(conf,rendered.privateConfig,{mode:0o644,flag:'wx'});
   const port=await randomLoopbackPort();
@@ -177,7 +182,7 @@ async function main(){
      checked.productionDeploymentAuthorized)
    throw Error('F197: real Nginx Docker runtime not isolated');
 
-  // Actual HEAD + GET response parity with the three F348 HTML files.
+  // Actual HEAD + GET response parity with the three pinned HTML files.
   // The GSC PAGE rows are FIXED synthetic data, not a Search Console export.
   const audit=await runServedHtmlAttestedStagingQa({
    gscPageInput:gsc(),migrationInput:plan,buildDirectory:built,
@@ -194,10 +199,10 @@ async function main(){
      report.realLoopbackGetPerformed!==true||
      report.productionReleaseAuthorized!==false||
      report.publicTlsIdentityVerified!==false)
-   throw Error('F197: Nginx real HEAD/GET failed compiled F348 parity');
+   throw Error('F197: Nginx real HEAD/GET failed compiled Comercial parity');
 
   // F201: built robots and sitemap alone cannot prove what Nginx serves.
-  // Compare both actual loopback GET responses to the same compiled F348.
+  // Compare both actual loopback GET responses to the same compiled source.
   const seoFiles=await reviewNginxLoopbackSeoMetadata({
    buildDirectory:built,stagingPort:port,timeoutMs:3000
   });
@@ -209,17 +214,16 @@ async function main(){
      seoFiles.publicRobotsIndexingAuthorized!==false)
    throw Error('F201: actual Nginx served robots/sitemap differ from Astro build');
 
-  // Do not print Docker data, private configuration, headers, paths, URLs
-  // or source GSC rows. This stdout contains fixed flags and counts only.
-  process.stdout.write(JSON.stringify({
-   contractVersion:'seo-f197-real-f348-isolated-nginx-compose-e2e-v1',
+  // Do not return Docker data, private configuration, headers, paths, URLs
+  // or source GSC rows. The CLI wrapper adds its fixed release contract.
+  return Object.freeze({
    immutableComercialHeadChecked:true,
    actualCompiledAstroLocales:3,
    realDockerNginxStarted:true,
    actualDockerInspectReviewed:true,
    actualLocalHttpHeadRedirectReceipts:2,
    actualLocalHttpGetBodiesCompared:3,
-   byteIdenticalRealF348Html:3,
+   byteIdenticalCompiledHtml:3,
    realNginxServedRobotsAndSitemapMatched:2,
    searchEngineIndexingAuthorized:false,
    localBuildDigestMatched:true,
@@ -233,7 +237,7 @@ async function main(){
    mergeAuthorized:false,
    deploymentAuthorized:false,
    releaseStatus:'HOLD_REAL_GSC_TLS_VPS_BACKUP_AND_HUMAN_REVIEW'
-  })+'\n');
+  });
  }finally{
   if(yaml!==null){
    try{command('docker',['compose','-f',yaml,'down',
@@ -243,7 +247,20 @@ async function main(){
   await rm(temp,{recursive:true,force:true});
  }
 }
-main().catch(()=>{
- process.stderr.write('SEO F197: isolated F348 Docker/Nginx proof failed safely\n');
- process.exitCode=1;
-});
+async function main(){
+ if(process.argv.length!==3)throw Error('F197: one compiled build required');
+ const {byteIdenticalCompiledHtml,...result}=await runPinnedComercialNginxLab({
+  buildDirectory:process.argv[2],expectedCommitSha:F348
+ });
+ // Preserve the F197 CLI pin and report contract exactly for historical runs.
+ process.stdout.write(JSON.stringify({
+  contractVersion:'seo-f197-real-f348-isolated-nginx-compose-e2e-v1',
+  ...result,byteIdenticalRealF348Html:byteIdenticalCompiledHtml
+ })+'\n');
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
+ main().catch(()=>{
+  process.stderr.write('SEO F197: isolated F348 Docker/Nginx proof failed safely\n');
+  process.exitCode=1;
+ });
+}
