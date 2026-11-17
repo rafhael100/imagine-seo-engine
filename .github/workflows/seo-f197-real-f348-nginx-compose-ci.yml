@@ -11,6 +11,7 @@ on:
       - 'src/audit-static.mjs'
       - 'src/head-metadata-attributes.mjs'
       - 'tests/head-metadata-ambiguity.test.mjs'
+      - 'tests/head-document-boundaries.test.mjs'
       - 'labs/seo-f201-served-metadata/**'
       - 'tests/served-seo-metadata-http.test.mjs'
       - 'docs/SEO-F197-REAL-COMERCIAL-F348-DOCKER-NGINX-REVIEW.md'
