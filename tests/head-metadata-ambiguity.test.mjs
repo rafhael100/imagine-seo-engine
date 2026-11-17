@@ -136,3 +136,27 @@ for(const [label,open,close] of [
     assert.ok(report.errors.some(x=>x.type==='googlebot_indexing_blocked'));
   });
 }
+
+test('F205 script text cannot close a real inert template early',async()=>{
+  const html=page().replace('</head>',
+    '<template><script>const closing = "</template>";</script>'+
+    '<meta name="googlebot" content="noindex"></template></head>');
+  const report=await audit(html);
+  assert.equal(report.summary.errors,0);
+});
+test('F205 comment markers inside script text cannot erase later active metadata',async()=>{
+  const html=page().replace('</head>',
+    '<script>const opening = "<!--";</script>'+
+    '<meta name="googlebot" content="noindex">'+
+    '<meta name="unused" content="literal -->"></head>');
+  const report=await audit(html);
+  assert.ok(report.errors.some(x=>x.type==='googlebot_indexing_blocked'));
+});
+test('F205 template markers in title text cannot erase later active metadata',async()=>{
+  const html=page().replace('Imagine SEO fixture</title>',
+    'Example <template> literal</title>').replace('</head>',
+    '<meta name="googlebot" content="noindex">'+
+    '<meta name="unused" content="literal </template>"></head>');
+  const report=await audit(html);
+  assert.ok(report.errors.some(x=>x.type==='googlebot_indexing_blocked'));
+});

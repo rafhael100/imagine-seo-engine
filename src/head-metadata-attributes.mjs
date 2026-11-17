@@ -94,36 +94,16 @@ function inspectSeoHeadTag(markup){
       property==='og:url'))decode('content');
   return result;
 }
-/**
- * Walk the already filtered head, respecting quoted tag boundaries and title
- * RCDATA. Other existing HTML heuristics remain the caller's responsibility.
- */
 function* scanSeoHeadTags(head){
-  const tags=/<(\/?)([a-z][a-z0-9:-]*)(?=[\t\n\f\r />])/gi;
-  let match,count=0;
-  while((match=tags.exec(head))){
-    if(++count>50000)throw Error('audit: head tag budget exceeded');
-    let end=tags.lastIndex,quote=null;
-    for(;end<head.length;end++){
-      const c=head[end];
-      if(quote){if(c===quote)quote=null;}
-      else if(c==='"'||c==="'")quote=c;
-      else if(c==='>')break;
-    }
-    if(end===head.length){
+  for(const token of htmlRanges(head)){
+    if(token.kind!=='tag')continue;
+    const markup=head.slice(token.start,token.end);
+    if(!markup.endsWith('>')){
       yield {tag:null,attributes:Object.create(null),entries:[],invalid:true};
       return;
     }
-    tags.lastIndex=end+1;
-    const tag=asciiLower(match[2]);
-    if(match[1])continue;
-    if(tag==='title'){
-      const close=/<\/title[\t\n\f\r ]*>/gi;
-      close.lastIndex=tags.lastIndex;
-      if(!close.exec(head))return;
-      tags.lastIndex=close.lastIndex;
-    }else if(tag==='meta'||tag==='link'){
-      yield inspectSeoHeadTag(head.slice(match.index,end+1));
+    if(!token.closing&&(token.name==='meta'||token.name==='link')){
+      yield inspectSeoHeadTag(markup);
     }
   }
 }
@@ -139,4 +119,92 @@ export function inspectHeadMetadata(head){
     else if(tag.tag==='link')links.push(tag.attributes);
   }
   return {metas,links,linkMarkup,invalidCount};
+}
+
+const HTML_RAW=new Set([
+  'script','style','title','textarea','xmp','iframe','noembed','noframes'
+]);
+function tagEnd(markup,start){
+  let mode='attributes',quote=null;
+  for(let i=start;i<markup.length;i++){
+    const c=markup[i];
+    if(quote){
+      if(c===quote){quote=null;mode='attributes';}
+      continue;
+    }
+    if(c==='>')return i+1;
+    if(mode==='unquoted'){
+      if(SPACE.test(c))mode='attributes';
+    }else if(mode==='value'){
+      if(SPACE.test(c))continue;
+      if(c==='"'||c==="'")quote=c;
+      else mode='unquoted';
+    }else if(c==='=')mode='value';
+  }
+  return markup.length;
+}
+/**
+ * Quoted attributes and raw/RCDATA contents are opaque lexical ranges.
+ * This does not construct a DOM or reproduce all HTML error recovery.
+ */
+function* htmlRanges(markup){
+  const opening=/<(\/?)([a-z][a-z0-9:-]*)(?=[\t\n\f\r />])/giy;
+  let cursor=0,count=0;
+  while(cursor<markup.length){
+    const start=markup.indexOf('<',cursor);
+    if(start===-1){
+      yield {kind:'text',start:cursor,end:markup.length};return;
+    }
+    if(start>cursor)yield {kind:'text',start:cursor,end:start};
+    if(++count>50000)throw Error('audit: HTML token budget exceeded');
+    if(markup.startsWith('<!--',start)){
+      const body=start+4;
+      let end;
+      if(markup[body]==='>')end=body+1;
+      else if(markup.slice(body,body+2)==='->')end=body+2;
+      else{
+        const close=/--!?>/g;
+        close.lastIndex=body;
+        const found=close.exec(markup);
+        end=found?close.lastIndex:markup.length;
+      }
+      yield {kind:'comment',start,end};cursor=end;continue;
+    }
+    opening.lastIndex=start;
+    const match=opening.exec(markup);
+    if(!match){
+      yield {kind:'text',start,end:start+1};cursor=start+1;continue;
+    }
+    const name=asciiLower(match[2]),closing=Boolean(match[1]);
+    let end=tagEnd(markup,opening.lastIndex);
+    if(!closing&&HTML_RAW.has(name)){
+      const close=new RegExp('</'+name+'(?=[\\t\\n\\f\\r />])','gi');
+      close.lastIndex=end;
+      const found=close.exec(markup);
+      end=found?tagEnd(markup,close.lastIndex):markup.length;
+      yield {kind:'raw',name,start,end};cursor=end;continue;
+    }
+    yield {kind:'tag',name,closing,start,end};cursor=end;
+  }
+}
+/**
+ * Remove actual comments/templates. Preserve real script/style bytes for
+ * JSON-LD inspection by default, or remove them from metadata/body views.
+ */
+export function filterStaticHtml(markup,{removeScriptsStyles=false}={}){
+  const result=[];
+  let templateDepth=0;
+  for(const token of htmlRanges(markup)){
+    if(token.kind==='comment')continue;
+    if(token.kind==='tag'&&token.name==='template'){
+      if(token.closing)templateDepth=Math.max(0,templateDepth-1);
+      else templateDepth++;
+      continue;
+    }
+    if(templateDepth)continue;
+    if(removeScriptsStyles&&token.kind==='raw'&&
+      (token.name==='script'||token.name==='style'))continue;
+    result.push(markup.slice(token.start,token.end));
+  }
+  return result.join('');
 }

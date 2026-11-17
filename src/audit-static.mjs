@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,filterStaticHtml} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -112,37 +112,6 @@ function strictHreflangLink(markup){
     if(parsed!==1||raw!==1)return {candidate:true,invalid:true};
   }
   return {candidate:true,invalid:false,link:attrs(markup)};
-}
-/**
- * Omit inactive <template> subtrees from static SEO evidence. Handle nested
- * template elements and never interpret <template> strings inside raw script
- * or style text as live markup. This is a bounded HTML heuristic, not a DOM.
- */
-function stripInertTemplates(markup){
-  let depth=0,rawText=null,start=0,result='';
-  const rx=/<(\/?)(template|script|style)\b[^>]*>/gi;
-  for(const match of markup.matchAll(rx)){
-    const closing=match[1]==='/',tag=match[2].toLowerCase();
-    if(rawText!==null){
-      if(closing&&tag===rawText)rawText=null;
-      continue;
-    }
-    if(tag==='script'||tag==='style'){
-      if(!closing)rawText=tag;
-      continue;
-    }
-    if(tag==='template'){
-      if(!closing){
-        if(depth===0)result+=markup.slice(start,match.index);
-        depth++;
-      }else if(depth>0){
-        depth--;
-        if(depth===0)start=match.index+match[0].length;
-      }
-    }
-  }
-  if(depth===0)result+=markup.slice(start);
-  return result;
 }
 function* tagIterator(html,name) {
   for(const match of html.matchAll(new RegExp('<'+name+'\\b[^>]*>', 'gi')))
@@ -283,20 +252,17 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     // Strip HTML comments before scanning metadata, navigation, headings or
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
-    const publicHtml=stripInertTemplates(html.replace(/<!--[\s\S]*?-->/g,''));
+    const publicHtml=filterStaticHtml(html);
     const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
     // HTML inside raw <script>/<style> text is not actual metadata in
     // the document head. JSON-LD is checked separately from publicHtml.
-    const head=headMatch?headMatch[1]
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,''):'';
+    const head=headMatch?
+      filterStaticHtml(headMatch[1],{removeScriptsStyles:true}):'';
     const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
     const body=bodyMatch?bodyMatch[1]:'';
     // A title or anchor embedded in a script/style literal is not a visible
     // page heading or navigation link. Keep JSON-LD detection separate.
-    const visibleBody=body
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,'');
+    const visibleBody=filterStaticHtml(body,{removeScriptsStyles:true});
     const record = { path, file: rel };
     const headMetadata=inspectHeadMetadata(head);
     for(let i=0;i<headMetadata.invalidCount;i++){

@@ -16,10 +16,18 @@ O diagnóstico é genérico e não reproduz valores, domínios ou texto editoria
 
 O [padrão HTML](https://html.spec.whatwg.org/multipage/parsing.html#attribute-name-state) mantém o primeiro atributo de um nome e descarta duplicados; o auditor recusa explicitamente a ambiguidade. [Atributos sem aspas são sintaxe HTML válida](https://html.spec.whatwg.org/multipage/syntax.html#attributes-2).
 
-Referências de caracteres são decodificadas uma única vez nos campos de controle. Há suporte explícito a referências numéricas ASCII com ponto e vírgula e a `amp`, `lt`, `gt`, `quot`, `apos`, `Tab` e `NewLine` (incluindo as variantes listadas no código). Outras representações em campos críticos exigem revisão e geram erro; conteúdo editorial de descrição permanece literal. Não se pretende substituir um parser DOM completo ou inspeção em navegador. Mantidos os limites globais do auditor, com teto adicional de 128 atributos por tag e 50.000 tags de head.
+Referências de caracteres são decodificadas uma única vez nos campos de controle. Há suporte explícito a referências numéricas ASCII com ponto e vírgula e a `amp`, `lt`, `gt`, `quot`, `apos`, `Tab` e `NewLine` (incluindo as variantes listadas no código). Outras representações em campos críticos exigem revisão e geram erro; conteúdo editorial de descrição permanece literal. Não se pretende substituir um parser DOM completo ou inspeção em navegador. Mantidos os limites globais do auditor, com teto adicional de 128 atributos por tag e 50.000 tokens por leitura HTML.
 
 ## Validação
 
 A suíte inclui duplicatas de content/name/href/rel, ambas as ordens relevantes, Googlebot sem aspas e codificado, decodificação simples sem recursão, prosa entre aspas, title RCDATA, atributos colados e teto por tag. A integração Nginx/Comercial F197 agora é acionada também por alterações do auditor e do novo helper. Resultados da HEAD final e revisão: [PR #307](https://github.com/rafhael100/imagine-seo-engine/pull/307).
 
 DRAFT / NO-GO / NO-MERGE / NO-DEPLOY. Auditoria offline de arquivos e dados sintéticos, sem Google/GSC real, VPS, DNS, clientes ou indexação.
+
+## Complemento da revisão independente — pré-processamento
+
+Foram reproduzidas quatro variantes adicionais em que marcadores literais de comentário, template, script ou estilo, divididos entre valores de atributos, removiam uma meta Googlebot ativa. [CI da regressão](https://github.com/rafhael100/imagine-seo-engine/actions/runs/44182607830), SHA `dce389356c38d222fbc7cf70624c1d31186e342d`: Node 22/24 com 874 aprovados e as quatro falhas esperadas.
+
+O filtro global por expressões regulares foi substituído pelo mesmo percurso lexical usado na leitura de metadados. Aspas em atributos e conteúdo raw/RCDATA são opacos; templates reais são acompanhados por profundidade. Scripts JSON-LD reais permanecem íntegros em `publicHtml`; somente as visões de head e conteúdo visível removem script/style reais. Foram acrescentados controles para fechamento de template escrito dentro de script, marcador de comentário em script e marcador de template em title, seguidos de metadados ativos.
+
+A extração externa de head/body e outras verificações gerais de HTML continuam heurísticas. Esta correção elimina os casos reproduzidos, sem prometer equivalência completa ao algoritmo de DOM do navegador.
