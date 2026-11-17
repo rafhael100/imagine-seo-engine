@@ -4,6 +4,10 @@ on:
     paths:
       - '.github/workflows/seo-f197-real-f348-nginx-compose-ci.yml'
       - 'labs/seo-f197-real-f348-compose/**'
+      - 'labs/seo-f138-loopback/**'
+      - 'labs/seo-f140-build-attestation/**'
+      - 'labs/seo-f142-body-parity/**'
+      - 'tests/loopback-absolute-deadlines.test.mjs'
       - 'labs/seo-f201-served-metadata/**'
       - 'tests/served-seo-metadata-http.test.mjs'
       - 'docs/SEO-F197-REAL-COMERCIAL-F348-DOCKER-NGINX-REVIEW.md'

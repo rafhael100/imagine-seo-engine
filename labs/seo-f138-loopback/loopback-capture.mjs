@@ -37,7 +37,8 @@ function requestLoopback(url,port,timeoutMs){
         'X-Forwarded-Proto':url.protocol.slice(0,-1),
         'X-Imagine-Synthetic-Staging-Review':'f138'
       },
-      agent:false,maxHeaderSize:8192
+      // F203: progress bytes cannot extend the absolute per-request budget.
+      agent:false,maxHeaderSize:8192,signal:AbortSignal.timeout(timeoutMs)
     },response=>{
       const rawLocation=response.headers.location;
       response.resume();

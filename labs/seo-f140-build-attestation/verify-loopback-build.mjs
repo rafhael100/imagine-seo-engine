@@ -30,7 +30,8 @@ function probeHeader(host,port,timeoutMs){
         'X-Forwarded-Proto':'https',
         'X-Imagine-Synthetic-Staging-Review':'f140'
       },
-      agent:false,maxHeaderSize:4096
+      // F203: bound the full HEAD exchange, including slowly arriving headers.
+      agent:false,maxHeaderSize:4096,signal:AbortSignal.timeout(timeoutMs)
     },res=>{
       const fingerprint=res.headers['x-imagine-seo-build-sha256'];
       res.resume();
