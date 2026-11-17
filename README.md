@@ -15,6 +15,8 @@ Os resultados de testes e CI devem ser conferidos na SHA e na PR correspondentes
 - [Navegação relativa](docs/SEO-RELATIVE-NAVIGATION.md): destinos, alcance e
   páginas órfãs calculados a partir da URL de origem; `<base href>` exige revisão
   explícita porque o auditor não implementa a construção do DOM do navegador.
+- [Links e IDs reais](docs/SEO-INERT-NAVIGATION.md): exemplos de HTML dentro de
+  texto ou atributos não criam links nem destinos de fragmentos no grafo.
 
 As integrações da RC79 continuam presentes:
 
