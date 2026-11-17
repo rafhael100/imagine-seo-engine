@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,filterStaticHtml} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -253,13 +253,13 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // Strip HTML comments before scanning metadata, navigation, headings or
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
     const publicHtml=filterStaticHtml(html);
-    const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
+    // F206: literal </head> or </body> inside raw text/quoted values is not
+    // a document boundary and must not hide later metadata or navigation.
+    const documentSections=extractDocumentSections(publicHtml);
     // HTML inside raw <script>/<style> text is not actual metadata in
     // the document head. JSON-LD is checked separately from publicHtml.
-    const head=headMatch?
-      filterStaticHtml(headMatch[1],{removeScriptsStyles:true}):'';
-    const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
-    const body=bodyMatch?bodyMatch[1]:'';
+    const head=filterStaticHtml(documentSections.head,{removeScriptsStyles:true});
+    const body=documentSections.body;
     // A title or anchor embedded in a script/style literal is not a visible
     // page heading or navigation link. Keep JSON-LD detection separate.
     const visibleBody=filterStaticHtml(body,{removeScriptsStyles:true});

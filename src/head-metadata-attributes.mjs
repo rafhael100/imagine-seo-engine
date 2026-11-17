@@ -188,6 +188,27 @@ function* htmlRanges(markup){
   }
 }
 /**
+ * F206: locate explicit HEAD/BODY ranges in already filtered public HTML.
+ * Raw text and quoted attributes cannot open or close document sections.
+ * This preserves the explicit-section contract; it does not infer omitted
+ * elements or implement the browser's HTML tree-building/error recovery.
+ */
+export function extractDocumentSections(markup){
+  const starts={head:null,body:null},sections={head:null,body:null};
+  for(const token of htmlRanges(markup)){
+    if(token.kind!=='tag'||!Object.hasOwn(sections,token.name))continue;
+    const name=token.name;
+    if(sections[name]!==null)continue;
+    if(!token.closing){
+      if(starts[name]===null)starts[name]=token.end;
+    }else if(starts[name]!==null&&
+      /^<\/(?:head|body)\s*>$/i.test(markup.slice(token.start,token.end))){
+      sections[name]=markup.slice(starts[name],token.start);
+    }
+  }
+  return {head:sections.head??'',body:sections.body??''};
+}
+/**
  * Remove actual comments/templates. Preserve real script/style bytes for
  * JSON-LD inspection by default, or remove them from metadata/body views.
  */
