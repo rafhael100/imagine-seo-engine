@@ -60,6 +60,7 @@ async function servedMetadata(path,port,timeout){
     'Accept-Encoding':'identity'
    }
   },res=>{
+   const contentTypes=res.headersDistinct['content-type']??[];
    const chunks=[];let received=0;
    res.on('data',chunk=>{
     received+=chunk.length;
@@ -70,7 +71,7 @@ async function servedMetadata(path,port,timeout){
    });
    res.on('end',()=>settle(null,{
     status:res.statusCode,
-    type:res.headers['content-type'],
+    type:contentTypes.length===1?contentTypes[0]:undefined,
     encoding:res.headers['content-encoding'],
     redirect:res.headers.location,
     data:Buffer.concat(chunks,received)

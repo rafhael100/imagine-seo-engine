@@ -40,9 +40,11 @@ function requestLoopback(url,port,timeoutMs){
       // F203: progress bytes cannot extend the absolute per-request budget.
       agent:false,maxHeaderSize:8192,signal:AbortSignal.timeout(timeoutMs)
     },response=>{
-      const rawLocation=response.headers.location;
+      // Normalized headers discard duplicate Location fields; retain wire cardinality.
+      const locations=response.headersDistinct.location??[];
+      const rawLocation=locations[0];
       response.resume();
-      if(Array.isArray(rawLocation)){
+      if(locations.length>1){
         reject(Error('SEO F138: ambiguous Location header'));
         return;
       }
