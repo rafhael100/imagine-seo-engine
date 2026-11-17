@@ -51,7 +51,9 @@ async function servedMetadata(path,port,timeout){
   };
   req=http.request({
    hostname:'127.0.0.1',family:4,port,method:'GET',path,
-   agent:false,maxHeaderSize:8192,
+   // F202: a slow byte trickle must not extend this GET indefinitely.
+   // Node's idle socket timeout below alone cannot enforce total duration.
+   agent:false,maxHeaderSize:8192,signal:AbortSignal.timeout(timeout),
    headers:{
     Host:'imaginecomunicacao.com.br','X-Forwarded-Proto':'https',
     'X-Imagine-Synthetic-Staging-Review':'f201',

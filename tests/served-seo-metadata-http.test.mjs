@@ -9,7 +9,7 @@ import {reviewNginxLoopbackSeoMetadata as review}
 
 const ROBOTS='User-agent: *\nAllow: /\nSitemap: https://imaginecomunicacao.com.br/sitemap.xml\n';
 const SITEMAP='<urlset><url><loc>https://imaginecomunicacao.com.br/</loc></url></urlset>';
-async function fixture(fn,{badSitemap=false,badRobots=false,missingSitemap=false}={}){
+async function fixture(fn,{badSitemap=false,badRobots=false,missingSitemap=false,slowRobots=false}={}){
  const root=await mkdtemp(join(tmpdir(),'seo-f201-'));
  const seen=[];
  try{
@@ -21,6 +21,17 @@ async function fixture(fn,{badSitemap=false,badRobots=false,missingSitemap=false
     host:req.headers.host,proto:req.headers['x-forwarded-proto']
    });
    if(req.url==='/robots.txt'){
+    if(slowRobots){
+     res.writeHead(200,{'Content-Type':'text/plain'});
+     // Send frequent progress bytes for longer than the total request budget.
+     let count=0;
+     const id=setInterval(()=>{
+      if(++count>30){clearInterval(id);res.end();return;}
+      res.write('R');
+     },30);
+     res.on('close',()=>clearInterval(id));
+     return;
+    }
     if(badRobots){
      res.writeHead(302,{Location:'https://unrelated.invalid/'});
      res.end();return;
@@ -122,4 +133,14 @@ test('F201 rejects symlinked robots file without issuing an HTTP request',async(
   }));
   assert.equal(a.seen.length,0);
  }));
+});
+
+test('F202 fails closed when byte trickle defeats idle socket timeouts',async()=>{
+ await fixture(a=>env(async()=>{
+  await assert.rejects(
+   review({buildDirectory:a.root,stagingPort:a.port,timeoutMs:260}),
+   /isolated HTTP GET refused/
+  );
+  assert.deepEqual(a.seen.map(r=>r.route),['/robots.txt']);
+ }),{slowRobots:true});
 });
