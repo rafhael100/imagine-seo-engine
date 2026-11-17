@@ -33,8 +33,10 @@ test('F54 flags well-evidenced decline only when both full date windows are retu
   assert.equal(out.change.impressionsFraction,-0.6);
   assert.equal(out.change.clicksFraction,-0.667);
   assert.equal(out.change.averagePositionDifference,4);
+  // 60/500 -> 20/200 is an exact 2 percentage point CTR drop.
   assert.deepEqual(out.reviewSignals,[
-    'review_impression_drop','review_click_drop','review_average_position_decline'
+    'review_impression_drop','review_click_drop','review_ctr_drop',
+    'review_average_position_decline'
   ]);
   assert.equal(out.networkPerformed,false);
   assert.equal(out.customerDisplayAuthorized,false);

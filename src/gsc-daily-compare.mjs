@@ -5,6 +5,7 @@
  */
 import {analyzeOfflineGscDailySeries} from './gsc-daily.mjs';
 import {gscDay} from './gsc-period.mjs';
+import {hasCtrDropOfTwoPercentagePoints} from './gsc-ctr-comparison.mjs';
 
 const keys=(x,expected)=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&
   [Object.prototype,null].includes(Object.getPrototypeOf(x))&&
@@ -37,7 +38,8 @@ export function compareOfflineGscDailyPeriods(input){
   const clicksBefore=previous.summary.clicks,clicksAfter=current.summary.clicks;
   const impressionsBefore=previous.summary.impressions;
   const impressionsAfter=current.summary.impressions;
-  const ctrBefore=previous.summary.ctr,ctrAfter=current.summary.ctr;
+  const ctrBefore=impressionsBefore?clicksBefore/impressionsBefore:0;
+  const ctrAfter=impressionsAfter?clicksAfter/impressionsAfter:0;
   const posBefore=previous.summary.weightedAveragePosition;
   const posAfter=current.summary.weightedAveragePosition;
   const signals=[];
@@ -46,7 +48,9 @@ export function compareOfflineGscDailyPeriods(input){
       signals.push('review_impression_drop');
     if(clicksBefore>=20&&clicksAfter<clicksBefore*.75)
       signals.push('review_click_drop');
-    if(impressionsBefore>=100&&impressionsAfter>=100&&ctrBefore-ctrAfter>=.02)
+    if(impressionsBefore>=100&&impressionsAfter>=100&&
+      hasCtrDropOfTwoPercentagePoints(
+        clicksBefore,impressionsBefore,clicksAfter,impressionsAfter))
       signals.push('review_ctr_drop');
     if(impressionsBefore>=100&&impressionsAfter>=100&&
       posBefore!==null&&posAfter!==null&&posAfter-posBefore>=3)
@@ -67,9 +71,9 @@ export function compareOfflineGscDailyPeriods(input){
     coverageStatus:complete?'COMPLETE_SUPPLIED_DATE_COVERAGE':'PARTIAL_DATA_NO_TREND_SIGNALS',
     coverageComplete:complete,
     previous:{clicks:clicksBefore,impressions:impressionsBefore,
-      ctr:ctrBefore,weightedAveragePosition:posBefore},
+      ctr:previous.summary.ctr,weightedAveragePosition:posBefore},
     current:{clicks:clicksAfter,impressions:impressionsAfter,
-      ctr:ctrAfter,weightedAveragePosition:posAfter},
+      ctr:current.summary.ctr,weightedAveragePosition:posAfter},
     change:{
       clicksFraction:delta(clicksBefore,clicksAfter),
       impressionsFraction:delta(impressionsBefore,impressionsAfter),

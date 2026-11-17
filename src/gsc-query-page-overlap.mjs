@@ -11,6 +11,7 @@ import {canonicalProperty} from './gsc-readonly.mjs';
 import {validateGscPeriod} from './gsc-period.mjs';
 import {isStrictDataArray} from './gsc-strict-arrays.mjs';
 import {isSensitiveGscQuery} from './gsc-private-query.mjs';
+import {gscQueryIdentity} from './gsc-query-identity.mjs';
 
 const TENANT=/^[a-z0-9][a-z0-9_-]{2,63}$/i;
 const HEX=/^[0-9a-f]{64}$/;
@@ -105,6 +106,9 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
     const query=row.keys[0].trim();
     if(!query||query.length>500)
       throw Error('SEO GSC overlap: invalid query');
+    const key=gscQueryIdentity(query);
+    if(!key)
+      throw Error('SEO GSC overlap: invalid query');
     if(isSensitiveGscQuery(query)||
       propertyPageClassification(row.keys[1],property)==='REDACTED_VARIANT'){
       redactedRows++;continue;
@@ -112,11 +116,12 @@ export function reviewOfflineGscQueryPageOverlap(response,scope){
     // GSC URL hosts are case-insensitive; use canonical WHATWG URL identity
     // after strict raw-path validation to avoid false overlap positives.
     const pageIdentity=new URL(row.keys[1]).href;
-    const pair=JSON.stringify([query.toLocaleLowerCase('pt-BR'),pageIdentity]);
+    // Share the CSV/query-only identity so equivalent Unicode cannot hide
+    // an overlap or duplicate pair. This key never leaves local memory.
+    const pair=JSON.stringify([key,pageIdentity]);
     if(seenPairs.has(pair))throw Error('SEO GSC overlap: duplicated query/page pair');
     seenPairs.add(pair);
     validRows++;
-    const key=query.toLocaleLowerCase('pt-BR');
     const prior=buckets.get(key)||{pages:new Set(),impressions:0,clicks:0};
     prior.pages.add(pageIdentity);
     prior.impressions+=row.impressions;
