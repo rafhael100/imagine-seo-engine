@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,inspectBodyRobotsMetadata,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -126,9 +126,9 @@ function routeFromFile(relativePath) {
   if (name.endsWith('/index.html')) return '/' + name.slice(0, -'index.html'.length);
   return '/' + name;
 }
-function normalizeUrl(value, site) {
+function normalizeUrl(value, site, resolutionBase = site) {
   try {
-    const url = new URL(value, site);
+    const url = new URL(value, resolutionBase);
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password)
       return { invalid: true };
     if (url.origin !== site.origin) return { external: true };
@@ -253,6 +253,11 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     // Strip HTML comments before scanning metadata, navigation, headings or
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
     const publicHtml=filterStaticHtml(html);
+    // BASE can alter even fragment/root-relative resolution. Do not claim a
+    // navigation approval while its document.baseURI behavior is unsupported.
+    if(hasUnsupportedDocumentBase(publicHtml))
+      emit(errors,{type:'unsupported_base_href',file:rel,
+        message:'Document BASE href requires explicit navigation metadata review'});
     // F206: literal </head> or </body> inside raw text/quoted values is not
     // a document boundary and must not hide later metadata or navigation.
     const documentSections=extractDocumentSections(publicHtml);
@@ -465,6 +470,9 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }
     }
     const links = [];
+    // Relative navigation belongs to the source document's directory. Keep
+    // site as the trusted origin; canonical/hreflang/sitemap retain their base.
+    const navigationBase = new URL(path, site);
     let anchorCount=0;
     for (const tag of tagIterator(visibleBody,'a')) {
       if(++totalAnchors>MAX_TOTAL_ANCHORS)
@@ -487,7 +495,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         emit(errors,{type:'unsafe_href',file:rel,message:'JavaScript href forbidden'});
         continue;
       }
-      const normalized = normalizeUrl(href, site);
+      const normalized = normalizeUrl(href, site, navigationBase);
       if (normalized.invalid) emit(errors,{type:'invalid_internal_link',file:rel,message:'Unusable link URL'});
       else if (!normalized.external) {
         if(++totalNavLinks>MAX_TOTAL_NAV_LINKS)

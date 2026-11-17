@@ -1,11 +1,22 @@
 # Imagine SEO Engine
 
-## Estado vigente — 17/11/2026: RC79 em revisão
+## Estado vigente — 17/11/2026: RC79 e correções adicionais em revisão
 
-A candidata RC79 reúne as correções de leitura do HTML e de indexação HTTP
-com a integração do auditor atual ao build real do Comercial F354. A rodada
-acrescenta 54 testes: a suíte local cumulativa aprova **935/935** em Node 24.
-Os resultados de CI devem ser conferidos na SHA e na PR correspondentes.
+A linha atual parte da RC79, que reúne as correções de leitura do HTML e de
+indexação HTTP com a integração do auditor ao build real do Comercial F354.
+As correções posteriores cobrem políticas de indexação, precisão das métricas
+GSC e a resolução de links relativos a partir da página que os contém.
+Os resultados de testes e CI devem ser conferidos na SHA e na PR correspondentes.
+
+- [Indexação com prazo](docs/SEO-META-ROBOTS-SCHEDULE.md): revisão explícita de
+  `unavailable_after` e leitura correta de `max-image-preview:none`.
+- [Precisão GSC](docs/SEO-GSC-METRIC-ACCURACY.md): identidade Unicode das consultas
+  e comparação exata do limiar de queda de CTR, sem erro de arredondamento.
+- [Navegação relativa](docs/SEO-RELATIVE-NAVIGATION.md): destinos, alcance e
+  páginas órfãs calculados a partir da URL de origem; `<base href>` exige revisão
+  explícita porque o auditor não implementa a construção do DOM do navegador.
+
+As integrações da RC79 continuam presentes:
 
 - [F206 #309](https://github.com/rafhael100/imagine-seo-engine/pull/309):
   limites reais de HEAD/BODY, sem truncar em textos literais dentro de scripts,
