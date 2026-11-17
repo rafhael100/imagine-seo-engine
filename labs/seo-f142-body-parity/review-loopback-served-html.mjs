@@ -94,6 +94,7 @@ function getLoopbackHtml(route,hostname,port,timeoutMs){
         Accept:'text/html'
       }
     },res=>{
+      const contentTypes=res.headersDistinct['content-type']??[];
       const chunks=[];
       let size=0;
       res.on('data',chunk=>{
@@ -107,7 +108,8 @@ function getLoopbackHtml(route,hostname,port,timeoutMs){
         done(null,{
           status:res.statusCode,
           contentEncoding:res.headers['content-encoding'],
-          contentType:res.headers['content-type'],
+          // A correct first MIME type cannot hide a second conflicting field.
+          contentType:contentTypes.length===1?contentTypes[0]:undefined,
           body:Buffer.concat(chunks,size)
         });
       });
