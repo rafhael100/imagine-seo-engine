@@ -5,6 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
+import {inspectHeadMetadata,filterStaticHtml} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -94,7 +95,8 @@ function attrs(markup) {
  * That is not safe for <link hreflang>, where browsers can interpret the
  * first occurrence of a duplicate attribute. Reject ambiguous or unquoted
  * rel, href, and hreflang rather than silently trusting a different value.
- * Other links (RSS, stylesheets, canonical) retain legacy behavior.
+ * Head metadata also receives the F205 lexical ambiguity guard; these
+ * additional hreflang requirements retain the quoted-attribute contract.
  */
 function strictHreflangLink(markup){
   const required=['rel','hreflang','href'];
@@ -111,46 +113,12 @@ function strictHreflangLink(markup){
   }
   return {candidate:true,invalid:false,link:attrs(markup)};
 }
-/**
- * Omit inactive <template> subtrees from static SEO evidence. Handle nested
- * template elements and never interpret <template> strings inside raw script
- * or style text as live markup. This is a bounded HTML heuristic, not a DOM.
- */
-function stripInertTemplates(markup){
-  let depth=0,rawText=null,start=0,result='';
-  const rx=/<(\/?)(template|script|style)\b[^>]*>/gi;
-  for(const match of markup.matchAll(rx)){
-    const closing=match[1]==='/',tag=match[2].toLowerCase();
-    if(rawText!==null){
-      if(closing&&tag===rawText)rawText=null;
-      continue;
-    }
-    if(tag==='script'||tag==='style'){
-      if(!closing)rawText=tag;
-      continue;
-    }
-    if(tag==='template'){
-      if(!closing){
-        if(depth===0)result+=markup.slice(start,match.index);
-        depth++;
-      }else if(depth>0){
-        depth--;
-        if(depth===0)start=match.index+match[0].length;
-      }
-    }
-  }
-  if(depth===0)result+=markup.slice(start);
-  return result;
-}
 function* tagIterator(html,name) {
   for(const match of html.matchAll(new RegExp('<'+name+'\\b[^>]*>', 'gi')))
     yield match[0];
 }
 function tags(html,name){
   return [...tagIterator(html,name)];
-}
-function getMeta(html, name) {
-  return tags(html, 'meta').map(attrs).filter(x => (x.name ?? '').toLowerCase() === name);
 }
 function routeFromFile(relativePath) {
   const name = relativePath.replace(/\\/g, '/');
@@ -284,27 +252,31 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     // Strip HTML comments before scanning metadata, navigation, headings or
     // JSON-LD; commented-out markup cannot constitute public SEO evidence.
-    const publicHtml=stripInertTemplates(html.replace(/<!--[\s\S]*?-->/g,''));
+    const publicHtml=filterStaticHtml(html);
     const headMatch=publicHtml.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i);
     // HTML inside raw <script>/<style> text is not actual metadata in
     // the document head. JSON-LD is checked separately from publicHtml.
-    const head=headMatch?headMatch[1]
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,''):'';
+    const head=headMatch?
+      filterStaticHtml(headMatch[1],{removeScriptsStyles:true}):'';
     const bodyMatch=publicHtml.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
     const body=bodyMatch?bodyMatch[1]:'';
     // A title or anchor embedded in a script/style literal is not a visible
     // page heading or navigation link. Keep JSON-LD detection separate.
-    const visibleBody=body
-      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,'')
-      .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi,'');
+    const visibleBody=filterStaticHtml(body,{removeScriptsStyles:true});
     const record = { path, file: rel };
+    const headMetadata=inspectHeadMetadata(head);
+    for(let i=0;i<headMetadata.invalidCount;i++){
+      emit(errors,{type:'ambiguous_head_metadata',file:rel,
+        message:'Head metadata has ambiguous attributes or unsupported encoding'});
+    }
+    const headMeta=name=>headMetadata.metas.filter(
+      item=>(item.name??'').toLowerCase()===name);
     // F113: even if a draft's robots=noindex header is deleted or changed,
     // a private editorial marker must NEVER be present in a publishable build.
     // The marker is inserted by the F112 offline renderer. A legacy-text
     // fallback covers previews created just before the explicit marker.
     // This is evidence of a leak, NOT a production authorization check.
-    const hasPrivatePreviewMarker=getMeta(head,'imagine:editorial-preview')
+    const hasPrivatePreviewMarker=headMeta('imagine:editorial-preview')
       .some(meta=>meta.content==='private-unpublished-review');
     const hasLegacyPrivatePreviewText=
       visibleBody.includes('RASCUNHO INTERNO — NÃO PUBLICAR NEM INDEXAR');
@@ -325,7 +297,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     else if (titles.has(title)) emit(warnings,{ type:'duplicate_title', file:rel, message: 'Same title as ' + titles.get(title) });
     else titles.set(title, rel);
 
-    const description = getMeta(head,'description');
+    const description = headMeta('description');
     if (description.length !== 1 || !description[0].content?.trim()) {
       emit(errors,{type:'missing_description',file:rel,message:'One non-empty meta description required'});
     } else {
@@ -344,8 +316,8 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
 
     // HTML rel tokens are ASCII case-insensitive: CANONICAL is a valid rel.
-    const canonicalTags = tags(head,'link').map(attrs).filter(x =>
-      typeof x.rel==='string' && x.rel.toLowerCase().split(/\s+/).includes('canonical'));
+    const canonicalTags = headMetadata.links.filter(x =>
+      typeof x.rel==='string' && x.rel.toLowerCase().split(/[\t\n\f\r ]+/).includes('canonical'));
     if (canonicalTags.length !== 1 || !canonicalTags[0].href) {
       emit(errors,{type:'missing_canonical',file:rel,message:'Exactly one canonical link required'});
     } else {
@@ -355,8 +327,8 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       if (canonicals.has(canon)) emit(errors,{type:'duplicate_canonical',file:rel,message:'Canonical shared with ' + canonicals.get(canon)});
       canonicals.set(canon, rel);
     }
-    const robots = getMeta(head, 'robots');
-    const googlebotMeta=getMeta(head,'googlebot');
+    const robots = headMeta('robots');
+    const googlebotMeta=headMeta('googlebot');
     const directiveTokens=items=>items.flatMap(item=>
       typeof item.content==='string'?item.content.toLowerCase().split(/[,\s]+/):[])
       .filter(Boolean);
@@ -382,7 +354,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       }else if(robots[0].content.toLowerCase().replace(/\s+/g,'')!=='index,follow'){
         emit(errors,{type:'wrong_robots_meta',file:rel,message:'Public route must be index,follow'});
       }
-      const og=tags(head,'meta').map(attrs)
+      const og=headMetadata.metas
         .filter(x=>(x.property??'').toLowerCase()==='og:url');
       if(og.length!==1||!og[0].content?.trim()){
         emit(errors,{type:'missing_og_url',file:rel,message:'Exactly one og:url required'});
@@ -407,7 +379,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
         ?rootLanguages[0].toLowerCase():null;
       const alternateLanguages=new Map();
       let alternateCount=0;
-      for(const markup of tags(head,'link')){
+      for(const markup of headMetadata.linkMarkup){
         const checked=strictHreflangLink(markup);
         // An alternate without hreflang can be RSS; it is not a translation.
         if(!checked.candidate)continue;
