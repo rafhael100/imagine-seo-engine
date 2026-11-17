@@ -84,7 +84,8 @@ function getLoopbackHtml(route,hostname,port,timeoutMs){
     };
     const req=http.request({
       hostname:'127.0.0.1',family:4,port,method:'GET',path:route,
-      agent:false,maxHeaderSize:8192,
+      // F203: exact bytes received too late must not validate the served build.
+      agent:false,maxHeaderSize:8192,signal:AbortSignal.timeout(timeoutMs),
       headers:{
         Host:hostname,
         'X-Forwarded-Proto':'https',
