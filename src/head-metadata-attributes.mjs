@@ -121,6 +121,32 @@ export function inspectHeadMetadata(head){
   return {metas,links,linkMarkup,invalidCount};
 }
 
+const BODY_INDEXING_META=new Set(['robots','googlebot','imagine:editorial-preview']);
+/**
+ * F209: BODY restrictions apply to the document too, but BODY metadata must
+ * never satisfy HEAD requirements. Inspect only indexing/preview META tags.
+ * Call on the filtered body; raw text and quoted pseudo-markup stay opaque.
+ */
+export function inspectBodyRobotsMetadata(body){
+  const metas=[];
+  let invalidCount=0;
+  for(const token of htmlRanges(body)){
+    if(token.kind!=='tag'||token.closing||token.name!=='meta')continue;
+    const tag=inspectSeoHeadTag(body.slice(token.start,token.end));
+    const names=tag.entries.filter(entry=>entry.name==='name');
+    const candidate=names.some(entry=>{
+      const name=decodeCriticalValue(entry.value);
+      // An unsupported name encoding cannot prove this is unrelated META.
+      return name===null||BODY_INDEXING_META.has(asciiLower(name));
+    });
+    // A malformed tag rejected before its name was read may hide a directive.
+    if(!candidate&&!(tag.invalid&&names.length===0))continue;
+    if(tag.invalid){invalidCount++;continue;}
+    metas.push(tag.attributes);
+  }
+  return {metas,invalidCount};
+}
+
 const HTML_RAW=new Set([
   'script','style','title','textarea','xmp','iframe','noembed','noframes'
 ]);

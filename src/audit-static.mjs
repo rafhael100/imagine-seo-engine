@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,inspectBodyRobotsMetadata,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -271,12 +271,22 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     const headMeta=name=>headMetadata.metas.filter(
       item=>(item.name??'').toLowerCase()===name);
+    // F209: Google also respects robots META in BODY. Only aggregate its
+    // restrictions; canonical/description and strict HEAD evidence stay HEAD-only.
+    const bodyMetadata=inspectBodyRobotsMetadata(visibleBody);
+    for(let i=0;i<bodyMetadata.invalidCount;i++){
+      emit(errors,{type:'ambiguous_body_robots_meta',file:rel,
+        message:'Body indexing metadata has ambiguous attributes or unsupported encoding'});
+    }
+    const bodyMeta=name=>bodyMetadata.metas.filter(
+      item=>(item.name??'').toLowerCase()===name);
     // F113: even if a draft's robots=noindex header is deleted or changed,
     // a private editorial marker must NEVER be present in a publishable build.
     // The marker is inserted by the F112 offline renderer. A legacy-text
     // fallback covers previews created just before the explicit marker.
     // This is evidence of a leak, NOT a production authorization check.
-    const hasPrivatePreviewMarker=headMeta('imagine:editorial-preview')
+    const hasPrivatePreviewMarker=[...headMeta('imagine:editorial-preview'),
+      ...bodyMeta('imagine:editorial-preview')]
       .some(meta=>meta.content==='private-unpublished-review');
     const hasLegacyPrivatePreviewText=
       visibleBody.includes('RASCUNHO INTERNO — NÃO PUBLICAR NEM INDEXAR');
@@ -332,8 +342,8 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     const directiveTokens=items=>items.flatMap(item=>
       typeof item.content==='string'?item.content.toLowerCase().split(/[,\s]+/):[])
       .filter(Boolean);
-    const publicRobots=directiveTokens(robots);
-    const googlebotDirectives=directiveTokens(googlebotMeta);
+    const publicRobots=directiveTokens([...robots,...bodyMeta('robots')]);
+    const googlebotDirectives=directiveTokens([...googlebotMeta,...bodyMeta('googlebot')]);
     // "none" is defined as noindex,nofollow; Googlebot-specific directives
     // can override a general robots "index,follow" declaration.
     if(publicRobots.includes('noindex')||publicRobots.includes('none'))
