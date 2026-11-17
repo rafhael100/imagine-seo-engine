@@ -73,8 +73,13 @@ export async function runServedHtmlAttestedStagingQa(input){
     before.filesHashed===after.filesHashed&&
     before.totalBytesHashed===after.totalBytesHashed;
   const denied=[];
-  if(served.reviewStatus==='blocked')
-    denied.push('served_html_bytes_differ_from_audited_build');
+  if(served.reviewStatus==='blocked'){
+    const httpRobotsCode=code=>code.startsWith('http_robots_');
+    if(served.failureIndices.some(f=>httpRobotsCode(f.code)))
+      denied.push('served_html_http_robots_policy_blocked');
+    if(served.failureIndices.some(f=>!httpRobotsCode(f.code)))
+      denied.push('served_html_bytes_differ_from_audited_build');
+  }
   if(!stable)denied.push('compiled_build_modified_during_served_get_audit');
 
   return {
