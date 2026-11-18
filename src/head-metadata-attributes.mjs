@@ -214,7 +214,7 @@ function tagEnd(markup,start){
   return markup.length;
 }
 /**
- * Quoted attributes and raw/RCDATA contents are opaque lexical ranges.
+ * Quoted attributes, declarations and raw/RCDATA contents are opaque ranges.
  * This does not construct a DOM or reproduce all HTML error recovery.
  */
 function* htmlRanges(markup){
@@ -239,6 +239,14 @@ function* htmlRanges(markup){
         end=found?close.lastIndex:markup.length;
       }
       yield {kind:'comment',start,end};cursor=end;continue;
+    }
+    if(markup.startsWith('<!',start)||markup.startsWith('<?',start)){
+      // HTML DOCTYPE, bogus declarations and processing instructions end at
+      // the first >, even in quoted text. Keep that whole range opaque on
+      // every filtering pass; apparent tags inside it are not elements.
+      const close=markup.indexOf('>',start+2);
+      const end=close===-1?markup.length:close+1;
+      yield {kind:'declaration',start,end};cursor=end;continue;
     }
     opening.lastIndex=start;
     const match=opening.exec(markup);
@@ -345,6 +353,7 @@ export function extractDocumentSections(markup){
 /**
  * Remove actual comments/templates. Preserve real script/style bytes for
  * JSON-LD inspection by default, or remove them from metadata/body views.
+ * Preserve declarations as opaque ranges for subsequent lexical passes.
  */
 export function filterStaticHtml(markup,{removeScriptsStyles=false}={}){
   const result=[];
