@@ -1021,3 +1021,52 @@ test('F92 repeated IDs inside HTML comments and inactive templates are not rende
     assert.equal(report.warnings.filter(x=>x.type==='broken_local_fragment').length,0);
   });
 });
+
+
+test('F213: robots detects a built service blocked while the homepage remains allowed',async()=>{
+ const robots='User-agent: *\nAllow: /\nDisallow: /servicos/\nSitemap: '+origin+'/sitemap.xml\n';
+ await withSite({robots},async root=>{
+  const r=await auditStaticSite(root);
+  assert.ok(r.errors.some(issue=>issue.type==='robots_block_public_page'&&issue.file==='servicos/index.html'));
+  assert.equal(r.errors.some(issue=>issue.type==='robots_block_all'),false);
+  assert.ok(!r.errors.some(issue=>issue.type==='robots_block_public_page'&&issue.file==='index.html'));
+ });
+});
+test('F213: longest literal Allow and equal-length Allow override Disallow',async()=>{
+ for(const suffix of [
+  'Disallow: /serv\nAllow: /servicos/\n',
+  'Disallow: /servicos/\nAllow: /servicos/\n'
+ ]){
+  const robots='User-agent: *\nAllow: /\n'+suffix+'Sitemap: '+origin+'/sitemap.xml\n';
+  await withSite({robots},async root=>{
+   const r=await auditStaticSite(root);
+   assert.equal(r.errors.filter(issue=>issue.type==='robots_block_public_page').length,0);
+   assert.equal(r.warnings.filter(issue=>issue.type==='robots_pattern_manual_review').length,0);
+  });
+ }
+});
+test('F213: Googlebot-specific group supersedes wildcard for path checks',async()=>{
+ const robots='User-agent: *\nDisallow: /servicos/\n\n'+
+  'User-agent: Googlebot\nAllow: /\nSitemap: '+origin+'/sitemap.xml\n';
+ await withSite({robots},async root=>{
+  const r=await auditStaticSite(root);
+  assert.equal(r.errors.some(issue=>issue.type==='robots_block_public_page'),false);
+ });
+});
+test('F213: complex allow/wildcards require review without fabricating a blocked page',async()=>{
+ const robots='User-agent: *\nDisallow: /servicos/\nAllow: /servicos/*\n'+
+  'Sitemap: '+origin+'/sitemap.xml\n';
+ await withSite({robots},async root=>{
+  const r=await auditStaticSite(root);
+  assert.ok(r.warnings.some(issue=>issue.type==='robots_pattern_manual_review'));
+  assert.equal(r.errors.some(issue=>issue.type==='robots_block_public_page'),false);
+ });
+});
+test('F213: unrelated robots disallow does not mark a public page blocked',async()=>{
+ const robots='User-agent: *\nDisallow: /checkout/\nAllow: /\n'+
+  'Sitemap: '+origin+'/sitemap.xml\n';
+ await withSite({robots},async root=>{
+  const r=await auditStaticSite(root);
+  assert.deepEqual(r.summary,{pages:2,errors:0,warnings:0});
+ });
+});
