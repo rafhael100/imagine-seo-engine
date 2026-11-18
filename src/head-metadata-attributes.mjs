@@ -226,7 +226,7 @@ function* htmlRanges(markup){
       close.lastIndex=end;
       const found=close.exec(markup);
       end=found?tagEnd(markup,close.lastIndex):markup.length;
-      yield {kind:'raw',name,start,end,openingEnd};cursor=end;continue;
+      yield {kind:'raw',name,start,end,openingEnd,closingStart:found?.index??null};cursor=end;continue;
     }
     yield {kind:'tag',name,closing,start,end};cursor=end;
   }
@@ -245,6 +245,20 @@ export function* iterateOpeningHtmlTags(markup){
       yield {name:token.name,markup:markup.slice(token.start,token.end)};
     }
   }
+}
+/**
+ * Text of the first actual TITLE in an already filtered HEAD. The shared
+ * lexer keeps apparent TITLE markup and closing tags inside attributes or
+ * other raw elements opaque. Keep the existing first-title/static contract;
+ * an absent or unclosed title supplies no text evidence.
+ */
+export function extractHeadTitleText(head){
+  for(const token of htmlRanges(head)){
+    if(token.kind!=='raw'||token.name!=='title')continue;
+    if(token.closingStart===null||head[token.end-1]!=='>')return '';
+    return head.slice(token.openingEnd,token.closingStart);
+  }
+  return '';
 }
 /**
  * F206: locate explicit HEAD/BODY ranges in already filtered public HTML.
