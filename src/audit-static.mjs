@@ -35,7 +35,7 @@ function validateAllowedLanguages(input){
 
 /**
  * Offline robots summary for the general Google web crawler. This interprets
- * exact User-agent groups, global Sitemap lines and simple literal path prefixes.
+ * general Googlebot product groups, global Sitemap lines and literal path prefixes.
  * Wildcards, anchors and encoded paths are NOT silently treated as safe:
  * they require separate review. Not a complete RFC9309 parser.
  */
@@ -71,7 +71,12 @@ function robotsSiteDirectives(text,site,publicPages=[]){
     }
   }
   finish();
-  const googleSpecific=groups.filter(g=>g.agents.includes('googlebot'));
+  // Google ignores non-product suffixes such as /2.1 and * when selecting
+  // robots groups. Compare the leading product token, not a substring:
+  // hyphens/underscores remain part of the token, so Googlebot-Image and
+  // Googlebot_News are not mistaken for the general Google web crawler.
+  const googleSpecific=groups.filter(g=>g.agents.some(agent=>
+    /^[a-z_-]+/.exec(agent)?.[0]==='googlebot'));
   const applicable=googleSpecific.length?googleSpecific:
     groups.filter(g=>g.agents.includes('*'));
   const rules=applicable.flatMap(g=>g.directives);
