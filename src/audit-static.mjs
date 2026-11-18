@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,iterateOpeningHtmlTags,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,iterateOpeningHtmlTags,extractHeadTitleText,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -299,8 +299,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       // Error document: keep out of XML sitemap and public page totals.
       continue;
     }
-    const titleMatch = head.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
-    const title = titleMatch?.[1]?.replace(/\s+/g, ' ').trim() || '';
+    const title = extractHeadTitleText(head).replace(/\s+/g, ' ').trim();
     if (!title) emit(errors,{ type:'missing_title', file:rel, message: 'Page has no title' });
     else if (titles.has(title)) emit(warnings,{ type:'duplicate_title', file:rel, message: 'Same title as ' + titles.get(title) });
     else titles.set(title, rel);
