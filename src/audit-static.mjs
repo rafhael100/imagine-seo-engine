@@ -84,7 +84,7 @@ function robotsSiteDirectives(text,site,publicPages=[]){
   // false decision about public pages and instead require manual review.
   const active=rules.filter(rule=>rule.path.length>0);
   const complex=active.some(rule=>!rule.path.startsWith('/')||
-    /[*$?%]/.test(rule.path)||/[^\\x20-\\x7e]/.test(rule.path));
+    /[*$?%]/.test(rule.path)||[...rule.path].some(ch=>ch.codePointAt(0)<0x20||ch.codePointAt(0)>0x7e));
   const blockedPages=[];
   if(!complex&&!blocksGooglebot){
     for(const page of publicPages){
