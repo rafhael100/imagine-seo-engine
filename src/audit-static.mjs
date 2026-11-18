@@ -35,10 +35,11 @@ function validateAllowedLanguages(input){
 
 /**
  * Offline robots summary for the general Google web crawler. This interprets
- * only exact User-agent groups, global Sitemap lines and full-root rules.
- * It is not an RFC9309 replacement for path-specific precedence or wildcards.
+ * exact User-agent groups, global Sitemap lines and simple literal path prefixes.
+ * Wildcards, anchors and encoded paths are NOT silently treated as safe:
+ * they require separate review. Not a complete RFC9309 parser.
  */
-function robotsSiteDirectives(text,site){
+function robotsSiteDirectives(text,site,publicPages=[]){
   const groups=[];
   let agents=[],directives=[],hasDirectives=false;
   const sitemaps=[];
@@ -76,8 +77,33 @@ function robotsSiteDirectives(text,site){
   const rules=applicable.flatMap(g=>g.directives);
   const blocksGooglebot=rules.some(r=>r.name==='disallow'&&r.path==='/')&&
     !rules.some(r=>r.name==='allow'&&r.path==='/');
+  // F213: root checks alone miss an accidental robots block on a service
+  // route included in the sitemap. Evaluate only unambiguous literal ASCII
+  // prefixes using longest matching rule; Allow wins a tie per REP.
+  // If ANY applicable rule needs wildcard/anchor/encoding semantics, avoid a
+  // false decision about public pages and instead require manual review.
+  const active=rules.filter(rule=>rule.path.length>0);
+  const complex=active.some(rule=>!rule.path.startsWith('/')||
+    /[*$?%]/.test(rule.path)||/[^\\x20-\\x7e]/.test(rule.path));
+  const blockedPages=[];
+  if(!complex&&!blocksGooglebot){
+    for(const page of publicPages){
+      let bestLength=-1,bestRule=null;
+      for(const rule of active){
+        if(!page.path.startsWith(rule.path))continue;
+        const length=rule.path.length;
+        if(length>bestLength||(length===bestLength&&rule.name==='allow')){
+          bestLength=length;
+          bestRule=rule.name;
+        }
+      }
+      if(bestRule==='disallow')blockedPages.push(page.file);
+    }
+  }
   return {
     blocksGooglebot,
+    blockedPages,
+    complexRulesRequireReview:complex,
     sitemapDeclared:sitemaps.includes(site.origin+'/sitemap.xml')
   };
 }
@@ -611,9 +637,15 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
   const sitemapXml = await tryText('sitemap.xml');
   if (!robotsText) emit(errors,{type:'missing_robots',file:'robots.txt',message:'robots.txt missing'});
   else {
-    const directives=robotsSiteDirectives(robotsText,site);
+    const directives=robotsSiteDirectives(robotsText,site,pages);
     if(directives.blocksGooglebot)
       emit(errors,{type:'robots_block_all',file:'robots.txt',message:'Robots blocks Googlebot at root'});
+    if(directives.complexRulesRequireReview)
+      emit(warnings,{type:'robots_pattern_manual_review',file:'robots.txt',
+        message:'Nonliteral robots path rules require independent review; public paths were not certified'});
+    for(const file of directives.blockedPages)
+      emit(errors,{type:'robots_block_public_page',file,
+        message:'Googlebot robots rules disallow a built public page'});
     if(!directives.sitemapDeclared)
       emit(warnings,{type:'sitemap_not_in_robots',file:'robots.txt',message:'Sitemap directive absent'});
   }
