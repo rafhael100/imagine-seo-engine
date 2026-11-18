@@ -113,13 +113,6 @@ function strictHreflangLink(markup){
   }
   return {candidate:true,invalid:false,link:attrs(markup)};
 }
-function* tagIterator(html,name) {
-  for(const match of html.matchAll(new RegExp('<'+name+'\\b[^>]*>', 'gi')))
-    yield match[0];
-}
-function tags(html,name){
-  return [...tagIterator(html,name)];
-}
 function routeFromFile(relativePath) {
   const name = relativePath.replace(/\\/g, '/');
   if (name === 'index.html') return '/';
@@ -327,8 +320,12 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
       else descriptions.set(normalized,rel);
     }
 
-    const headings = tags(visibleBody, 'h1');
-    if (headings.length !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headings.length});
+    // Raw/RCDATA text and quoted examples cannot create actual headings.
+    // Reuse the bounded lexer already used for navigation and static IDs.
+    let headingCount=0;
+    for(const tag of iterateOpeningHtmlTags(visibleBody))
+      if(tag.name==='h1')headingCount++;
+    if (headingCount !== 1) emit(errors,{type:'heading_count',file:rel,message:'One H1 required; found ' + headingCount});
 
     // HTML rel tokens are ASCII case-insensitive: CANONICAL is a valid rel.
     const canonicalTags = headMetadata.links.filter(x =>
