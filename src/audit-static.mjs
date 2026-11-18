@@ -5,7 +5,7 @@
  */
 import { opendir, lstat } from 'node:fs/promises';
 import {readBoundedLocalText} from './local-input.mjs';
-import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,iterateOpeningHtmlTags,extractHeadTitleText,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
+import {inspectHeadMetadata,inspectBodyRobotsMetadata,hasUnsupportedDocumentBase,iterateOpeningHtmlTags,extractHeadTitleText,extractRootHtmlLanguages,iterateJsonLdScriptTexts,strictHreflangLink,filterStaticHtml,extractDocumentSections} from './head-metadata-attributes.mjs';
 import { resolve, relative, join, sep } from 'node:path';
 
 const HTML_MAX_BYTES = 2 * 1024 * 1024;
@@ -90,29 +90,6 @@ function attrs(markup) {
   return result;
 }
 
-/**
- * F102: the normal lightweight attribute helper keeps the last value.
- * That is not safe for <link hreflang>, where browsers can interpret the
- * first occurrence of a duplicate attribute. Reject ambiguous or unquoted
- * rel, href, and hreflang rather than silently trusting a different value.
- * Head metadata also receives the F205 lexical ambiguity guard; these
- * additional hreflang requirements retain the quoted-attribute contract.
- */
-function strictHreflangLink(markup){
-  const required=['rel','hreflang','href'];
-  const matches=[...markup.matchAll(ATTR)];
-  // Raw name detection also catches unquoted hreflang declarations which
-  // ATTR intentionally does not parse; never silently ignore those tags.
-  const candidate=/(?:\s)hreflang\s*=/i.test(markup)||
-    matches.some(x=>x[1].toLowerCase()==='hreflang');
-  if(!candidate)return {candidate:false};
-  for(const name of required){
-    const parsed=matches.filter(x=>x[1].toLowerCase()===name).length;
-    const raw=[...markup.matchAll(new RegExp('\\s'+name+'\\s*=','gi'))].length;
-    if(parsed!==1||raw!==1)return {candidate:true,invalid:true};
-  }
-  return {candidate:true,invalid:false,link:attrs(markup)};
-}
 function routeFromFile(relativePath) {
   const name = relativePath.replace(/\\/g, '/');
   if (name === 'index.html') return '/';
@@ -390,9 +367,7 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
     // Only the real root <html> lang is evidence. Body markup, scripts,
     // comments and multiple lang attributes must not spoof its locale.
-    const htmlTag=publicHtml.match(/<html\b[^>]*>/i)?.[0]??'';
-    const rootLanguages=[...htmlTag.matchAll(ATTR)]
-      .filter(x=>x[1].toLowerCase()==='lang').map(x=>x[3].trim());
+    const rootLanguages=extractRootHtmlLanguages(publicHtml);
     if(rootLanguages.length!==1 || !acceptedLanguages.has(rootLanguages[0].toLowerCase()))
       emit(warnings,{type:acceptedLanguages.size===1?'missing_ptbr_lang':'invalid_root_lang',
         file:rel,message:acceptedLanguages.size===1
@@ -442,10 +417,10 @@ export async function auditStaticSite(root, { siteUrl = 'https://imaginecomunica
     }
 
     let jsonldCount=0;
-    for (const script of publicHtml.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    for (const scriptText of iterateJsonLdScriptTexts(publicHtml)) {
       if(++jsonldCount>MAX_JSONLD_PER_PAGE)
         throw Error('audit: JSON-LD script budget exceeded');
-      try { JSON.parse(script[1]); } catch { emit(errors,{type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
+      try { JSON.parse(scriptText); } catch { emit(errors,{type:'invalid_jsonld',file:rel,message:'Invalid JSON-LD syntax'}); }
     }
 
     if(jsonldCount===0)

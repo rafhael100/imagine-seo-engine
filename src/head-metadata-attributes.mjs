@@ -32,14 +32,14 @@ function decodeCriticalValue(value){
   }
   return result+value.slice(cursor);
 }
-function inspectSeoHeadTag(markup){
+function inspectOpeningTagAttributes(markup,allowedTags,maxAttributes=128){
   const result={
     tag:null,attributes:Object.create(null),entries:[],
     invalid:false,markup
   };
   const fail=()=>{result.invalid=true;return result;};
-  const opening=/^<(meta|link|base)(?=[\t\n\f\r />])/i.exec(markup);
-  if(!opening)return fail();
+  const opening=/^<([a-z][a-z0-9:-]*)(?=[\t\n\f\r />])/i.exec(markup);
+  if(!opening||!allowedTags.includes(asciiLower(opening[1])))return fail();
   result.tag=asciiLower(opening[1]);
   let i=opening[0].length,needsSpace=false,closed=false;
   while(i<markup.length){
@@ -70,14 +70,22 @@ function inspectSeoHeadTag(markup){
         if(!value||/["'=<>\u0060\u0000]/.test(value))return fail();
       }
     }else i=nameEnd;
-    if(value.includes('\u0000')||result.entries.length>=128)return fail();
+    if(value.includes('\u0000')||result.entries.length>=maxAttributes)return fail();
     result.entries.push({name,value,quoted});
-    if(Object.hasOwn(result.attributes,name)){
-      if(CRITICAL.has(name))result.invalid=true;
-    }else result.attributes[name]=value;
+    if(!Object.hasOwn(result.attributes,name))result.attributes[name]=value;
     needsSpace=true;
   }
   if(!closed||i!==markup.length)return fail();
+  return result;
+}
+function inspectSeoHeadTag(markup){
+  const result=inspectOpeningTagAttributes(markup,['meta','link','base']);
+  if(result.invalid)return result;
+  const seen=new Set();
+  for(const entry of result.entries){
+    if(seen.has(entry.name)&&CRITICAL.has(entry.name))result.invalid=true;
+    seen.add(entry.name);
+  }
   const attrs=result.attributes;
   const decode=name=>{
     if(!Object.hasOwn(attrs,name))return;
@@ -93,6 +101,25 @@ function inspectSeoHeadTag(markup){
     (['robots','googlebot','imagine:editorial-preview'].includes(name)||
       property==='og:url'))decode('content');
   return result;
+}
+/**
+ * F102 requires one quoted rel, hreflang and href on an actual translation
+ * LINK. Inspect only real attributes, never assignments inside their values.
+ * Keep the stricter check's existing literal values: the separate HEAD
+ * metadata inspection performs its own limited character-reference decoding.
+ */
+export function strictHreflangLink(markup){
+  const tag=inspectOpeningTagAttributes(markup,['link']);
+  const candidate=tag.entries.some(entry=>entry.name==='hreflang');
+  if(!candidate)return {candidate:false};
+  if(tag.invalid)return {candidate:true,invalid:true};
+  const link={};
+  for(const name of ['rel','hreflang','href']){
+    const entries=tag.entries.filter(entry=>entry.name===name);
+    if(entries.length!==1||!entries[0].quoted)return {candidate:true,invalid:true};
+    link[name]=entries[0].value;
+  }
+  return {candidate:true,invalid:false,link};
 }
 function* scanSeoHeadTags(head){
   for(const token of htmlRanges(head)){
@@ -259,6 +286,40 @@ export function extractHeadTitleText(head){
     return head.slice(token.openingEnd,token.closingStart);
   }
   return '';
+}
+/**
+ * Read only actual attributes of the first HTML element. Keep the existing
+ * quoted-lang contract and retain duplicates so the caller requires exactly
+ * one. ROOT/SCRIPT scans remain bounded by document and token budgets; their
+ * old regex scans had no per-tag attribute count cap. META/LINK keep 128.
+ */
+export function extractRootHtmlLanguages(markup){
+  for(const token of iterateOpeningHtmlTags(markup)){
+    if(token.name!=='html')continue;
+    const tag=inspectOpeningTagAttributes(token.markup,['html'],Infinity);
+    if(tag.invalid)return [];
+    const languages=tag.entries.filter(entry=>entry.name==='lang');
+    return languages.every(entry=>entry.quoted)
+      ?languages.map(entry=>entry.value.trim()):[];
+  }
+  return [];
+}
+/**
+ * JSON-LD bodies from actual closed SCRIPT elements in filtered HTML.
+ * The first real type attribute determines the script type; quoted values
+ * remain required. Attributes, RCDATA and other raw elements cannot supply
+ * a SCRIPT, a type attribute or JSON body bytes.
+ */
+export function* iterateJsonLdScriptTexts(markup){
+  for(const token of htmlRanges(markup)){
+    if(token.kind!=='raw'||token.name!=='script'||
+      token.closingStart===null||markup[token.end-1]!=='>')continue;
+    const tag=inspectOpeningTagAttributes(markup.slice(token.start,token.openingEnd),['script'],Infinity);
+    if(tag.invalid)continue;
+    const type=tag.entries.find(entry=>entry.name==='type');
+    if(type?.quoted&&asciiLower(type.value)==='application/ld+json')
+      yield markup.slice(token.openingEnd,token.closingStart);
+  }
 }
 /**
  * F206: locate explicit HEAD/BODY ranges in already filtered public HTML.
