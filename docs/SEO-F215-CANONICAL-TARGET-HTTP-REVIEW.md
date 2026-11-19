@@ -26,3 +26,22 @@ targetEvidence.sourceType=operator_supplied_independent_public_http_get_unverifi
 Cada página tem pageUrl, pageStatus=200, canonicalHref (ou null); cada alvo
 tem targetUrl e status. O acesso aos arquivos operacionais e a coleta real
 continuam sob custódia privada, fora do Git.
+
+## F216 — CLI privado de revisão offline
+
+Com dados fornecidos pelo operador em um JSON externo ao repositório,
+a CLI pode verificar somente a relação entre canonical HTML e status
+observado separadamente do destino. Não realiza rede, OAuth ou GSC.
+
+Requisitos: Node 22+, arquivo JSON absoluto fora do checkout, sem symlink
+no componente final e com menos de 512 KiB. Configurar
+IMAGINE_SEO_CANONICAL_REVIEW=1 no ambiente privado do operador.
+Comando: node scripts/review-canonical-target-http-offline.mjs /CAMINHO_PRIVADO/evidencia.json
+
+A saída revela apenas contagens e códigos fixos. Exit 1 significa
+revisão concluída, MAS revisão humana e homologação pendentes (sempre
+NO-GO para publicação). Exit 2 significa input ou ambiente recusado.
+O comando nunca produz exit 0 para evitar interpretação como GO.
+
+É proibido executar essa revisão privada no GitHub Actions. Não
+colocar URLs reais de clientes, capturas completas ou métricas GSC no Git.
