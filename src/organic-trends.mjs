@@ -5,6 +5,7 @@
 import {analyzeQueryExport} from './opportunities.mjs';
 import {gscDay as day} from './gsc-period.mjs';
 import {hasCtrDropOfTwoPercentagePoints} from './gsc-ctr-comparison.mjs';
+import {hasImpressionDropAboveThirtyPercent,hasClickDropAboveTwentyFivePercent} from './gsc-signal-thresholds.mjs';
 
 const round=(v,d=4)=>Math.round((v+Number.EPSILON)*10**d)/10**d;
 const delta=(current,previous)=>previous>0?round((current-previous)/previous,3):null;
@@ -32,9 +33,9 @@ export function compareGscPeriods(previousRaw,currentRaw,options={}){
     const posBefore=old?.averagePosition??null,posAfter=now?.averagePosition??null;
     const signals=[];
     // Apenas sinais de revisão. Limiares reduzem alarmes de baixo volume.
-    if(impressionsBefore>=200&&impressionsAfter<impressionsBefore*.7)
+    if(impressionsBefore>=200&&hasImpressionDropAboveThirtyPercent(impressionsBefore,impressionsAfter))
       signals.push('investigate_impressions_drop');
-    if(clicksBefore>=20&&clicksAfter<clicksBefore*.75)
+    if(clicksBefore>=20&&hasClickDropAboveTwentyFivePercent(clicksBefore,clicksAfter))
       signals.push('investigate_clicks_drop');
     if(impressionsBefore>=100&&impressionsAfter>=100 &&
        hasCtrDropOfTwoPercentagePoints(
