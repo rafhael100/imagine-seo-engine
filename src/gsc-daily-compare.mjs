@@ -6,6 +6,7 @@
 import {analyzeOfflineGscDailySeries} from './gsc-daily.mjs';
 import {gscDay} from './gsc-period.mjs';
 import {hasCtrDropOfTwoPercentagePoints} from './gsc-ctr-comparison.mjs';
+import {hasImpressionDropAboveThirtyPercent,hasClickDropAboveTwentyFivePercent} from './gsc-signal-thresholds.mjs';
 
 const keys=(x,expected)=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&
   [Object.prototype,null].includes(Object.getPrototypeOf(x))&&
@@ -44,9 +45,9 @@ export function compareOfflineGscDailyPeriods(input){
   const posAfter=current.summary.weightedAveragePosition;
   const signals=[];
   if(complete){
-    if(impressionsBefore>=200&&impressionsAfter<impressionsBefore*.7)
+    if(impressionsBefore>=200&&hasImpressionDropAboveThirtyPercent(impressionsBefore,impressionsAfter))
       signals.push('review_impression_drop');
-    if(clicksBefore>=20&&clicksAfter<clicksBefore*.75)
+    if(clicksBefore>=20&&hasClickDropAboveTwentyFivePercent(clicksBefore,clicksAfter))
       signals.push('review_click_drop');
     if(impressionsBefore>=100&&impressionsAfter>=100&&
       hasCtrDropOfTwoPercentagePoints(
