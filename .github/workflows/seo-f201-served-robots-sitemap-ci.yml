@@ -1,0 +1,37 @@
+name: SEO F201 - served robots and sitemap GET parity in actual Nginx
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f201-served-robots-sitemap-ci.yml'
+      - 'labs/seo-f201-served-metadata/**'
+      - 'tests/served-seo-metadata-http.test.mjs'
+      - 'docs/SEO-F201-REAL-NGINX-ROBOTS-SITEMAP-REVIEW.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-loopback-metadata-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout SEO without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Exercise robots/sitemap real localhost GET, redirect and stale bytes
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f201-served-metadata/review-served-seo-metadata.mjs
+          node --test tests/served-seo-metadata-http.test.mjs
+          test -z "$(git status --porcelain --untracked-files=no)"

@@ -1,0 +1,40 @@
+name: SEO F142 - real served HTML body parity on isolated loopback
+on:
+  pull_request:
+    paths:
+      - 'labs/seo-f142-body-parity/**'
+      - 'src/http-robots-directives.mjs'
+      - 'tests/loopback-http-robots.test.mjs'
+      - 'docs/SEO-F207-HTTP-ROBOTS-DIRECTIVES.md'
+      - 'tests/loopback-served-html-body-parity.test.mjs'
+      - 'docs/SEO-F142-LOOPBACK-HTML-BODY-PARITY.md'
+      - '.github/workflows/seo-f142-body-parity-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  html-body-parity:
+    name: Real GET bytes and local build / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22','24']
+    steps:
+      - name: Checkout with no persisted token
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Node ${{ matrix.node }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Verify syntax and run complete regression suite
+        run: |
+          set -euo pipefail
+          node --check labs/seo-f142-body-parity/review-loopback-served-html.mjs
+          node --check tests/loopback-served-html-body-parity.test.mjs
+          npm test
+      - name: Keep checkout unchanged
+        run: test -z "$(git status --porcelain --untracked-files=no)"

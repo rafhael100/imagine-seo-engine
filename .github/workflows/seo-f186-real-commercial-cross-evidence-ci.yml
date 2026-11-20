@@ -1,0 +1,152 @@
+name: SEO F186 - GSC HTTP301 and immutable Comercial Astro full cross-evidence
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-f186-real-commercial-cross-evidence-ci.yml'
+      - 'src/gsc-generated-301-cross-evidence.mjs'
+      - 'scripts/review-gsc-http-astro-preflight.mjs'
+      - 'tests/gsc-generated-301-cross-evidence.test.mjs'
+      - 'labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs'
+      - 'tests/gsc-real-loopback-cross-evidence.test.mjs'
+      - 'src/pinned-commercial-f346-static-journey.mjs'
+      - 'tests/pinned-commercial-f346-static-journey.test.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  f186-astro-http:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout SEO Engine without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Run private evidence and permission tests
+        run: |
+          set -euo pipefail
+          node --test tests/gsc-generated-301-cross-evidence.test.mjs
+          node --check scripts/review-gsc-http-astro-preflight.mjs
+      - name: Checkout immutable Comercial F346 with real anonymous funnel
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+          path: .qa/comercial-f346
+          persist-credentials: false
+      - name: Prove immutable independent Comercial source revision
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-f346 rev-parse HEAD)" = 9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a
+      - name: Build actual multi-language Astro public site
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-f346 ci --no-audit --no-fund
+          npm --prefix .qa/comercial-f346 run build
+      - name: F187 audit three actual compiled Comercial F346 locale journeys
+        run: |
+          set -euo pipefail
+          node --test tests/pinned-commercial-f346-static-journey.test.mjs
+          node --input-type=module - <<'JS'
+          import {reviewPinnedCommercialF346Build} from './src/pinned-commercial-f346-static-journey.mjs';
+          const report=await reviewPinnedCommercialF346Build(
+            '.qa/comercial-f346/dist',
+            '9c4b29c168ef0d53abfbf44e64c404fbcc8dc01a'
+          );
+          if(report.auditedCompiledLocales!==3||
+             !report.copyProgressivelyEnhanced||
+             !report.matchingCanonicalQuoteTarget||
+             report.publicationAuthorized!==false||
+             report.customerDataCaptured!==false)
+            throw Error('F187: pinned Comercial site has incomplete quote journey');
+          console.log(JSON.stringify({
+            contractVersion:report.contractVersion,
+            auditedCompiledLocales:report.auditedCompiledLocales,
+            releaseStatus:report.releaseStatus
+          }));
+          JS
+      - name: F186 review synthetic GSC and independent HTTP over actual Astro build
+        shell: bash
+        run: |
+          set -euo pipefail
+          private="$(mktemp -d)"
+          chmod 700 "$private"
+          trap 'rm -rf "$private"' EXIT
+          cat > "$private/gsc.json" <<'JSON'
+          {"sourceType":"operator_supplied_gsc_pages_unverified","property":"sc-domain:imaginecomunicacao.com.br","canonicalOrigin":"https://imaginecomunicacao.com.br/","startDate":"2026-10-17","endDate":"2026-11-13","dataState":"final","dimensions":["page"],"rows":[{"keys":["http://www.imaginecomunicacao.com.br/"],"clicks":3,"impressions":134,"ctr":0.022388059701492536,"position":18.4}],"hasMore":false}
+          JSON
+          cat > "$private/http.json" <<'JSON'
+          {"sourceType":"operator_supplied_http_head_captures_unverified","observations":[{"fromUrl":"http://www.imaginecomunicacao.com.br/","status":301,"location":"https://imaginecomunicacao.com.br/","finalUrl":"https://imaginecomunicacao.com.br/","finalStatus":200,"redirectHops":1}]}
+          JSON
+          chmod 600 "$private/gsc.json" "$private/http.json"
+          code=0
+          node scripts/review-gsc-http-astro-preflight.mjs \
+            "$private/gsc.json" "$private/http.json" .qa/comercial-f346/dist \
+            > "$private/report.json" || code=$?
+          test "$code" -eq 1
+          test "$(find "$private" -maxdepth 1 -type f | wc -l)" -eq 3
+          node --input-type=module - "$private/report.json" <<'JS'
+          import {readFileSync} from 'node:fs';
+          const report=JSON.parse(readFileSync(process.argv[2],'utf8'));
+          if(report.reviewStatus!=='human_independent_release_review_required'||
+             report.actualStaticHtmlAudited!==true||
+             report.auditedBuildPages<1||
+             report.proposedRedirects!==1||
+             report.checkedHttpReceipts!==1||
+             report.missingHttpReceipts!==0||
+             report.missingAstroDestinations!==0||
+             report.unmatchedGscRows!==0||
+             report.redirectDeploymentAuthorized!==false||
+             report.privateManifestPersisted!==false||
+             report.networkPerformed!==false)
+            throw Error('F186: private cross-evidence over actual Comercial Astro failed');
+          console.log(JSON.stringify({
+            contractVersion:report.contractVersion,
+            compiledAstroAudited:true,
+            privateHttpEvidenceReviewed:true,
+            proposed301Reviews:report.proposedRedirects,
+            releaseStatus:'HOLD_EXTERNAL_HUMAN_AUTHORIZATION'
+          }));
+          JS
+      - name: F187 probe actual isolated HEAD 301 then re-audit real F346 Astro
+        env:
+          APP_ENV: testing
+          SEO_F138_LOOPBACK_STAGING: YES_I_CONTROL_THIS_LOOPBACK
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {reviewGscLoopbackAgainstRealAstro} from './labs/seo-f187-loopback-gsc-cross/verify-local-301.mjs';
+          for(const mode of ['valid','temporary','wrong-location','second-hop','missing-final']){
+            const result=await reviewGscLoopbackAgainstRealAstro({
+              buildDirectory:'.qa/comercial-f346/dist',mode
+            });
+            const expected=mode==='valid'
+              ?'human_independent_release_review_required':'blocked';
+            if(result.independentCrossEvidenceStatus!==expected||
+               result.actualLocalHttpHeadRequests!==2||
+               result.checkedHttpReceipts!==1||
+               result.proposed301s!==1||
+               result.actualCompiledHtmlPages<1||
+               result.redirectDeploymentAuthorized!==false||
+               result.publicationAuthorized!==false)
+              throw Error('F187: real F346/loopback HEAD cross-evidence regression');
+            console.log(JSON.stringify({
+              contractVersion:result.contractVersion,
+              scenario:mode,
+              localHttpHEAD:result.actualLocalHttpHeadRequests,
+              compiledPages:result.actualCompiledHtmlPages,
+              reviewStatus:result.independentCrossEvidenceStatus,
+              releaseStatus:result.releaseStatus
+            }));
+          }
+          JS
+      - name: Confirm checkouts contain no tracked changes
+        if: always()
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -z "$(git -C .qa/comercial-f346 status --porcelain --untracked-files=no)"

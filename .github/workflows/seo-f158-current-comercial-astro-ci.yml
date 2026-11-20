@@ -1,0 +1,51 @@
+name: SEO F158 - current immutable Comercial Astro funnel and public SEO build
+on:
+  pull_request:
+    paths:
+      - 'scripts/qa-current-comercial-pinned-funnel-build.mjs'
+      - '.github/workflows/seo-f158-current-comercial-astro-ci.yml'
+      - 'docs/SEO-F158-CURRENT-COMERCIAL-FUNNEL-ASTRO-QA.md'
+      - 'src/audit-static.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-comercial-funnel:
+    name: Commercial F335 PT/EN/ES actual Astro and SEO review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout SEO candidate without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - name: Checkout exact Imagine Comercial F336 (sobre F335) reviewed contact fragment candidate SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: rafhael100/imagine-comercial
+          ref: 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          path: .qa/comercial-current
+          persist-credentials: false
+      - name: Confirm pinned Comercial commit identity
+        run: |
+          set -euo pipefail
+          test "$(git -C .qa/comercial-current rev-parse HEAD)" = 0fb80e9ea0335c6ee5dd834c63148d58e5c9ff38
+          node --check scripts/qa-current-comercial-pinned-funnel-build.mjs
+      - name: Build current static Astro pages and verify own site contracts
+        run: |
+          set -euo pipefail
+          npm --prefix .qa/comercial-current ci --no-audit --no-fund
+          npm --prefix .qa/comercial-current test
+          npm --prefix .qa/comercial-current run build
+          npm --prefix .qa/comercial-current run check:dist
+      - name: Verify actual SEO Engine crawler and all three real funnel languages
+        run: node scripts/qa-current-comercial-pinned-funnel-build.mjs .qa/comercial-current/dist
+      - name: Verify exact pinned source remained unchanged
+        run: |
+          set -euo pipefail
+          test -z "$(git -C .qa/comercial-current status --porcelain --untracked-files=no)"
+          test -z "$(git status --porcelain --untracked-files=no)"
