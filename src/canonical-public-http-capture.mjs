@@ -56,8 +56,11 @@ export async function captureCanonicalPublicHttpEvidence(input,{
    if(response.status===200&&
       response.headers.get('content-type')?.split(';',1)[0].trim().toLowerCase()!=='text/html')
     fail();
+   // Status alone is the evidence. Attempt to release the body without
+   // awaiting a custom stream's potentially never-settling cancel promise.
+   // The GET AbortSignal remains active as the network cleanup backstop.
    // No response body is parsed, hashed, stored, printed or followed.
-   await response.body?.cancel();
+   if(response.body)void response.body.cancel().catch(()=>{});
    observations.push(Object.freeze({targetUrl:url,status:response.status}));
   }catch{fail();}
  }

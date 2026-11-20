@@ -108,3 +108,24 @@ test('F217 refuses more than 50 distinct targets before any GET',async()=>{
  }),/SEO F217/);
  assert.equal(count,0);
 });
+
+test('F219 records canonical HTTP status without waiting for a stuck stream cancel',async()=>{
+ let canceled=0;
+ const transport=async()=>new Response(new ReadableStream({
+  cancel(){canceled++;return new Promise(()=>{});}
+ }),{status:200,headers:{'content-type':'text/html'}});
+ let guard;
+ const timeout=new Promise((_,reject)=>{
+  guard=setTimeout(()=>reject(Error('canonical evidence blocked on body cancel')),1000);
+ });
+ try{
+  const result=await Promise.race([
+   capture(fixture([page('/slow','/slow')]),{transport}),timeout
+  ]);
+  assert.equal(canceled,1,'body cancellation must still be attempted');
+  assert.deepEqual(result.targetEvidence.observations,[
+   {targetUrl:origin+'/slow',status:200}
+  ]);
+  assert.equal(review(result).reviewStatus,'human_editorial_http_review_required');
+ }finally{clearTimeout(guard);}
+});
