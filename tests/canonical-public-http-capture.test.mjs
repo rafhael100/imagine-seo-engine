@@ -129,3 +129,24 @@ test('F219 records canonical HTTP status without waiting for a stuck stream canc
   assert.equal(review(result).reviewStatus,'human_editorial_http_review_required');
  }finally{clearTimeout(guard);}
 });
+
+test('F220 cancels rejected response body without waiting or moving to another target',async()=>{
+ let canceled=0,calls=0;
+ const transport=async()=>{
+  calls++;
+  return new Response(new ReadableStream({
+   cancel(){canceled++;return new Promise(()=>{});}
+  }),{status:200,headers:{'content-type':'application/json'}});
+ };
+ let guard;
+ const timeout=new Promise((_,reject)=>{
+  guard=setTimeout(()=>reject(Error('rejected response blocked on cancellation')),1000);
+ });
+ try{
+  await assert.rejects(Promise.race([
+   capture(fixture([page('/a','/a'),page('/b','/b')]),{transport}),timeout
+  ]),/SEO F217/);
+  assert.equal(canceled,1);
+  assert.equal(calls,1);
+ }finally{clearTimeout(guard);}
+});
