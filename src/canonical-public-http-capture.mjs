@@ -50,17 +50,17 @@ export async function captureCanonicalPublicHttpEvidence(input,{
     headers:{Accept:'text/html'},
     signal:AbortSignal.timeout(timeoutMs)
    });
-   if(!(response instanceof Response)||response.redirected||
-      !Number.isInteger(response.status)||response.status<200||
-      response.status>599)fail();
-   if(response.status===200&&
-      response.headers.get('content-type')?.split(';',1)[0].trim().toLowerCase()!=='text/html')
-    fail();
-   // Status alone is the evidence. Attempt to release the body without
-   // awaiting a custom stream's potentially never-settling cancel promise.
+   if(!(response instanceof Response))fail();
+   // F220: release every real response body, including a response rejected
+   // below for status, redirect or content type. Never wait on cancellation.
    // The GET AbortSignal remains active as the network cleanup backstop.
    // No response body is parsed, hashed, stored, printed or followed.
    if(response.body)void response.body.cancel().catch(()=>{});
+   if(response.redirected||!Number.isInteger(response.status)||
+      response.status<200||response.status>599)fail();
+   if(response.status===200&&
+      response.headers.get('content-type')?.split(';',1)[0].trim().toLowerCase()!=='text/html')
+    fail();
    observations.push(Object.freeze({targetUrl:url,status:response.status}));
   }catch{fail();}
  }
